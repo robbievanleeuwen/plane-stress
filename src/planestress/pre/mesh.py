@@ -10,6 +10,8 @@ import numpy.typing as npt
 from matplotlib.colors import ListedColormap
 from matplotlib.patches import Patch
 from matplotlib.tri import Triangulation
+from shapely import MultiPoint, Point
+from shapely.ops import nearest_points
 
 from planestress.post.post import plotting_context
 
@@ -28,9 +30,34 @@ class Mesh:
     elements: npt.NDArray[np.int32]
     attributes: npt.NDArray[np.int32]
 
+    def __post_init__(self) -> None:
+        """Mesh post_init method."""
+        self.multi_point = MultiPoint(points=self.nodes)
+        self.node_list = self.nodes.tolist()
+
     def num_nodes(self) -> int:
         """Returns the number of nodes in the mesh."""
         return len(self.nodes)
+
+    def get_node(
+        self,
+        x: float,
+        y: float,
+    ) -> int:
+        """Returns the node index at the point (``x``, ``y``)."""
+        try:
+            return self.node_list.index([x, y])
+        except ValueError as e:
+            raise ValueError(f"Cannot find node at x: {x}, y: {y}.") from e
+
+    def get_nearest_node(
+        self,
+        x: float,
+        y: float,
+    ) -> tuple[int, tuple[float, float]]:
+        """Returns the nearest node index & coordinates to the point (``x``, ``y``)."""
+        nd, _ = nearest_points(g1=self.multi_point, g2=Point(x, y))
+        return self.node_list.index([nd.x, nd.y]), (nd.x, nd.y)
 
     def plot_mesh(
         self,

@@ -12,13 +12,32 @@ class BoundaryCondition:
 class NodeBoundaryCondition(BoundaryCondition):
     """Abstract base class for a boundary condition at a node."""
 
-    pass
+    def __init__(
+        self,
+        x: float,
+        y: float,
+        dir: str,
+        value: float,
+    ) -> None:
+        """Inits the NodeBoundaryCondition class."""
+        self.x = x
+        self.y = y
+        self.dir = dir
+        self.value = value
 
 
 class NodeSupport(NodeBoundaryCondition):
     """Class for adding a support to a node."""
 
-    pass
+    def __init__(
+        self,
+        x: float,
+        y: float,
+        dir: str,
+        value: float,
+    ) -> None:
+        """Inits the NodeSupport class."""
+        super().__init__(x=x, y=y, dir=dir, value=value)
 
 
 class NodeSpring(NodeBoundaryCondition):

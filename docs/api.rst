@@ -11,4 +11,5 @@ API
     :recursive:
 
     planestress.pre
+    planestress.analysis
     planestress.post
