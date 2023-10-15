@@ -1,4 +1,5 @@
 """Class describing a planestress material."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -14,3 +15,6 @@ class Material:
     thickness: float = 1.0
     density: float = 1.0
     colour: str = "w"
+
+
+DEFAULT_MATERIAL = Material()

@@ -6,11 +6,11 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
-from shapely import GeometryCollection, LineString, MultiPolygon, Polygon
+from shapely import GeometryCollection, LineString, MultiPolygon, Polygon, affinity
 from triangle import triangulate
 
 from planestress.post.post import plotting_context
-from planestress.pre.material import Material
+from planestress.pre.material import DEFAULT_MATERIAL, Material
 from planestress.pre.mesh import Mesh
 
 
@@ -24,7 +24,7 @@ class Geometry:
     def __init__(
         self,
         polygons: Polygon | MultiPolygon,
-        materials: Material | list[Material] = Material(),
+        materials: Material | list[Material] = DEFAULT_MATERIAL,
         tol: int = 12,
     ) -> None:
         """Inits the Geometry class.
@@ -169,21 +169,143 @@ class Geometry:
 
         return fct_list
 
-    def align_to(self) -> None:
-        """a"""
-        raise NotImplementedError
+    def align_to(
+        self,
+        other: Geometry | tuple[float, float],
+        on: str,
+        inner: bool = False,
+    ) -> Geometry:
+        """Aligns the geometry to another ``Geometry`` or point."""
+        # setup mappings for transformations
+        align_self_map = {
+            "left": 1,
+            "right": 0,
+            "bottom": 3,
+            "top": 2,
+        }
+        other_as_geom_map = {
+            "left": 0,
+            "right": 1,
+            "bottom": 2,
+            "top": 3,
+        }
+        other_as_point_map = {
+            "left": 0,
+            "right": 0,
+            "bottom": 1,
+            "top": 1,
+        }
 
-    def shift_section(self) -> None:
-        """compound & geom"""
-        raise NotImplementedError
+        # get the coordinate to align from
+        self_extents = self.calculate_extents()
+        self_align_idx = align_self_map[on]
+        self_align_coord = self_extents[self_align_idx]
 
-    def rotate_section(self) -> None:
-        """compound & geom"""
-        raise NotImplementedError
+        # get the coordinate to align to
+        if isinstance(other, Geometry):
+            align_to_idx = other_as_geom_map[on]
+            align_to_coord = other.calculate_extents()[align_to_idx]
+        else:
+            align_to_idx = other_as_point_map[on]
+            align_to_coord = other[align_to_idx]
 
-    def mirror_section(self) -> None:
-        """compound & geom"""
-        raise NotImplementedError
+        if inner:
+            self_align_coord = self_extents[align_to_idx]
+
+        # calculate offset
+        offset = align_to_coord - self_align_coord
+
+        # shift section
+        if on in ["top", "bottom"]:
+            arg = "y"
+        else:
+            arg = "x"
+
+        kwargs = {arg: offset}
+
+        return self.shift_section(**kwargs)
+
+    def align_centre(
+        self,
+        align_to: Geometry | tuple[float, float] | None = None,
+    ) -> Geometry:
+        """Aligns the geometry to a centre point."""
+        cx, cy = self.calculate_centroid()
+
+        # align to geometry centroid
+        if align_to is None:
+            shift_x, shift_y = round(-cx, self.tol), round(-cy, self.tol)
+        # align to centroid of another geometry
+        elif isinstance(align_to, Geometry):
+            other_cx, other_cy = align_to.calculate_centroid()
+            shift_x = round(other_cx - cx, self.tol)
+            shift_y = round(other_cy - cy, self.tol)
+        # align to a point
+        else:
+            try:
+                point_x, point_y = align_to
+                shift_x = round(point_x - cx, self.tol)
+                shift_y = round(point_y - cy, self.tol)
+            except (TypeError, ValueError) as e:
+                raise ValueError(
+                    f"align_to must be either a Geometry object or an (x, y) "
+                    f"coordinate, not {align_to}."
+                ) from e
+
+        return self.shift_section(x=shift_x, y=shift_y)
+
+    def shift_section(
+        self,
+        x: float = 0.0,
+        y: float = 0.0,
+    ) -> Geometry:
+        """Shifts the geometry by (``x``, ``y``)."""
+        return Geometry(
+            polygons=affinity.translate(geom=self.polygons, xoff=x, yoff=y),
+            materials=self.materials,
+            tol=self.tol,
+        )
+
+    def rotate_section(
+        self,
+        angle: float,
+        rot_point: tuple[float, float] | str = "center",
+        use_radians: bool = False,
+    ) -> Geometry:
+        """Rotates the geometry."""
+        return Geometry(
+            polygons=affinity.rotate(
+                geom=self.polygons,
+                angle=angle,
+                origin=rot_point,
+                use_radians=use_radians,
+            ),
+            materials=self.materials,
+            tol=self.tol,
+        )
+
+    def mirror_section(
+        self,
+        axis: str = "x",
+        mirror_point: tuple[float, float] | str = "center",
+    ) -> Geometry:
+        """Compound & geom."""
+        if axis == "x":
+            xfact = 1.0
+            yfact = -1.0
+        elif axis == "y":
+            xfact = -1.0
+            yfact = 1.0
+        else:
+            raise ValueError(f"axis must be 'x' or 'y', not {axis}.")
+
+        return Geometry(
+            polygons=affinity.scale(
+                geom=self.polygons, xfact=xfact, yfact=yfact, origin=mirror_point
+            ),
+            materials=self.materials,
+            tol=self.tol,
+        )
 
     def calculate_area(self) -> float:
         """Calculates the area of the geometry.
@@ -193,7 +315,17 @@ class Geometry:
         """
         return float(self.polygons.area)
 
-    def calcalate_extents(self) -> tuple[float, float, float, float]:
+    def calculate_centroid(self) -> tuple[float, float]:
+        """Calculates the centroid of the geometry.
+
+        Returns:
+            Geometry centroid
+        """
+        x, y = self.polygons.centroid.coords[0]
+
+        return float(x), float(y)
+
+    def calculate_extents(self) -> tuple[float, float, float, float]:
         """Calculate geometry extents.
 
         Calculates the minimum and maximum ``x`` and ``y`` values amongst the list of
@@ -208,7 +340,7 @@ class Geometry:
         return min_x, max_x, min_y, max_y
 
     def __or__(self) -> None:
-        """a"""
+        """A."""
         raise NotImplementedError
 
     def __sub__(
@@ -240,8 +372,8 @@ class Geometry:
                 )
         except Exception as e:
             raise ValueError(
-                    f"Cannot perform difference on these two objects: {self} - {other}"
-                ) from e
+                f"Cannot perform difference on these two objects: {self} - {other}"
+            ) from e
 
     def __add__(
         self,
@@ -270,7 +402,7 @@ class Geometry:
         )
 
     def __and__(self) -> None:
-        """a"""
+        """A."""
         raise NotImplementedError
 
     @staticmethod
@@ -323,7 +455,7 @@ class Geometry:
                 the finite-element mesh for each polygon the ``Geometry`` object. If a
                 list of length 1 or a ``float`` is passed, then the one size will be
                 applied to all polygons. A value of ``0`` removes the area constraint.
-            order: Order of triangular mesh, if ``True`` gives linear elements and if
+            linear: Order of triangular mesh, if ``True`` gives linear elements and if
                 ``False`` gives quadratic elements
             min_angle: The meshing algorithm adds vertices to the mesh to ensure that no
                 angle smaller than the minimum angle (in degrees, rounded to 1 decimal
@@ -488,7 +620,6 @@ class Point:
         tol: int,
     ) -> None:
         """Rounds the point to ``tol`` digits."""
-
         self.x = round(self.x, tol)
         self.y = round(self.y, tol)
 
