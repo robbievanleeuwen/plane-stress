@@ -5,17 +5,20 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from matplotlib.tri import Triangulation
-from matplotlib.patches import Patch
-from matplotlib.colors import ListedColormap
 import numpy as np
 import numpy.typing as npt
+from matplotlib.colors import ListedColormap
+from matplotlib.patches import Patch
+from matplotlib.tri import Triangulation
 
 from planestress.post.post import plotting_context
 
+
 if TYPE_CHECKING:
     import matplotlib.axes
+
     from planestress.pre.material import Material
+
 
 @dataclass
 class Mesh:
@@ -28,7 +31,7 @@ class Mesh:
     def num_nodes(self) -> int:
         """Returns the number of nodes in the mesh."""
         return len(self.nodes)
-    
+
     def plot_mesh(
         self,
         material_list: list[Material],
@@ -111,7 +114,5 @@ class Mesh:
                     x = (pt1[0] + pt2[0] + pt3[0]) / 3
                     y = (pt1[1] + pt2[1] + pt3[1]) / 3
                     ax.annotate(str(idx), xy=(x, y), color="b")
-            
+
         return ax
-
-

@@ -6,11 +6,11 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
-from shapely import MultiPolygon, Polygon, GeometryCollection, LineString
+from shapely import GeometryCollection, LineString, MultiPolygon, Polygon
 from triangle import triangulate
 
-from planestress.pre.material import Material
 from planestress.post.post import plotting_context
+from planestress.pre.material import Material
 from planestress.pre.mesh import Mesh
 
 
@@ -28,7 +28,7 @@ class Geometry:
         tol: int = 12,
     ) -> None:
         """Inits the Geometry class.
-        
+
         Note ensure length of materials = number of polygons
         """
         # convert polygon to multipolygon
@@ -61,7 +61,9 @@ class Geometry:
         # loop through each polygon
         for poly in self.polygons.geoms:
             # first create points,facets, holes and control_points for each polygon
-            poly_points, poly_facets, poly_holes, poly_cp = self.compile_polygon(polygon=poly)
+            poly_points, poly_facets, poly_holes, poly_cp = self.compile_polygon(
+                polygon=poly
+            )
 
             # add points to the global list, skipping duplicate points
             for pt in poly_points:
@@ -117,7 +119,7 @@ class Geometry:
                 new_pt = Point(x=coords[0], y=coords[1])
                 new_pt.round(tol=self.tol)
                 int_pt_list.append(new_pt)
-            
+
             # add interior points to poly list
             pt_list.extend(int_pt_list)
 
@@ -150,8 +152,8 @@ class Geometry:
         for idx, pt in enumerate(pt_list):
             pt1 = pt
             # if we are not at the end of the list
-            if idx + 1 != len(pt_list):   
-                pt2 = pt_list[idx+1]
+            if idx + 1 != len(pt_list):
+                pt2 = pt_list[idx + 1]
             # otherwise loop back to starting point
             else:
                 pt2 = pt_list[0]
@@ -159,23 +161,23 @@ class Geometry:
             fct_list.append(Facet(pt1=pt1, pt2=pt2))
 
         return fct_list
-    
+
     def align_to(self) -> None:
         """a"""
         raise NotImplementedError
-    
+
     def shift_section(self) -> None:
         """compound & geom"""
         raise NotImplementedError
-    
+
     def rotate_section(self) -> None:
         """compound & geom"""
         raise NotImplementedError
-    
+
     def mirror_section(self) -> None:
         """compound & geom"""
         raise NotImplementedError
-    
+
     def calcalate_extents(self) -> tuple[float, float, float, float]:
         """Calculate geometry extents.
 
@@ -189,30 +191,34 @@ class Geometry:
         """
         min_x, min_y, max_x, max_y = self.polygons.bounds
         return min_x, max_x, min_y, max_y
-    
+
     def __or__(self) -> None:
         """a"""
         raise NotImplementedError
-    
+
     def __sub__(
         self,
         other: Geometry,
     ) -> Geometry:
         """Performs a difference operation using the ``-`` operator.
-        
+
         Note about combining resulting geometry into one section! Check in materials!
         """
         try:
-            new_polygon = self.filter_non_polygons(input_geom=self.polygons - other.polygons)
+            new_polygon = self.filter_non_polygons(
+                input_geom=self.polygons - other.polygons
+            )
 
             # non-polygon results
-            if isinstance(new_polygon, GeometryCollection):  
-                    msg = "Cannot perform 'difference' on these two objects: "
-                    msg += f"{self} - {other}"
-                    raise ValueError(msg)
+            if isinstance(new_polygon, GeometryCollection):
+                msg = "Cannot perform 'difference' on these two objects: "
+                msg += f"{self} - {other}"
+                raise ValueError(msg)
             # polygon or multipolygon object
             elif isinstance(new_polygon, Polygon | MultiPolygon):
-                return Geometry(polygons=new_polygon, materials=self.materials, tol=self.tol)
+                return Geometry(
+                    polygons=new_polygon, materials=self.materials, tol=self.tol
+                )
             else:
                 msg = "Cannot perform 'difference' on these two objects: "
                 msg += f"{self} - {other}"
@@ -221,13 +227,13 @@ class Geometry:
             msg = "Cannot perform 'difference' on these two objects: "
             msg += f"{self} - {other}"
             raise ValueError(msg) from e
-    
+
     def __add__(
         self,
         other: Geometry,
     ) -> Geometry:
         """Performs an addition operation using the ``+`` operator.
-        
+
         Keeps the largest tol.
         """
         poly_list: list[Polygon] = []
@@ -237,15 +243,17 @@ class Geometry:
         for poly, mat in zip(self.polygons.geoms, self.materials):
             poly_list.append(poly)
             mat_list.append(mat)
-        
+
         for poly, mat in zip(other.polygons.geoms, other.materials):
             poly_list.append(poly)
             mat_list.append(mat)
 
         tol = max(self.tol, other.tol)
 
-        return Geometry(polygons=MultiPolygon(polygons=poly_list), materials=mat_list, tol=tol) 
-    
+        return Geometry(
+            polygons=MultiPolygon(polygons=poly_list), materials=mat_list, tol=tol
+        )
+
     def __and__(self) -> None:
         """a"""
         raise NotImplementedError
@@ -286,7 +294,6 @@ class Geometry:
         else:
             return Polygon()
 
-    
     def create_mesh(
         self,
         mesh_sizes: float | list[float] = 0.0,
@@ -302,7 +309,7 @@ class Geometry:
                 list of length 1 or a ``float`` is passed, then the one size will be
                 applied to all polygons. A value of ``0`` removes the area constraint.
             order: Order of triangular mesh, if ``True`` gives linear elements and if
-                ``False`` gives quadratic elements 
+                ``False`` gives quadratic elements
             min_angle: The meshing algorithm adds vertices to the mesh to ensure that no
                 angle smaller than the minimum angle (in degrees, rounded to 1 decimal
                 place). Note that small angles between input segments cannot be
@@ -384,9 +391,7 @@ class Geometry:
             # plot the holes
             label = "Holes"
             for hl in self.holes:
-                ax.plot(
-                    hl.x, hl.y, "rx", markersize=5, markeredgewidth=1, label=label
-                )
+                ax.plot(hl.x, hl.y, "rx", markersize=5, markeredgewidth=1, label=label)
                 label = None
 
             # plot the control points
@@ -425,7 +430,7 @@ class Geometry:
                 ax.legend(loc="center left", bbox_to_anchor=(1, 0.5))
 
         return ax
-    
+
     def plot_mesh(
         self,
         nodes: bool = False,
@@ -495,7 +500,7 @@ class Facet:
             raise RuntimeError(f"Point 2: {self.pt2} has not been assigned an index.")
 
         return idx_1, idx_2
-    
+
     def update_point(
         self,
         old: Point,
