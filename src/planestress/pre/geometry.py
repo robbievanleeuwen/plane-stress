@@ -339,9 +339,26 @@ class Geometry:
         min_x, min_y, max_x, max_y = self.polygons.bounds
         return min_x, max_x, min_y, max_y
 
-    def __or__(self) -> None:
-        """A."""
-        raise NotImplementedError
+    def __or__(
+        self,
+        other: Geometry,
+    ) -> Geometry:
+        """Performs a difference operation using the ``|`` operator.
+
+        Note - applies material of first geometry to entire new geom.
+        """
+        try:
+            new_polygon = self.filter_non_polygons(
+                input_geom=self.polygons | other.polygons
+            )
+
+            return Geometry(
+                polygons=new_polygon, materials=self.materials[0], tol=self.tol
+            )
+        except Exception as e:
+            raise ValueError(
+                f"Cannot perform union on these two objects: {self} | {other}"
+            ) from e
 
     def __sub__(
         self,
@@ -362,7 +379,7 @@ class Geometry:
                     f"Cannot perform difference on these two objects: {self} - {other}"
                 )
             # polygon or multipolygon object
-            elif isinstance(new_polygon, Polygon | MultiPolygon):
+            elif isinstance(new_polygon, (Polygon, MultiPolygon)):
                 return Geometry(
                     polygons=new_polygon, materials=self.materials, tol=self.tol
                 )
@@ -401,9 +418,27 @@ class Geometry:
             polygons=MultiPolygon(polygons=poly_list), materials=mat_list, tol=tol
         )
 
-    def __and__(self) -> None:
-        """A."""
-        raise NotImplementedError
+    def __and__(
+        self,
+        other: Geometry,
+    ) -> Geometry:
+        """Performs an intersection operation using the ``&`` operator.
+
+        Note - applies material of first geometry to entire new geom.
+        """
+        try:
+            new_polygon = self.filter_non_polygons(
+                input_geom=self.polygons - other.polygons
+            )
+
+            return Geometry(
+                polygons=new_polygon, materials=self.materials[0], tol=self.tol
+            )
+        except Exception as e:
+            raise ValueError(
+                f"Cannot perform intersection on these two Geometry instances: "
+                f"{self} & {other}"
+            ) from e
 
     @staticmethod
     def filter_non_polygons(
@@ -427,7 +462,7 @@ class Geometry:
             acc = []
 
             for item in input_geom.geoms:
-                if isinstance(item, Polygon | MultiPolygon):
+                if isinstance(item, (Polygon, MultiPolygon)):
                     acc.append(item)
 
             if len(acc) == 0:
@@ -436,7 +471,7 @@ class Geometry:
                 return acc[0]
             else:
                 return MultiPolygon(polygons=acc)
-        elif isinstance(input_geom, Point | LineString):
+        elif isinstance(input_geom, (Point, LineString)):
             return Polygon()
         else:
             return Polygon()

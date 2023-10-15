@@ -1,1 +1,1 @@
-"""Pre-processor tests for planestress"""
+"""Pre-processor tests for planestress."""
