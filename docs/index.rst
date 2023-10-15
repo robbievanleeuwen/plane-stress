@@ -2,16 +2,12 @@
     :hidden:
 
     installation
-    user_guide
-    examples
     api
 
 .. toctree::
     :caption: Development
     :hidden:
 
-    contributing
-    Code of Conduct <codeofconduct>
     License <license>
     Changelog <https://github.com/robbievanleeuwen/plane-stress/releases>
 

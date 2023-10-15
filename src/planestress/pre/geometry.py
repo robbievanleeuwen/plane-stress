@@ -374,6 +374,7 @@ class Geometry:
         # create plot and setup the plot
         with plotting_context(title=title, **kwargs) as (_, ax):
             assert ax
+            label: str | None
 
             # plot the points and facets
             label = "Points & Facets"

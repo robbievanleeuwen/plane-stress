@@ -160,10 +160,7 @@ def tests(session: Session) -> None:
     Args:
         session: Nox session
     """
-    session.run_always(
-        "poetry", "install", "--only", "main", "--extras", "dxf rhino", external=True
-    )
-
+    session.install(".")
     # install relevant tooling
     session.install("coverage[toml]", "pytest", "pygments", "pytest-check")
 
@@ -211,9 +208,7 @@ def docs_build(session: Session) -> None:
     if not session.posargs and "FORCE_COLOR" in os.environ:
         args.insert(0, "--color")
 
-    session.run_always(
-        "poetry", "install", "--only", "main", "--extras", "dxf rhino", external=True
-    )
+    session.install(".")
     session.install(
         "furo",
         "ipykernel",
@@ -242,9 +237,7 @@ def docs(session: Session) -> None:
         session: Nox session
     """
     args = session.posargs or ["--open-browser", "docs", "docs/_build"]
-    session.run_always(
-        "poetry", "install", "--only", "main", "--extras", "dxf rhino", external=True
-    )
+    session.install(".")
     session.install(
         "furo",
         "ipykernel",
