@@ -24,7 +24,7 @@ class Geometry:
     def __init__(
         self,
         polygons: Polygon | MultiPolygon,
-        materials: Material | list[Material],
+        materials: Material | list[Material] = Material(),
         tol: int = 12,
     ) -> None:
         """Inits the Geometry class.
@@ -38,6 +38,13 @@ class Geometry:
         # convert material to list of materials
         if isinstance(materials, Material):
             materials = [materials] * len(polygons.geoms)
+
+        # check materials length
+        if len(polygons.geoms) != len(materials):
+            raise ValueError(
+                f"Length of materials: {len(materials)}, must equal number of polygons:"
+                f"{len(polygons.geoms)}."
+            )
 
         # save input data
         self.polygons = polygons
@@ -178,6 +185,14 @@ class Geometry:
         """compound & geom"""
         raise NotImplementedError
 
+    def calculate_area(self) -> float:
+        """Calculates the area of the geometry.
+
+        Returns:
+            Geometry area
+        """
+        return float(self.polygons.area)
+
     def calcalate_extents(self) -> tuple[float, float, float, float]:
         """Calculate geometry extents.
 
@@ -211,22 +226,22 @@ class Geometry:
 
             # non-polygon results
             if isinstance(new_polygon, GeometryCollection):
-                msg = "Cannot perform 'difference' on these two objects: "
-                msg += f"{self} - {other}"
-                raise ValueError(msg)
+                raise ValueError(
+                    f"Cannot perform difference on these two objects: {self} - {other}"
+                )
             # polygon or multipolygon object
             elif isinstance(new_polygon, Polygon | MultiPolygon):
                 return Geometry(
                     polygons=new_polygon, materials=self.materials, tol=self.tol
                 )
             else:
-                msg = "Cannot perform 'difference' on these two objects: "
-                msg += f"{self} - {other}"
-                raise ValueError(msg)
+                raise ValueError(
+                    f"Cannot perform difference on these two objects: {self} - {other}"
+                )
         except Exception as e:
-            msg = "Cannot perform 'difference' on these two objects: "
-            msg += f"{self} - {other}"
-            raise ValueError(msg) from e
+            raise ValueError(
+                    f"Cannot perform difference on these two objects: {self} - {other}"
+                ) from e
 
     def __add__(
         self,

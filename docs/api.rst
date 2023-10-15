@@ -10,5 +10,5 @@ API
     :template: custom-module-template.rst
     :recursive:
 
-    sectionproperties.pre
-    sectionproperties.post
+    planestress.pre
+    planestress.post

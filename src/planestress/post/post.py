@@ -69,9 +69,10 @@ def plotting_context(
         except (AttributeError, TypeError):
             pass  # only 1 axis, not an array
         except IndexError as exc:
-            msg = f"axis_index={axis_index} is not compatible "
-            msg += f"with arguments to subplots: {kwargs}"
-            raise ValueError(msg) from exc
+            raise ValueError(
+                f"axis_index={axis_index} is not compatible with arguments to "
+                f"subplots: {kwargs}."
+            ) from exc
     else:
         fig = ax.get_figure()  # type: ignore
         ax_supplied = True
