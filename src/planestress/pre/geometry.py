@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
@@ -9,6 +10,7 @@ import numpy as np
 from shapely import GeometryCollection, LineString, MultiPolygon, Polygon, affinity
 from triangle import triangulate
 
+import planestress.pre.boundary_condition as bc
 from planestress.post.post import plotting_context
 from planestress.pre.material import DEFAULT_MATERIAL, Material
 from planestress.pre.mesh import Mesh
@@ -57,11 +59,13 @@ class Geometry:
         self.holes: list[Point] = []
         self.control_points: list[Point] = []
 
-        # allocate mesh
-        self.mesh: Mesh | None = None
-
         # compile the geometry into points, facets, holes and control_points
         self.compile_geometry()
+
+        # allocate mesh variables
+        self.mesh: Mesh | None = None
+        self.point_markers = [0] * len(self.points)
+        self.facet_markers = [0] * len(self.facets)
 
     def compile_geometry(self) -> None:
         """Creates points, facets, holes and control_points from shapely geometry."""
@@ -110,8 +114,7 @@ class Geometry:
 
         # construct perimeter points (note shapely doubles up first & last point)
         for coords in list(polygon.exterior.coords[:-1]):
-            new_pt = Point(x=coords[0], y=coords[1])
-            new_pt.round(tol=self.tol)
+            new_pt = Point(x=coords[0], y=coords[1], tol=self.tol)
             pt_list.append(new_pt)
 
         # create perimeter facets
@@ -123,8 +126,7 @@ class Geometry:
 
             # create hole (note shapely doubles up first & last point)
             for coords in hl.coords[:-1]:
-                new_pt = Point(x=coords[0], y=coords[1])
-                new_pt.round(tol=self.tol)
+                new_pt = Point(x=coords[0], y=coords[1], tol=self.tol)
                 int_pt_list.append(new_pt)
 
             # add interior points to poly list
@@ -142,11 +144,13 @@ class Geometry:
 
             # add hole point to the list of hole points
             hl_pt_coords = hl_poly.representative_point().coords
-            hl_list.append(Point(x=hl_pt_coords[0][0], y=hl_pt_coords[0][1]))
+            hl_list.append(
+                Point(x=hl_pt_coords[0][0], y=hl_pt_coords[0][1], tol=self.tol)
+            )
 
         # construct control point
         cp_pt_coords = polygon.representative_point().coords
-        cp_pt = Point(x=cp_pt_coords[0][0], y=cp_pt_coords[0][1])
+        cp_pt = Point(x=cp_pt_coords[0][0], y=cp_pt_coords[0][1], tol=self.tol)
 
         return pt_list, fct_list, hl_list, cp_pt
 
@@ -246,11 +250,11 @@ class Geometry:
                 point_x, point_y = align_to
                 shift_x = round(point_x - cx, self.tol)
                 shift_y = round(point_y - cy, self.tol)
-            except (TypeError, ValueError) as e:
+            except (TypeError, ValueError) as exc:
                 raise ValueError(
                     f"align_to must be either a Geometry object or an (x, y) "
                     f"coordinate, not {align_to}."
-                ) from e
+                ) from exc
 
         return self.shift_section(x=shift_x, y=shift_y)
 
@@ -355,10 +359,10 @@ class Geometry:
             return Geometry(
                 polygons=new_polygon, materials=self.materials[0], tol=self.tol
             )
-        except Exception as e:
+        except Exception as exc:
             raise ValueError(
                 f"Cannot perform union on these two objects: {self} | {other}"
-            ) from e
+            ) from exc
 
     def __sub__(
         self,
@@ -387,10 +391,10 @@ class Geometry:
                 raise ValueError(
                     f"Cannot perform difference on these two objects: {self} - {other}"
                 )
-        except Exception as e:
+        except Exception as exc:
             raise ValueError(
                 f"Cannot perform difference on these two objects: {self} - {other}"
-            ) from e
+            ) from exc
 
     def __add__(
         self,
@@ -434,11 +438,11 @@ class Geometry:
             return Geometry(
                 polygons=new_polygon, materials=self.materials[0], tol=self.tol
             )
-        except Exception as e:
+        except Exception as exc:
             raise ValueError(
                 f"Cannot perform intersection on these two Geometry instances: "
                 f"{self} & {other}"
-            ) from e
+            ) from exc
 
     @staticmethod
     def filter_non_polygons(
@@ -476,6 +480,45 @@ class Geometry:
         else:
             return Polygon()
 
+    def add_node_support(
+        self,
+        point: tuple[float, float],
+        direction: str,
+        value: float = 0.0,
+    ) -> bc.NodeSupport:
+        """Adds a node support to the geometry."""
+        # check to see if a mesh has already been generated
+        self.check_boundary_condition_mesh()
+
+        # create point object
+        pt = Point(point[0], point[1], tol=self.tol)
+
+        # find point in list of points
+        try:
+            idx = self.points.index(pt)
+        except ValueError as exc:
+            raise ValueError("Cannot find the point: {pt} in the geometry.") from exc
+
+        # add point marker to point, note custom point marker ids start at 2
+        marker_id = max(1, max(self.point_markers)) + 1
+        self.point_markers[idx] = marker_id
+
+        # create node support boundary condition
+        ns_bc = bc.NodeSupport(marker_id=marker_id, direction=direction, value=value)
+
+        return ns_bc
+
+    def check_boundary_condition_mesh(self) -> None:
+        """Checks to see if a mesh exist before creating a new boundary condition.
+
+        If a mesh exists, warns the user to regenerate the mesh prior to conducting an
+        analysis.
+        """
+        if self.mesh:
+            warnings.warn(
+                "Please regenerate the mesh prior to creating a PlaneStress object."
+            )
+
     def create_mesh(
         self,
         mesh_sizes: float | list[float] = 0.0,
@@ -511,6 +554,7 @@ class Geometry:
 
         tri: dict[str, Any] = {}  # create tri dictionary
         tri["vertices"] = [pt.to_tuple() for pt in self.points]  # set points
+        tri["vertex_markers"] = self.point_markers  # set point markers
         tri["segments"] = [fct.to_tuple() for fct in self.facets]  # set facets
 
         if self.holes:
@@ -537,7 +581,11 @@ class Geometry:
         self.mesh = Mesh(
             nodes=np.array(mesh["vertices"], dtype=np.float64),
             elements=np.array(mesh["triangles"], dtype=np.int32),
-            attributes=np.array(mesh["triangle_attributes"].T[0], dtype=np.int32),
+            attributes=np.array(
+                mesh["triangle_attributes"].T[0], dtype=np.int32
+            ).tolist(),
+            node_markers=np.array(mesh["vertex_markers"].T[0], dtype=np.int32).tolist(),
+            linear=linear,
         )
 
         # re-order mid-nodes if quadratic
@@ -648,15 +696,24 @@ class Point:
 
     x: float
     y: float
+    tol: int
     idx: int | None = None
 
-    def round(
+    def __post_init__(self) -> None:
+        """Point object post init method."""
+        self.round()
+
+    def __eq__(
         self,
-        tol: int,
-    ) -> None:
+        other: Point,
+    ) -> bool:
+        """Override __eq__ method to neglect index."""
+        return self.x == other.x and self.y == other.y
+
+    def round(self) -> None:
         """Rounds the point to ``tol`` digits."""
-        self.x = round(self.x, tol)
-        self.y = round(self.y, tol)
+        self.x = round(self.x, self.tol)
+        self.y = round(self.y, self.tol)
 
     def to_tuple(self) -> tuple[float, float]:
         """Converts the point to a tuple."""

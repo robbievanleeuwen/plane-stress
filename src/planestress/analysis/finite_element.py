@@ -21,15 +21,22 @@ class FiniteElement:
         self,
         el_idx: int,
         coords: npt.NDArray[np.float64],
-        node_ids: list[int],
+        node_idxs: list[int],
         material: Material,
     ) -> None:
         """Inits the FiniteElement class."""
         self.el_idx = el_idx
         self.coords = coords
-        self.node_ids = node_ids
+        self.node_idxs = node_idxs
         self.material = material
         self.num_nodes: int = 0
+
+    def __str__(self) -> str:
+        """Override string method."""
+        return (
+            f"{self.__class__.__name__} - id: {self.el_idx}, material: "
+            f"{self.material.name}"
+        )
 
     def shape_functions(
         self,
@@ -129,7 +136,12 @@ class FiniteElement:
         n_points: int,
     ) -> npt.NDArray[np.float64]:
         """Assembles the load matrix for the element."""
-        raise NotImplementedError
+        # allocate element load vector
+        k_el = np.zeros(2 * self.num_nodes)
+
+        # TODO - implement!
+
+        return k_el
 
     @staticmethod
     def gauss_points(n_points: int) -> npt.NDArray[np.float64]:
@@ -190,12 +202,12 @@ class Tri3(FiniteElement):
         self,
         el_idx: int,
         coords: npt.NDArray[np.float64],
-        node_ids: list[int],
+        node_idxs: list[int],
         material: Material,
     ) -> None:
         """Inits the Tri3 class."""
         super().__init__(
-            el_idx=el_idx, coords=coords, node_ids=node_ids, material=material
+            el_idx=el_idx, coords=coords, node_idxs=node_idxs, material=material
         )
         self.num_nodes: int = 3
 
@@ -234,12 +246,12 @@ class Tri6(FiniteElement):
         self,
         el_idx: int,
         coords: npt.NDArray[np.float64],
-        node_ids: list[int],
+        node_idxs: list[int],
         material: Material,
     ) -> None:
         """Inits the Tri6 class."""
         super().__init__(
-            el_idx=el_idx, coords=coords, node_ids=node_ids, material=material
+            el_idx=el_idx, coords=coords, node_idxs=node_idxs, material=material
         )
         self.num_nodes: int = 6
 

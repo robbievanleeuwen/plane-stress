@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from planestress.pre.bc import BoundaryCondition
+from planestress.pre.boundary_condition import BoundaryCondition
 
 
 @dataclass
 class LoadCase:
     """Class for a load case."""
 
-    bcs: list[BoundaryCondition]
+    boundary_conditions: list[BoundaryCondition]

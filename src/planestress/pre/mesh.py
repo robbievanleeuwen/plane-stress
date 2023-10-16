@@ -27,8 +27,10 @@ class Mesh:
     """Class for a plane-stress mesh."""
 
     nodes: npt.NDArray[np.float64]
-    elements: npt.NDArray[np.int32]
-    attributes: npt.NDArray[np.int32]
+    elements: npt.NDArray[np.float64]
+    attributes: list[int]
+    node_markers: list[int]
+    linear: bool
 
     def __post_init__(self) -> None:
         """Mesh post_init method."""
@@ -47,8 +49,8 @@ class Mesh:
         """Returns the node index at the point (``x``, ``y``)."""
         try:
             return self.node_list.index([x, y])
-        except ValueError as e:
-            raise ValueError(f"Cannot find node at x: {x}, y: {y}.") from e
+        except ValueError as exc:
+            raise ValueError(f"Cannot find node at x: {x}, y: {y}.") from exc
 
     def get_nearest_node(
         self,
