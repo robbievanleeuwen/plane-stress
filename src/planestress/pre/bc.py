@@ -18,12 +18,14 @@ class NodeBoundaryCondition(BoundaryCondition):
         y: float,
         dir: str,
         value: float,
+        exact: bool,
     ) -> None:
         """Inits the NodeBoundaryCondition class."""
         self.x = x
         self.y = y
         self.dir = dir
         self.value = value
+        self.exact = exact
 
 
 class NodeSupport(NodeBoundaryCondition):
@@ -35,9 +37,10 @@ class NodeSupport(NodeBoundaryCondition):
         y: float,
         dir: str,
         value: float,
+        exact: bool = True,
     ) -> None:
         """Inits the NodeSupport class."""
-        super().__init__(x=x, y=y, dir=dir, value=value)
+        super().__init__(x=x, y=y, dir=dir, value=value, exact=exact)
 
 
 class NodeSpring(NodeBoundaryCondition):
