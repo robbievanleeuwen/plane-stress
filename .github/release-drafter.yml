@@ -53,7 +53,7 @@ exclude-contributors:
 
 # Custom text at start of release
 header: |
-  xxx
+  Initial alpha release - basic functionality.
 
 template: |
   ## What's Changed
