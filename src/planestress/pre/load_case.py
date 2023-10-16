@@ -12,3 +12,4 @@ class LoadCase:
     """Class for a load case."""
 
     boundary_conditions: list[BoundaryCondition]
+    global_accelerations: list[float] | None = None  # TODO - verify list lengths

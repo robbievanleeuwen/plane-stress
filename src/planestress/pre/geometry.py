@@ -11,7 +11,7 @@ from shapely import GeometryCollection, LineString, MultiPolygon, Polygon, affin
 from triangle import triangulate
 
 import planestress.pre.boundary_condition as bc
-from planestress.post.post import plotting_context
+from planestress.post.plotting import plotting_context
 from planestress.pre.material import DEFAULT_MATERIAL, Material
 from planestress.pre.mesh import Mesh
 
@@ -499,9 +499,14 @@ class Geometry:
         except ValueError as exc:
             raise ValueError("Cannot find the point: {pt} in the geometry.") from exc
 
-        # add point marker to point, note custom point marker ids start at 2
-        marker_id = max(1, max(self.point_markers)) + 1
-        self.point_markers[idx] = marker_id
+        # check to see if point already has custom point marker
+        if self.point_markers[idx] == 0:
+            # add point marker to point, note custom point marker ids start at 2
+            marker_id = max(1, max(self.point_markers)) + 1
+            self.point_markers[idx] = marker_id
+        else:
+            # get marker id
+            marker_id = self.point_markers[idx]
 
         # create node support boundary condition
         ns_bc = bc.NodeSupport(marker_id=marker_id, direction=direction, value=value)

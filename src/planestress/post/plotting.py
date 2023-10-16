@@ -1,4 +1,4 @@
-"""planestress post-processor general functions."""
+"""planestress post-processor plotting functions."""
 
 from __future__ import annotations
 

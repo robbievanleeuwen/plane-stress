@@ -13,7 +13,7 @@ from matplotlib.tri import Triangulation
 from shapely import MultiPoint, Point
 from shapely.ops import nearest_points
 
-from planestress.post.post import plotting_context
+from planestress.post.plotting import plotting_context
 
 
 if TYPE_CHECKING:
@@ -71,6 +71,8 @@ class Mesh:
         alpha: float,
         mask: list[bool] | None,
         title: str,
+        ux: npt.NDArray[np.float64] | None = None,
+        uy: npt.NDArray[np.float64] | None = None,
         **kwargs: Any,
     ) -> matplotlib.axes.Axes:
         """Plots the finite element mesh."""
@@ -78,13 +80,19 @@ class Mesh:
         with plotting_context(title=title, **kwargs) as (_, ax):
             assert ax
 
-            # create mesh triangulation
-            triang = Triangulation(
-                self.nodes[:, 0],
-                self.nodes[:, 1],
-                self.elements[:, 0:3],
-                mask=mask,
-            )
+            # add deformed shape
+            if ux is not None:
+                x = self.nodes[:, 0] + ux
+            else:
+                x = self.nodes[:, 0]
+
+            if uy is not None:
+                y = self.nodes[:, 1] + uy
+            else:
+                y = self.nodes[:, 1]
+
+            # create mesh triangulation (add deformed shape)
+            triang = Triangulation(x, y, self.elements[:, 0:3], mask=mask)
 
             # if displaying materials
             if materials:
