@@ -17,27 +17,27 @@ Finite Element Preliminaries
 TODO - update for Tri3 elements...
 
 Element Type
-~~~~~~~~~~~~
+^^^^^^^^^^^^
 
 dlsfkldsf
 
 Isoparametric Representation
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 sdlfkjdslf
 
 Shape Functions
-^^^^^^^^^^^^^^^
+"""""""""""""""
 
 sdlkfjdsf
 
 Cartesian Partial Derivatives
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+"""""""""""""""""""""""""""""
 
 dakljfdslkf
 
 Numerical Integration
-~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^
 
 akdlskfsdf
 
@@ -52,9 +52,9 @@ Constitutive matrix:
         \lambda + 2 \mu & \lambda & 0 \\
         \lambda & \lambda + 2 \mu & 0 \\
         0 & 0 & \mu \\
-    end{bmatrix}
+    \end{bmatrix}
 
-where $\lambda$ and $\mu$ and the Lamé parameters:
+where :math:`\lambda` and :math:`\mu` and the Lamé parameters:
 
 .. math::
     \lambda &= \frac{E \nu}{(1 + \nu)(1-2 \nu)} \\
@@ -78,16 +78,22 @@ aslkdjaskld
 Boundary Conditions
 -------------------
 
+asdkjasdl
+
 Prescribed Nodal Displacement
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+asdasd
+
 .. math::
-    \textbf{K}[\rm{dof}, :] = 0
-    \textbf{K}[\rm{dof}, \rm{dof}] = 0
-    \textbf{f}[\rm{dof}] = \textbf{u}
+    \textbf{K}[\rm{dof}, :] = 0 \\
+    \textbf{K}[\rm{dof}, \rm{dof}] = 0 \\
+    \textbf{f}[\rm{dof}] = \textbf{u} \\
 
 Nodal Spring
 ^^^^^^^^^^^^
+
+asdasd
 
 .. math::
     \textbf{K}[\rm{dof}, \rm{dof}] = k
@@ -95,14 +101,20 @@ Nodal Spring
 Nodal Load
 ^^^^^^^^^^
 
+asdasd
+
 .. math::
     \textbf{f}[\rm{dof}] = P
 
 Post-Processing
 ---------------
 
+asdasd
+
 Nodal Forces
 ^^^^^^^^^^^^
+
+asdasd
 
 .. math::
     \textbf{f} = \textbf{K} \textbf{u}
@@ -113,4 +125,4 @@ Nodal Stresses
 Note about gauss points vs. nodal points - Felippa
 
 .. math::
-    \textbf{\sigma} = \textbf{D} \textbf{B} \textbf{u}
+    \boldsymbol{\sigma} = \textbf{D} \textbf{B} \textbf{u}
