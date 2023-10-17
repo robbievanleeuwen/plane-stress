@@ -37,7 +37,7 @@ class NodeBoundaryCondition(BoundaryCondition):
     ) -> None:
         """Inits the NodeBoundaryCondition class."""
         super().__init__(marker_id=marker_id)
-        self.direction = direction  # TODO - verify
+        self.direction = direction  # TODO - verify input
         self.value = value
 
 
@@ -63,7 +63,7 @@ class NodeSupport(NodeBoundaryCondition):
         # get relevant dof
         dof = dofs[0] if self.direction == "x" else dofs[1]
 
-        # apply bc
+        # apply bc - TODO - confirm this theory!
         k[dof, :] = 0
         k[dof, dof] = 1
         f[dof] = self.value
@@ -74,13 +74,57 @@ class NodeSupport(NodeBoundaryCondition):
 class NodeSpring(NodeBoundaryCondition):
     """Class for adding a spring to a node."""
 
-    pass
+    def __init__(
+        self,
+        marker_id: int,
+        direction: str,
+        value: float,
+    ) -> None:
+        """Inits the NodeSpring class."""
+        super().__init__(marker_id=marker_id, direction=direction, value=value)
+
+    def apply_bc(
+        self,
+        k: npt.NDArray[np.float64],
+        f: npt.NDArray[np.float64],
+        dofs: list[int],
+    ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+        """Applies the boundary condition."""
+        # get relevant dof
+        dof = dofs[0] if self.direction == "x" else dofs[1]
+
+        # apply bc - TODO - confirm this theory!
+        k[dof, dof] += self.value
+
+        return k, f
 
 
 class NodeLoad(NodeBoundaryCondition):
     """Class for adding a load to a node."""
 
-    pass
+    def __init__(
+        self,
+        marker_id: int,
+        direction: str,
+        value: float,
+    ) -> None:
+        """Inits the NodeSpring class."""
+        super().__init__(marker_id=marker_id, direction=direction, value=value)
+
+    def apply_bc(
+        self,
+        k: npt.NDArray[np.float64],
+        f: npt.NDArray[np.float64],
+        dofs: list[int],
+    ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+        """Applies the boundary condition."""
+        # get relevant dof
+        dof = dofs[0] if self.direction == "x" else dofs[1]
+
+        # apply bc
+        f[dof] += self.value
+
+        return k, f
 
 
 class LineBoundaryCondition(BoundaryCondition):

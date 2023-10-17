@@ -480,13 +480,11 @@ class Geometry:
         else:
             return Polygon()
 
-    def add_node_support(
+    def add_node_marker(
         self,
         point: tuple[float, float],
-        direction: str,
-        value: float = 0.0,
-    ) -> bc.NodeSupport:
-        """Adds a node support to the geometry."""
+    ) -> int:
+        """Performs the tasks required to add a node marker to a point."""
         # check to see if a mesh has already been generated
         self.check_boundary_condition_mesh()
 
@@ -508,10 +506,56 @@ class Geometry:
             # get marker id
             marker_id = self.point_markers[idx]
 
-        # create node support boundary condition
-        ns_bc = bc.NodeSupport(marker_id=marker_id, direction=direction, value=value)
+        return marker_id
 
-        return ns_bc
+    def add_node_support(
+        self,
+        point: tuple[float, float],
+        direction: str,
+        value: float = 0.0,
+    ) -> bc.NodeSupport:
+        """Adds a node support to the geometry."""
+        # add the node marker to the specified point
+        marker_id = self.add_node_marker(point=point)
+
+        # create node support boundary condition
+        node_support = bc.NodeSupport(
+            marker_id=marker_id, direction=direction, value=value
+        )
+
+        return node_support
+
+    def add_node_spring(
+        self,
+        point: tuple[float, float],
+        direction: str,
+        value: float,
+    ) -> bc.NodeSpring:
+        """Adds a node spring to the geometry."""
+        # add the node marker to the specified point
+        marker_id = self.add_node_marker(point=point)
+
+        # create node spring boundary condition
+        node_spring = bc.NodeSpring(
+            marker_id=marker_id, direction=direction, value=value
+        )
+
+        return node_spring
+
+    def add_node_load(
+        self,
+        point: tuple[float, float],
+        direction: str,
+        value: float,
+    ) -> bc.NodeSpring:
+        """Adds a node load to the geometry."""
+        # add the node marker to the specified point
+        marker_id = self.add_node_marker(point=point)
+
+        # create node support boundary condition
+        node_load = bc.NodeLoad(marker_id=marker_id, direction=direction, value=value)
+
+        return node_load
 
     def check_boundary_condition_mesh(self) -> None:
         """Checks to see if a mesh exist before creating a new boundary condition.
