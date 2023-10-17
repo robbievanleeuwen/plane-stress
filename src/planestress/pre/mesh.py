@@ -2,16 +2,15 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 import numpy.typing as npt
 from matplotlib.colors import ListedColormap
 from matplotlib.patches import Patch
 from matplotlib.tri import Triangulation
-from shapely import MultiPoint, Point
-from shapely.ops import nearest_points
+from shapely import Point, STRtree
 
 from planestress.post.plotting import plotting_context
 
@@ -27,15 +26,17 @@ class Mesh:
     """Class for a plane-stress mesh."""
 
     nodes: npt.NDArray[np.float64]
-    elements: npt.NDArray[np.float64]
+    elements: npt.NDArray[np.int32]
     attributes: list[int]
     node_markers: list[int]
+    segments: npt.NDArray[np.int32]
+    segment_markers: list[int]
     linear: bool
+    str_tree: STRtree = field(init=False)
 
     def __post_init__(self) -> None:
         """Mesh post_init method."""
-        self.multi_point = MultiPoint(points=self.nodes)
-        self.node_list = self.nodes.tolist()
+        self.str_tree = STRtree(geoms=[Point(node[0], node[1]) for node in self.nodes])
 
     def num_nodes(self) -> int:
         """Returns the number of nodes in the mesh."""
@@ -46,20 +47,10 @@ class Mesh:
         x: float,
         y: float,
     ) -> int:
-        """Returns the node index at the point (``x``, ``y``)."""
-        try:
-            return self.node_list.index([x, y])
-        except ValueError as exc:
-            raise ValueError(f"Cannot find node at x: {x}, y: {y}.") from exc
+        """Returns the node index at or nearest to the point (``x``, ``y``)."""
+        idx = self.str_tree.nearest(geometry=Point(x, y))
 
-    def get_nearest_node(
-        self,
-        x: float,
-        y: float,
-    ) -> tuple[int, tuple[float, float]]:
-        """Returns the nearest node index & coordinates to the point (``x``, ``y``)."""
-        nd, _ = nearest_points(g1=self.multi_point, g2=Point(x, y))
-        return self.node_list.index([nd.x, nd.y]), (nd.x, nd.y)
+        return cast(int, idx)
 
     def plot_mesh(
         self,
@@ -67,6 +58,8 @@ class Mesh:
         nodes: bool,
         nd_num: bool,
         el_num: bool,
+        nd_markers: bool,
+        seg_markers: bool,
         materials: bool,
         alpha: float,
         mask: list[bool] | None,
@@ -137,6 +130,19 @@ class Mesh:
                 alpha=alpha,
             )
 
+            # if deformed shape, plot the original mesh
+            if ux is not None or uy is not None:
+                triang_orig = Triangulation(
+                    self.nodes[:, 0], self.nodes[:, 1], self.elements[:, 0:3], mask=mask
+                )
+
+                ax.triplot(
+                    triang_orig,
+                    "ko-" if nodes else "k-",
+                    lw=0.5,
+                    alpha=0.2,
+                )
+
             # node numbers
             if nd_num:
                 for idx, pt in enumerate(self.nodes):
@@ -151,5 +157,23 @@ class Mesh:
                     x = (pt1[0] + pt2[0] + pt3[0]) / 3
                     y = (pt1[1] + pt2[1] + pt3[1]) / 3
                     ax.annotate(str(idx), xy=(x, y), color="b")
+
+            # node markers
+            if nd_markers:
+                for idx, mk in enumerate(self.node_markers):
+                    if mk > 1 and mk % 2 == 0:
+                        pt = self.nodes[idx]
+                        ax.annotate(str(mk), xy=(pt[0], pt[1]), color="r")
+
+            # segment markers
+            if seg_markers:
+                for idx, mk in enumerate(self.segment_markers):
+                    if mk > 1 and mk % 2 == 1:
+                        seg = self.segments[idx]
+                        pt1 = self.nodes[seg[0]]
+                        pt2 = self.nodes[seg[1]]
+                        x = 0.5 * (pt1[0] + pt2[0])
+                        y = 0.5 * (pt1[1] + pt2[1])
+                        ax.annotate(str(mk), xy=(x, y), color="b")
 
         return ax

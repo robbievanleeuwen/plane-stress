@@ -13,3 +13,6 @@ class LoadCase:
 
     boundary_conditions: list[BoundaryCondition]
     global_accelerations: list[float] | None = None  # TODO - verify list lengths
+
+
+# TODO - add a persistent load case??

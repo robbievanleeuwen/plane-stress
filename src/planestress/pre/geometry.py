@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import warnings
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
-from shapely import GeometryCollection, LineString, MultiPolygon, Polygon, affinity
+import shapely as shapely
+import shapely.affinity as affinity
 from triangle import triangulate
 
 import planestress.pre.boundary_condition as bc
@@ -25,7 +26,7 @@ class Geometry:
 
     def __init__(
         self,
-        polygons: Polygon | MultiPolygon,
+        polygons: shapely.Polygon | shapely.MultiPolygon,
         materials: Material | list[Material] = DEFAULT_MATERIAL,
         tol: int = 12,
     ) -> None:
@@ -34,8 +35,8 @@ class Geometry:
         Note ensure length of materials = number of polygons
         """
         # convert polygon to multipolygon
-        if isinstance(polygons, Polygon):
-            polygons = MultiPolygon(polygons=[polygons])
+        if isinstance(polygons, shapely.Polygon):
+            polygons = shapely.MultiPolygon(polygons=[polygons])
 
         # convert material to list of materials
         if isinstance(materials, Material):
@@ -61,6 +62,14 @@ class Geometry:
 
         # compile the geometry into points, facets, holes and control_points
         self.compile_geometry()
+
+        # create point STRtree
+        self.pts_str_tree = shapely.STRtree(
+            [pt.to_shapely_point() for pt in self.points]
+        )
+        self.fcts_str_tree = shapely.STRtree(
+            [fct.to_shapely_line() for fct in self.facets]
+        )
 
         # allocate mesh variables
         self.mesh: Mesh | None = None
@@ -90,8 +99,10 @@ class Geometry:
                     for fct in poly_facets:
                         fct.update_point(old=pt, new=kept_pt)
 
-            # add facets to the global list
-            self.facets.extend(poly_facets)
+            # add facets to the global list, skipping duplicate and zero length facets
+            for fct in poly_facets:
+                if fct not in self.facets and not fct.zero_length():
+                    self.facets.append(fct)
 
             # add holes to list of multipolygon holes
             self.holes.extend(poly_holes)
@@ -105,7 +116,7 @@ class Geometry:
 
     def compile_polygon(
         self,
-        polygon: Polygon,
+        polygon: shapely.Polygon,
     ) -> tuple[list[Point], list[Facet], list[Point], Point]:
         """Create a list of points, facets and holes + control point given a Polygon."""
         pt_list: list[Point] = []
@@ -140,7 +151,7 @@ class Geometry:
             int_pt_list_tup = [hl_pt.to_tuple() for hl_pt in int_pt_list]
 
             # create a polygon of the hole region
-            hl_poly = Polygon(int_pt_list_tup)
+            hl_poly = shapely.Polygon(int_pt_list_tup)
 
             # add hole point to the list of hole points
             hl_pt_coords = hl_poly.representative_point().coords
@@ -281,7 +292,7 @@ class Geometry:
             polygons=affinity.rotate(
                 geom=self.polygons,
                 angle=angle,
-                origin=rot_point,
+                origin=rot_point,  # type: ignore
                 use_radians=use_radians,
             ),
             materials=self.materials,
@@ -305,7 +316,7 @@ class Geometry:
 
         return Geometry(
             polygons=affinity.scale(
-                geom=self.polygons, xfact=xfact, yfact=yfact, origin=mirror_point
+                geom=self.polygons, xfact=xfact, yfact=yfact, origin=mirror_point  # type: ignore
             ),
             materials=self.materials,
             tol=self.tol,
@@ -378,12 +389,12 @@ class Geometry:
             )
 
             # non-polygon results
-            if isinstance(new_polygon, GeometryCollection):
+            if isinstance(new_polygon, shapely.GeometryCollection):
                 raise ValueError(
                     f"Cannot perform difference on these two objects: {self} - {other}"
                 )
             # polygon or multipolygon object
-            elif isinstance(new_polygon, (Polygon, MultiPolygon)):
+            elif isinstance(new_polygon, (shapely.Polygon, shapely.MultiPolygon)):
                 return Geometry(
                     polygons=new_polygon, materials=self.materials, tol=self.tol
                 )
@@ -404,7 +415,7 @@ class Geometry:
 
         Keeps the largest tol.
         """
-        poly_list: list[Polygon] = []
+        poly_list: list[shapely.Polygon] = []
         mat_list: list[Material] = []
 
         # loop through each list of polygons and combine
@@ -419,7 +430,9 @@ class Geometry:
         tol = max(self.tol, other.tol)
 
         return Geometry(
-            polygons=MultiPolygon(polygons=poly_list), materials=mat_list, tol=tol
+            polygons=shapely.MultiPolygon(polygons=poly_list),
+            materials=mat_list,
+            tol=tol,
         )
 
     def __and__(
@@ -446,8 +459,12 @@ class Geometry:
 
     @staticmethod
     def filter_non_polygons(
-        input_geom: GeometryCollection | LineString | Point | Polygon | MultiPolygon,
-    ) -> Polygon | MultiPolygon:
+        input_geom: shapely.GeometryCollection
+        | shapely.LineString
+        | shapely.Point
+        | shapely.Polygon
+        | shapely.MultiPolygon,
+    ) -> shapely.Polygon | shapely.MultiPolygon:
         """Filters shapely geometries to return only polygons.
 
         Returns a ``Polygon`` or a ``MultiPolygon`` representing any such ``Polygon`` or
@@ -460,51 +477,112 @@ class Geometry:
         Returns:
             Filtered polygon
         """
-        if isinstance(input_geom, (Polygon, MultiPolygon)):
+        if isinstance(input_geom, (shapely.Polygon, shapely.MultiPolygon)):
             return input_geom
-        elif isinstance(input_geom, GeometryCollection):
+        elif isinstance(input_geom, shapely.GeometryCollection):
             acc = []
 
             for item in input_geom.geoms:
-                if isinstance(item, (Polygon, MultiPolygon)):
+                if isinstance(item, (shapely.Polygon, shapely.MultiPolygon)):
                     acc.append(item)
 
             if len(acc) == 0:
-                return Polygon()
+                return shapely.Polygon()
             elif len(acc) == 1:
                 return acc[0]
             else:
-                return MultiPolygon(polygons=acc)
-        elif isinstance(input_geom, (Point, LineString)):
-            return Polygon()
+                return shapely.MultiPolygon(polygons=acc)
+        elif isinstance(input_geom, (shapely.Point, shapely.LineString)):
+            return shapely.Polygon()
         else:
-            return Polygon()
+            return shapely.Polygon()
 
-    def add_node_marker(
+    def find_point_index(
         self,
         point: tuple[float, float],
     ) -> int:
-        """Performs the tasks required to add a node marker to a point."""
+        """Returns the index of the point in the geometry closest to ``point``."""
+        pt = shapely.Point(point[0], point[1])
+        idx = self.pts_str_tree.nearest(geometry=pt)
+
+        return cast(int, idx)
+
+    def find_facet_index(
+        self,
+        point1: tuple[float, float],
+        point2: tuple[float, float],
+    ) -> int:
+        """Returns the index of the facet in the geometry closest to ``facet``."""
+        mid_point = shapely.Point(
+            0.5 * (point1[0] + point2[0]), 0.5 * (point1[1] + point2[1])
+        )
+        idx = self.fcts_str_tree.nearest(geometry=mid_point)
+
+        return cast(int, idx)
+
+    def add_point_marker(
+        self,
+        pt_idx: int,
+    ) -> int:
+        """Performs the tasks required to add a marker to a point."""
+        # check point index lies in range
+        if pt_idx < 0 or pt_idx > len(self.points) - 1:
+            raise ValueError(
+                f"pt_idx must be an integer between 0 and {len(self.points) - 1}."
+            )
+
         # check to see if a mesh has already been generated
-        self.check_boundary_condition_mesh()
-
-        # create point object
-        pt = Point(point[0], point[1], tol=self.tol)
-
-        # find point in list of points
-        try:
-            idx = self.points.index(pt)
-        except ValueError as exc:
-            raise ValueError("Cannot find the point: {pt} in the geometry.") from exc
+        if self.mesh:
+            warnings.warn(
+                "Please regenerate the mesh prior to creating a PlaneStress object."
+            )
 
         # check to see if point already has custom point marker
-        if self.point_markers[idx] == 0:
-            # add point marker to point, note custom point marker ids start at 2
-            marker_id = max(1, max(self.point_markers)) + 1
-            self.point_markers[idx] = marker_id
+        if self.point_markers[pt_idx] == 0:
+            # add point marker to point
+            # note custom point marker ids start at 2 and increment by 2
+            if max(self.point_markers) == 0:
+                marker_id = 2
+            else:
+                marker_id = max(self.point_markers) + 2
+
+            self.point_markers[pt_idx] = marker_id
         else:
             # get marker id
-            marker_id = self.point_markers[idx]
+            marker_id = self.point_markers[pt_idx]
+
+        return marker_id
+
+    def add_facet_marker(
+        self,
+        fct_idx: int,
+    ) -> int:
+        """Performs the tasks required to add a marker to a facet."""
+        # check facet index lies in range
+        if fct_idx < 0 or fct_idx > len(self.facets) - 1:
+            raise ValueError(
+                f"fct_idx must be an integer between 0 and {len(self.facets) - 1}."
+            )
+
+        # check to see if a mesh has already been generated
+        if self.mesh:
+            warnings.warn(
+                "Please regenerate the mesh prior to creating a PlaneStress object."
+            )
+
+        # check to see if facet already has custom point marker
+        if self.facet_markers[fct_idx] == 0:
+            # add facet marker to facet
+            # note custom facet marker ids start at 3 and increment by 2
+            if max(self.facet_markers) == 0:
+                marker_id = 3
+            else:
+                marker_id = max(self.facet_markers) + 2
+
+            self.facet_markers[fct_idx] = marker_id
+        else:
+            # get marker id
+            marker_id = self.facet_markers[fct_idx]
 
         return marker_id
 
@@ -513,10 +591,15 @@ class Geometry:
         point: tuple[float, float],
         direction: str,
         value: float = 0.0,
+        pt_idx: int | None = None,
     ) -> bc.NodeSupport:
         """Adds a node support to the geometry."""
-        # add the node marker to the specified point
-        marker_id = self.add_node_marker(point=point)
+        # get the point index
+        if not pt_idx:
+            pt_idx = self.find_point_index(point=point)
+
+        # add the point marker to the specified point
+        marker_id = self.add_point_marker(pt_idx=pt_idx)
 
         # create node support boundary condition
         node_support = bc.NodeSupport(
@@ -530,10 +613,15 @@ class Geometry:
         point: tuple[float, float],
         direction: str,
         value: float,
+        pt_idx: int | None = None,
     ) -> bc.NodeSpring:
         """Adds a node spring to the geometry."""
-        # add the node marker to the specified point
-        marker_id = self.add_node_marker(point=point)
+        # get the point index
+        if not pt_idx:
+            pt_idx = self.find_point_index(point=point)
+
+        # add the point marker to the specified point
+        marker_id = self.add_point_marker(pt_idx=pt_idx)
 
         # create node spring boundary condition
         node_spring = bc.NodeSpring(
@@ -547,26 +635,65 @@ class Geometry:
         point: tuple[float, float],
         direction: str,
         value: float,
-    ) -> bc.NodeSpring:
+        pt_idx: int | None = None,
+    ) -> bc.NodeLoad:
         """Adds a node load to the geometry."""
-        # add the node marker to the specified point
-        marker_id = self.add_node_marker(point=point)
+        # get the point index
+        if not pt_idx:
+            pt_idx = self.find_point_index(point=point)
+            print(pt_idx)
+
+        # add the point marker to the specified point
+        marker_id = self.add_point_marker(pt_idx=pt_idx)
 
         # create node support boundary condition
         node_load = bc.NodeLoad(marker_id=marker_id, direction=direction, value=value)
 
         return node_load
 
-    def check_boundary_condition_mesh(self) -> None:
-        """Checks to see if a mesh exist before creating a new boundary condition.
+    def add_line_support(
+        self,
+        point1: tuple[float, float],
+        point2: tuple[float, float],
+        direction: str,
+        value: float = 0.0,
+        fct_idx: int | None = None,
+    ) -> bc.LineSupport:
+        """Adds a line support to the geometry."""
+        # get the facet index
+        if not fct_idx:
+            fct_idx = self.find_facet_index(point1=point1, point2=point2)
 
-        If a mesh exists, warns the user to regenerate the mesh prior to conducting an
-        analysis.
-        """
-        if self.mesh:
-            warnings.warn(
-                "Please regenerate the mesh prior to creating a PlaneStress object."
-            )
+        # add the facet marker to the specified point
+        marker_id = self.add_facet_marker(fct_idx=fct_idx)
+
+        # create line support boundary condition
+        line_support = bc.LineSupport(
+            marker_id=marker_id, direction=direction, value=value
+        )
+
+        return line_support
+
+    def add_line_load(
+        self,
+        point1: tuple[float, float],
+        point2: tuple[float, float],
+        direction: str,
+        value: float = 0.0,
+        fct_idx: int | None = None,
+    ) -> bc.LineLoad:
+        """Adds a line load to the geometry."""
+        # get the facet index
+        if not fct_idx:
+            fct_idx = self.find_facet_index(point1=point1, point2=point2)
+
+        # add the facet marker to the specified point
+        marker_id = self.add_facet_marker(fct_idx=fct_idx)
+
+        # create line load boundary condition
+        line_load = bc.LineLoad(marker_id=marker_id, direction=direction, value=value)
+
+        return line_load
 
     def create_mesh(
         self,
@@ -605,6 +732,7 @@ class Geometry:
         tri["vertices"] = [pt.to_tuple() for pt in self.points]  # set points
         tri["vertex_markers"] = self.point_markers  # set point markers
         tri["segments"] = [fct.to_tuple() for fct in self.facets]  # set facets
+        tri["segment_markers"] = self.facet_markers  # set facet markers
 
         if self.holes:
             tri["holes"] = [pt.to_tuple() for pt in self.holes]  # set holes
@@ -634,6 +762,10 @@ class Geometry:
                 mesh["triangle_attributes"].T[0], dtype=np.int32
             ).tolist(),
             node_markers=np.array(mesh["vertex_markers"].T[0], dtype=np.int32).tolist(),
+            segments=np.array(mesh["segments"], dtype=np.int32),
+            segment_markers=np.array(
+                mesh["segment_markers"].T[0], dtype=np.int32
+            ).tolist(),
             linear=linear,
         )
 
@@ -643,13 +775,17 @@ class Geometry:
 
     def plot_geometry(
         self,
-        labels: tuple[str] = ("control_points",),
         title: str = "Geometry",
+        labels: list[str] | None = None,
         cp: bool = True,
         legend: bool = True,
         **kwargs: Any,
     ) -> matplotlib.axes.Axes:
         """Plots the geometry."""
+        # create default labels
+        if labels is None:
+            labels = ["control_points"]
+
         # create plot and setup the plot
         with plotting_context(title=title, **kwargs) as (_, ax):
             assert ax
@@ -682,28 +818,27 @@ class Geometry:
                     label = None
 
             # display the labels
-            for label in labels:
-                # plot control_point labels
-                if label == "control_points":
-                    for idx, pt in enumerate(self.control_points):
-                        ax.annotate(str(idx), xy=(pt.x, pt.y), color="b")
+            # plot control_point labels
+            if "control_points" in labels:
+                for idx, pt in enumerate(self.control_points):
+                    ax.annotate(str(idx), xy=(pt.x, pt.y), color="b")
 
-                # plot point labels
-                if label == "points":
-                    for idx, pt in enumerate(self.points):
-                        ax.annotate(str(idx), xy=(pt.x, pt.y), color="r")
+            # plot point labels
+            if "points" in labels:
+                for idx, pt in enumerate(self.points):
+                    ax.annotate(str(idx), xy=(pt.x, pt.y), color="r")
 
-                # plot facet labels
-                if label == "facets":
-                    for idx, fct in enumerate(self.facets):
-                        xy = (fct.pt1.x + fct.pt2.x) / 2, (fct.pt1.y + fct.pt2.y) / 2
+            # plot facet labels
+            if "facets" in labels:
+                for idx, fct in enumerate(self.facets):
+                    xy = (fct.pt1.x + fct.pt2.x) / 2, (fct.pt1.y + fct.pt2.y) / 2
 
-                        ax.annotate(str(idx), xy=xy, color="b")
+                    ax.annotate(str(idx), xy=xy, color="b")
 
-                # plot hole labels
-                if label == "holes":
-                    for idx, pt in enumerate(self.holes):
-                        ax.annotate(str(idx), xy=(pt.x, pt.y), color="r")
+            # plot hole labels
+            if "holes" in labels:
+                for idx, pt in enumerate(self.holes):
+                    ax.annotate(str(idx), xy=(pt.x, pt.y), color="r")
 
             # display the legend
             if legend:
@@ -716,6 +851,8 @@ class Geometry:
         nodes: bool = False,
         nd_num: bool = False,
         el_num: bool = False,
+        nd_markers: bool = False,
+        seg_markers: bool = False,
         materials: bool = False,
         alpha: float = 0.5,
         mask: list[bool] | None = None,
@@ -729,6 +866,8 @@ class Geometry:
                 nodes=nodes,
                 nd_num=nd_num,
                 el_num=el_num,
+                nd_markers=nd_markers,
+                seg_markers=seg_markers,
                 materials=materials,
                 alpha=alpha,
                 mask=mask,
@@ -768,6 +907,10 @@ class Point:
         """Converts the point to a tuple."""
         return self.x, self.y
 
+    def to_shapely_point(self) -> shapely.Point:
+        """Converts the point to a ``shapely`` ``Point`` object."""
+        return shapely.Point(self.x, self.y)
+
 
 @dataclass(eq=True)
 class Facet:
@@ -775,6 +918,15 @@ class Facet:
 
     pt1: Point
     pt2: Point
+
+    def __eq__(
+        self,
+        other: Facet,
+    ) -> bool:
+        """Override __eq__ method to account for points in either order."""
+        return (self.pt1 == other.pt1 and self.pt2 == other.pt2) or (
+            self.pt1 == other.pt2 and self.pt2 == other.pt1
+        )
 
     def to_tuple(self) -> tuple[float, float]:
         """Converts the facet to a tuple."""
@@ -788,6 +940,16 @@ class Facet:
             raise RuntimeError(f"Point 2: {self.pt2} has not been assigned an index.")
 
         return idx_1, idx_2
+
+    def to_shapely_line(self) -> shapely.Point:
+        """Converts the point to a ``shapely`` ``Point`` object."""
+        return shapely.LineString(
+            [self.pt1.to_shapely_point(), self.pt2.to_shapely_point()]
+        )
+
+    def zero_length(self) -> bool:
+        """Tests whether or not a facet is zero length."""
+        return self.pt1 == self.pt2
 
     def update_point(
         self,

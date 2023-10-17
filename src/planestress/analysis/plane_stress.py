@@ -12,6 +12,7 @@ from matplotlib.tri import Triangulation
 from mpl_toolkits.axes_grid1.axes_divider import make_axes_locatable
 
 import planestress.analysis.solver as solver
+import planestress.pre.boundary_condition as bc
 from planestress.analysis.finite_element import FiniteElement, Tri3, Tri6
 from planestress.analysis.utils import dof_map
 from planestress.post.plotting import plotting_context
@@ -113,16 +114,41 @@ class PlaneStress:
                 # add element load vector to global load vector
                 f[el_dofs] += f_el
 
-            # apply boundary conditions
-            for bc in lc.boundary_conditions:
-                # get node index of current boundary condition - TODO: for segments?
-                node_idx = self.mesh.node_markers.index(bc.marker_id)
+            # apply boundary conditions # TODO - Tri6 elements LineBC!
+            for boundary_condition in lc.boundary_conditions:
+                # get node indices of current boundary condition
+                # if we are a node boundary condition
+                if isinstance(boundary_condition, bc.NodeBoundaryCondition):
+                    # get index of the node the boundary condition is applied to
+                    node_idxs = [
+                        self.mesh.node_markers.index(boundary_condition.marker_id)
+                    ]
+                # otherwise we must be a line boundary condition
+                else:
+                    # get indices of the segment the boundary condition is applied to
+                    seg_idxs = [
+                        idx
+                        for idx, seg_marker in enumerate(self.mesh.segment_markers)
+                        if seg_marker == boundary_condition.marker_id
+                    ]
 
-                # get degrees of freedom for node index
-                dofs = dof_map(node_idxs=[node_idx])
+                    # get nodes indices of segments
+                    node_idxs = []
+
+                    # loop through segment indices
+                    for seg_idx in seg_idxs:
+                        seg = self.mesh.segments[seg_idx]
+
+                        # loop through each node index in segment
+                        for node_idx in seg:
+                            if node_idx not in node_idxs:
+                                node_idxs.append(node_idx)
+
+                # get degrees of freedom for node indices
+                dofs = dof_map(node_idxs=node_idxs)
 
                 # apply boundary condition
-                k_mod, f = bc.apply_bc(k=k_mod, f=f, dofs=dofs)
+                k_mod, f = boundary_condition.apply_bc(k=k_mod, f=f, dofs=dofs)
 
             # solve system
             u = solver.solve_direct(k=k_mod, f=f)
@@ -178,12 +204,24 @@ class PlaneStress:
                 self.mesh.elements[:, 0:3],
             )
 
+            # determine min. and max. displacements
+            u_min = min(u) - 1e-12
+            u_max = max(u) + 1e-12
+
+            v = np.linspace(start=u_min, stop=u_max, num=15, endpoint=True)
+
+            if np.isclose(v[0], v[-1], atol=1e-12):
+                v = 15
+                ticks = None
+            else:
+                ticks = v
+
             if normalize:
                 norm = CenteredNorm()
             else:
                 norm = None
 
-            trictr = ax.tricontourf(triang, u, cmap=colormap, norm=norm)
+            trictr = ax.tricontourf(triang, u, v, cmap=colormap, norm=norm)
 
             # display the colorbar
             divider = make_axes_locatable(axes=ax)
@@ -193,6 +231,7 @@ class PlaneStress:
                 mappable=trictr,
                 label=colorbar_label,
                 format=fmt,
+                ticks=ticks,
                 cax=cax,
             )
 
@@ -202,6 +241,8 @@ class PlaneStress:
                 nodes=False,
                 nd_num=False,
                 el_num=False,
+                nd_markers=False,
+                seg_markers=False,
                 materials=False,
                 mask=None,
                 alpha=alpha,
@@ -216,7 +257,7 @@ class PlaneStress:
         results: Results,
         displacement_scale: float,
         title: str | None = None,
-        alpha: float = 0.2,
+        alpha: float = 0.8,
         **kwargs: Any,
     ) -> matplotlib.axes.Axes:
         """Plots the deformed shape."""
@@ -229,6 +270,8 @@ class PlaneStress:
             nodes=False,
             nd_num=False,
             el_num=False,
+            nd_markers=False,
+            seg_markers=False,
             materials=False,
             mask=None,
             alpha=alpha,
@@ -337,6 +380,8 @@ class PlaneStress:
                 nodes=False,
                 nd_num=False,
                 el_num=False,
+                nd_markers=False,
+                seg_markers=False,
                 materials=False,
                 mask=None,
                 alpha=alpha,

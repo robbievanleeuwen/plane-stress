@@ -2,17 +2,11 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 import numpy as np
 from shapely import Polygon
 
 from planestress.pre.geometry import Geometry
-from planestress.pre.material import DEFAULT_MATERIAL
-
-
-if TYPE_CHECKING:
-    from planestress.pre.material import Material
+from planestress.pre.material import DEFAULT_MATERIAL, Material
 
 
 def rectangle(
@@ -52,3 +46,50 @@ def circle(
     poly = Polygon(shell=points)
 
     return Geometry(polygons=poly, materials=[material], tol=tol)
+
+
+def gravity(
+    units: str = "MPa",
+) -> float:
+    """Returns gravity with consistent units."""
+    # convert units to lower case
+    units = units.lower()
+
+    gravity_units = {
+        "mpa": 9.81e3,  # mm/s^2
+        "si": 9.81,  # m/s^2
+    }
+
+    return gravity_units[units]
+
+
+def steel(
+    thickness: float,
+    units: str = "MPa",
+    colour: str = "grey",
+) -> Material:
+    """Creates a steel material object."""
+    # convert units to lower case
+    units = units.lower()
+
+    unit_props = {
+        "mpa": {
+            "name": "MPa",
+            "elastic_modulus": 200e3,  # MPa = N/mm^2
+            "density": 7.85e-6,  # kg/mm^3
+        },
+        "si": {
+            "name": "SI",
+            "elastic_modulus": 200e9,  # N/m^2 = Pa
+            "density": 7.85e3,  # kg/m^3
+        },
+    }
+
+    return Material(
+        name=f"Steel [{unit_props[units]['name']}]",
+        elastic_modulus=unit_props[units]["elastic_modulus"],
+        poissons_ratio=0.3,
+        thickness=thickness,
+        density=unit_props[units]["density"],
+        colour=colour,
+    )
