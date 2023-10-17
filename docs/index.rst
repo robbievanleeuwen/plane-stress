@@ -2,6 +2,7 @@
     :hidden:
 
     installation
+    user_guide
     api
 
 .. toctree::
