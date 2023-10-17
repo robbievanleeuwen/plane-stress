@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+import copy
+from typing import TYPE_CHECKING, Any, Callable
 
 import matplotlib
 import numpy as np
@@ -12,6 +13,7 @@ from mpl_toolkits.axes_grid1.axes_divider import make_axes_locatable
 
 import planestress.analysis.solver as solver
 from planestress.analysis.finite_element import FiniteElement, Tri3, Tri6
+from planestress.analysis.utils import dof_map
 from planestress.post.plotting import plotting_context
 from planestress.post.results import Results
 
@@ -71,16 +73,6 @@ class PlaneStress:
                 )
             )
 
-    @staticmethod
-    def dof_map(node_idxs: list[int]) -> list[int]:
-        """Maps a list of node indices to a list of degrees of freedom."""
-        dofs = []
-
-        for node_idx in node_idxs:
-            dofs.extend([node_idx * 2, node_idx * 2 + 1])
-
-        return dofs
-
     def solve(self) -> list[Results]:
         """Solves each load case."""
         # get number of degrees of freedom
@@ -88,7 +80,6 @@ class PlaneStress:
 
         # allocate stiffness matrix and load vector
         k = np.zeros((num_dofs, num_dofs))
-        k_mod = np.zeros((num_dofs, num_dofs))
         f = np.zeros(num_dofs)
 
         # allocate results
@@ -100,7 +91,7 @@ class PlaneStress:
             k_el = el.element_stiffness_matrix(n_points=self.int_points)
 
             # get element degrees of freedom
-            el_dofs = self.dof_map(node_idxs=el.node_idxs)
+            el_dofs = dof_map(node_idxs=el.node_idxs)
             el_dofs_mat = np.ix_(el_dofs, el_dofs)
 
             # add element stiffness matrix to global stiffness matrix
@@ -108,34 +99,41 @@ class PlaneStress:
 
         # for each load case
         for lc in self.load_cases:
+            # initialise modified stiffness matrix
+            k_mod = copy.deepcopy(k)
+
             # assemble load vector
             for el in self.elements:
                 # get element load vector
                 f_el = el.element_load_vector(n_points=self.int_points)
 
                 # get element degrees of freedom
-                el_dofs = self.dof_map(node_idxs=el.node_idxs)
+                el_dofs = dof_map(node_idxs=el.node_idxs)
 
                 # add element load vector to global load vector
                 f[el_dofs] += f_el
 
             # apply boundary conditions
-            for idx, bc in enumerate(lc.boundary_conditions):
+            for bc in lc.boundary_conditions:
                 # get node index of current boundary condition - TODO: for segments?
                 node_idx = self.mesh.node_markers.index(bc.marker_id)
 
                 # get degrees of freedom for node index
-                dofs = self.dof_map(node_idxs=[node_idx])
+                dofs = dof_map(node_idxs=[node_idx])
 
-                # if first boundary condition get unmodified k
-                k_mod = k if idx == 0 else k_mod
+                # apply boundary condition
                 k_mod, f = bc.apply_bc(k=k_mod, f=f, dofs=dofs)
 
             # solve system
-            u = solver.solve_direct(k=k, f=f)
+            u = solver.solve_direct(k=k_mod, f=f)
 
-            # add to results
-            results.append(Results(u=u))
+            # post-processing
+            res = Results(num_nodes=self.mesh.num_nodes(), u=u)
+            res.calculate_node_forces(k=k)
+            res.calculate_element_results(elements=self.elements)
+
+            # add to results list
+            results.append(res)
 
         return results
 
@@ -154,11 +152,11 @@ class PlaneStress:
         """Plots the displacement contours."""
         # get displacement values
         if direction == "x":
-            u = results.u[0::2]
+            u = results.ux
         elif direction == "y":
-            u = results.u[1::2]
+            u = results.uy
         elif direction == "xy":
-            u = (results.u[0::2] ** 2 + results.u[1::2] ** 2) ** 0.5
+            u = results.uxy
         else:
             raise ValueError(f"direction must be 'x', 'y' or 'xy', not {direction}.")
 
@@ -235,7 +233,115 @@ class PlaneStress:
             mask=None,
             alpha=alpha,
             title=title,
-            ux=results.u[0::2] * displacement_scale,
-            uy=results.u[1::2] * displacement_scale,
+            ux=results.ux * displacement_scale,
+            uy=results.uy * displacement_scale,
             **kwargs,
         )
+
+    def plot_stress(
+        self,
+        results: Results,
+        stress: str,
+        title: str | None = None,
+        cmap: str = "coolwarm",
+        stress_limits: tuple[float, float] | None = None,
+        normalize: bool = True,
+        fmt: str = "{x:.4e}",
+        colorbar_label: str = "Stress",
+        alpha: float = 0.5,
+        # material_list: list[Material] | None = None, # TODO
+        agg_func: Callable[[list[float]], float] = np.average,
+        **kwargs: Any,
+    ) -> matplotlib.axes.Axes:
+        """Plots the stress contours."""
+        # get required variables for stress plot
+        stress_dict = {
+            "xx": {
+                "attribute": "sigs",
+                "idx": 0,
+                "title": r"Stress Contour Plot - $\sigma_{xx}$",
+            },
+            "yy": {
+                "attribute": "sigs",
+                "idx": 1,
+                "title": r"Stress Contour Plot - $\sigma_{yy}$",
+            },
+            "xy": {
+                "attribute": "sigs",
+                "idx": 2,
+                "title": r"Stress Contour Plot - $\sigma_{xy}$",
+            },
+        }
+
+        # populate stresses and plotted material groups
+        sigs = results.get_nodal_stresses(agg_func=agg_func)[
+            :, int(stress_dict[stress]["idx"])
+        ]
+
+        # apply title
+        if not title:
+            title = str(stress_dict[stress]["title"])
+
+        # create plot and setup the plot
+        with plotting_context(title=title, **kwargs) as (fig, ax):
+            assert ax
+
+            # set up the colormap
+            colormap = matplotlib.colormaps.get_cmap(cmap=cmap)
+
+            # create triangulation
+            triang = Triangulation(
+                self.mesh.nodes[:, 0],
+                self.mesh.nodes[:, 1],
+                self.mesh.elements[:, 0:3],
+            )
+
+            # determine minimum and maximum stress values for the contour list
+            if stress_limits is None:
+                sig_min = min(sigs) - 1e-12
+                sig_max = max(sigs) + 1e-12
+            else:
+                sig_min = stress_limits[0]
+                sig_max = stress_limits[1]
+
+            v = np.linspace(start=sig_min, stop=sig_max, num=15, endpoint=True)
+
+            if np.isclose(v[0], v[-1], atol=1e-12):
+                v = 15
+                ticks = None
+            else:
+                ticks = v
+
+            if normalize:
+                norm = CenteredNorm()
+            else:
+                norm = None
+
+            trictr = ax.tricontourf(triang, sigs, v, cmap=colormap, norm=norm)
+
+            # display the colorbar
+            divider = make_axes_locatable(axes=ax)
+            cax = divider.append_axes(position="right", size="5%", pad=0.1)
+
+            fig.colorbar(
+                mappable=trictr,
+                label=colorbar_label,
+                format=fmt,
+                ticks=ticks,
+                cax=cax,
+            )
+
+            # plot the finite element mesh
+            self.mesh.plot_mesh(
+                material_list=self.geometry.materials,
+                nodes=False,
+                nd_num=False,
+                el_num=False,
+                materials=False,
+                mask=None,
+                alpha=alpha,
+                title=title,
+                **dict(kwargs, ax=ax),
+            )
+
+        return ax
