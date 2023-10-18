@@ -12,7 +12,7 @@ import numpy.typing as npt
 class Material:
     """Class for a plane-stress material."""
 
-    name: str = "Default"
+    name: str = "default"
     elastic_modulus: float = 1.0
     poissons_ratio: float = 0.0
     thickness: float = 1.0
