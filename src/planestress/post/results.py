@@ -106,7 +106,7 @@ class Results:
 
         # allocate list of nodal results
         sigs = np.zeros((num_nodes, 3))
-        sigs_res = [[] for _ in range(num_nodes)]
+        sigs_res: list[list[list[float]]] = [[] for _ in range(num_nodes)]
 
         # loop through each element
         for el in self.element_results:
@@ -354,7 +354,7 @@ class Results:
             - TODO others.
         """
         # dictionary of acceptable stresses
-        stress_dict = {
+        stress_dict: dict[str, dict[str, str | int]] = {
             "xx": {
                 "attribute": "sigs",
                 "idx": 0,
@@ -387,9 +387,8 @@ class Results:
 
         # populate stresses and plotted material groups
         try:
-            sigs = self.get_nodal_stresses(agg_func=agg_func)[
-                :, int(stress_dict[stress]["idx"])
-            ]
+            stress_idx = int(stress_dict[stress]["idx"])
+            sigs = self.get_nodal_stresses(agg_func=agg_func)[:, stress_idx]
         except KeyError as exc:
             raise ValueError(
                 f"{stress} is not a valid value for 'stress'. Refer to the "

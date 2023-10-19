@@ -213,9 +213,9 @@ class Mesh:
                     pt1 = self.nodes[el[0]]
                     pt2 = self.nodes[el[1]]
                     pt3 = self.nodes[el[2]]
-                    x = (pt1[0] + pt2[0] + pt3[0]) / 3
-                    y = (pt1[1] + pt2[1] + pt3[1]) / 3
-                    ax.annotate(str(idx), xy=(x, y), color="b")
+                    el_x = (pt1[0] + pt2[0] + pt3[0]) / 3
+                    el_y = (pt1[1] + pt2[1] + pt3[1]) / 3
+                    ax.annotate(str(idx), xy=(el_x, el_y), color="b")
 
             # plot the load case
             if load_case is not None:

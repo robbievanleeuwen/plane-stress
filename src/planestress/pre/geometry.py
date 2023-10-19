@@ -394,7 +394,7 @@ class Geometry:
             polygons=affinity.rotate(
                 geom=self.polygons,
                 angle=angle,
-                origin=rot_point,  # type: ignore
+                origin=rot_point,
                 use_radians=use_radians,
             ),
             materials=self.materials,
@@ -434,7 +434,7 @@ class Geometry:
 
         return Geometry(
             polygons=affinity.scale(
-                geom=self.polygons, xfact=xfact, yfact=yfact, origin=mirror_point  # type: ignore
+                geom=self.polygons, xfact=xfact, yfact=yfact, origin=mirror_point
             ),
             materials=self.materials,
             tol=self.tol,
@@ -1327,17 +1327,20 @@ class Point:
 
     def __eq__(
         self,
-        other: Point,
+        other: object,
     ) -> bool:
         """Override __eq__ method to neglect index.
 
         Args:
-            other: Other ``Point`` to check equality against.
+            other: Other object to check equality against.
 
         Returns:
             ``True`` if ``Points`` objects are equal.
         """
-        return self.x == other.x and self.y == other.y
+        if isinstance(other, Point):
+            return self.x == other.x and self.y == other.y
+        else:
+            return False
 
     def round(self) -> None:
         """Rounds the point to ``tol`` digits."""
@@ -1375,19 +1378,22 @@ class Facet:
 
     def __eq__(
         self,
-        other: Facet,
+        other: object,
     ) -> bool:
         """Override __eq__ method to account for points in either order.
 
         Args:
-            other: Other ``Facet`` to check equality against.
+            other: Other object to check equality against.
 
         Returns:
             ``True`` if ``Facet`` objects are equal.
         """
-        return (self.pt1 == other.pt1 and self.pt2 == other.pt2) or (
-            self.pt1 == other.pt2 and self.pt2 == other.pt1
-        )
+        if isinstance(other, Facet):
+            return (self.pt1 == other.pt1 and self.pt2 == other.pt2) or (
+                self.pt1 == other.pt2 and self.pt2 == other.pt1
+            )
+        else:
+            return False
 
     def to_tuple(self) -> tuple[float, float]:
         """Converts the facet to a tuple.

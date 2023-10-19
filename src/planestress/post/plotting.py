@@ -75,7 +75,7 @@ def plotting_context(
                 f"subplots: {kwargs}."
             ) from exc
     else:
-        fig = ax.get_figure()
+        fig = ax.get_figure()  # type: ignore
         assert fig
         ax_supplied = True
 

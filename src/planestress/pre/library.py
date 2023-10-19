@@ -153,7 +153,7 @@ def steel(
     # convert units to lower case
     units = units.lower()
 
-    unit_props = {
+    unit_props: dict[str, dict[str, str | float]] = {
         "mpa": {
             "name": "MPa",
             "elastic_modulus": 200e3,  # MPa = N/mm^2
@@ -169,10 +169,10 @@ def steel(
     try:
         return Material(
             name=f"Steel [{unit_props[units]['name']}]",
-            elastic_modulus=unit_props[units]["elastic_modulus"],
+            elastic_modulus=float(unit_props[units]["elastic_modulus"]),
             poissons_ratio=0.3,
             thickness=thickness,
-            density=unit_props[units]["density"],
+            density=float(unit_props[units]["density"]),
             color=color,
         )
     except KeyError as exc:

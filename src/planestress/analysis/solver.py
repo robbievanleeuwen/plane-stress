@@ -42,4 +42,4 @@ def solve_direct_sparse(
     Returns:
         The solution vector to the sparse linear system of equations.
     """
-    return spsolve(A=k, b=f)
+    return spsolve(A=k, b=f)  # type: ignore
