@@ -97,8 +97,8 @@ def gravity(
     .. admonition:: Units
         The value for ``units`` may be one of the following:
 
-          - ``"MPa"`` - :math:`g = 9.81 \times 10^3 \textrm{mm/s}^2`
-          - ``"SI"`` - :math:`g = 9.81 \textrm{m/s}^2`
+        - ``"MPa"`` - :math:`g = 9.81 \times 10^3 \textrm{mm/s}^2`
+        - ``"SI"`` - :math:`g = 9.81 \textrm{m/s}^2`
     """
     # convert units to lower case
     units = units.lower()
@@ -117,14 +117,14 @@ def gravity(
 def steel(
     thickness: float,
     units: str = "MPa",
-    colour: str = "grey",
+    color: str = "grey",
 ) -> Material:
     r"""Creates a steel material object with consistent units.
 
     Args:
         thickness: Thickness of the steel.
         units: Units system to use. See below for options. Defaults to ``"MPa"``.
-        colour: Material color for rendering. Defaults to ``"grey"``.
+        color: Material color for rendering. Defaults to ``"grey"``.
 
     Raises:
         ValueError: If the value of ``units`` is not in the list below.
@@ -135,17 +135,17 @@ def steel(
     .. admonition:: Units
         The value for ``units`` may be one of the following:
 
-          - ``"MPa"``: Newtons [N] and millimetres [mm]
+        - ``"MPa"``: Newtons [N] and millimetres [mm]
 
-            - Elastic modulus: :math:`200 \times 10^3 \textrm{MPa}`
-            - Poisson's ratio: :math:`0.3`
-            - Density: :math:`7.85 \times 10^{-6} \textrm{kg/mm}`^3`
+          - Elastic modulus: :math:`200 \times 10^3 \textrm{MPa}`
+          - Poisson's ratio: :math:`0.3`
+          - Density: :math:`7.85 \times 10^{-6} \textrm{kg/mm}`^3`
 
-          - ``"SI"``: Newtons [N] and metres [m]
+        - ``"SI"``: Newtons [N] and metres [m]
 
-            - Elastic modulus: :math:`200 \times 10^9 \textrm{Pa}`
-            - Poisson's ratio: :math:`0.3`
-            - Density: :math:`7.85 \times 10^3 \textrm{kg/m}`^3`
+          - Elastic modulus: :math:`200 \times 10^9 \textrm{Pa}`
+          - Poisson's ratio: :math:`0.3`
+          - Density: :math:`7.85 \times 10^3 \textrm{kg/m}`^3`
 
     Example:
         TODO.
@@ -173,7 +173,7 @@ def steel(
             poissons_ratio=0.3,
             thickness=thickness,
             density=unit_props[units]["density"],
-            colour=colour,
+            color=color,
         )
     except KeyError as exc:
         raise ValueError(f"{units} is not a valid input for 'units'.") from exc

@@ -37,6 +37,8 @@ class Mesh:
         segments_markers: List of segment marker IDs.
         linear: If ``True`` the mesh consists of 3-noded triangles, if ``False`` the
             mesh consists of 6-noded triangles.
+
+    Attributes:
         str_tree: A :class:`shapely.STRtree` of the nodes in the mesh.
     """
 
@@ -107,7 +109,7 @@ class Mesh:
             material_list: List of materials that correspond to the mesh attributes.
             title: Plot title.
             materials: If set to ``True`` shades the elements with the specified
-                material colours.
+                material colors.
             nodes: If set to ``True`` plots the nodes of the mesh.
             node_indexes: If set to ``True``, plots the indexes of each node.
             element_indexes: If set to ``True``, plots the indexes of each element.
@@ -146,13 +148,13 @@ class Mesh:
 
             # if displaying materials
             if materials:
-                colour_array = []
+                color_array = []
                 legend_labels = []
                 c = []  # Indices of elements for mapping colors
 
                 # create an array of finite element colors
                 for idx, attr in enumerate(self.attributes):
-                    colour_array.append(material_list[int(attr)].colour)
+                    color_array.append(material_list[int(attr)].color)
                     c.append(idx)
 
                 # create a list of unique material legend entries
@@ -160,10 +162,10 @@ class Mesh:
                     # if the material has not be entered yet
                     if idx == 0 or material not in material_list[0:idx]:
                         # add the material color and name to the legend list
-                        patch = Patch(color=material.colour, label=material.name)
+                        patch = Patch(color=material.color, label=material.name)
                         legend_labels.append(patch)
 
-                cmap = ListedColormap(colors=colour_array)  # custom colormap
+                cmap = ListedColormap(colors=color_array)  # custom colormap
 
                 # plot the mesh colors
                 ax.tripcolor(

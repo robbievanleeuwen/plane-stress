@@ -18,7 +18,7 @@ class Material:
         poissons_ratio: Material Poisson's ratio. Defaults to ``0.0``.
         thickness: Material thickness. Defaults to ``1.0``.
         density: Material density (mass per unit volume). Defaults to ``1.0``.
-        colour: Defaults to ``"w"``.
+        color: Defaults to ``"w"``.
     """
 
     name: str = "default"
@@ -26,7 +26,7 @@ class Material:
     poissons_ratio: float = 0.0
     thickness: float = 1.0
     density: float = 1.0
-    colour: str = "w"
+    color: str = "w"
 
     @property
     def mu(self) -> float:

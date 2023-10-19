@@ -20,11 +20,11 @@ def solve_direct(
     """Solves a linear system using the direct solver method.
 
     Args:
-        k: ``N x N`` matrix of the linear system
-        f: ``N x 1`` right hand side of the linear system
+        k: ``N x N`` matrix of the linear system.
+        f: ``N x 1`` right hand side of the linear system.
 
     Returns:
-        The solution vector to the linear system of equations
+        The solution vector to the linear system of equations.
     """
     return np.linalg.solve(a=k, b=f)
 
@@ -36,10 +36,10 @@ def solve_direct_sparse(
     """Solves a sparse linear system using the direct solver method.
 
     Args:
-        k: ``N x N`` sparse matrix of the linear system
-        f: ``N x 1`` right hand side of the linear system
+        k: ``N x N`` sparse matrix of the linear system.
+        f: ``N x 1`` right hand side of the linear system.
 
     Returns:
-        The solution vector to the sparse linear system of equations
+        The solution vector to the sparse linear system of equations.
     """
     return spsolve(A=k, b=f)

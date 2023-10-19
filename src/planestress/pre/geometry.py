@@ -855,7 +855,7 @@ class Geometry:
             pt_idx: If the index of the point is known, this can be provided as an
                 alternative to ``point``. Defaults to ``None``.
 
-        Warning:
+        Warns:
             If the node spring is added after generating a mesh, the mesh will need to
             be regenerated prior to creating a
             :class:`~planestress.analysis.PlaneStress` object.
@@ -896,7 +896,7 @@ class Geometry:
             pt_idx: If the index of the point is known, this can be provided as an
                 alternative to ``point``. Defaults to ``None``.
 
-        Warning:
+        Warns:
             If the node load is added after generating a mesh, the mesh will need to
             be regenerated prior to creating a
             :class:`~planestress.analysis.PlaneStress` object.
@@ -941,7 +941,7 @@ class Geometry:
             fct_idx: If the index of the facet is known, this can be provided as an
                 alternative to ``point1`` and ``point2``. Defaults to ``None``.
 
-        Warning:
+        Warns:
             If the line support is added after generating a mesh, the mesh will need to
             be regenerated prior to creating a
             :class:`~planestress.analysis.PlaneStress` object.
@@ -989,7 +989,7 @@ class Geometry:
             fct_idx: If the index of the facet is known, this can be provided as an
                 alternative to ``point1`` and ``point2``. Defaults to ``None``.
 
-        Warning:
+        Warns:
             If the line spring is added after generating a mesh, the mesh will need to
             be regenerated prior to creating a
             :class:`~planestress.analysis.PlaneStress` object.
@@ -1032,7 +1032,7 @@ class Geometry:
             fct_idx: If the index of the facet is known, this can be provided as an
                 alternative to ``point1`` and ``point2``. Defaults to ``None``.
 
-        Warning:
+        Warns:
             If the line load is added after generating a mesh, the mesh will need to
             be regenerated prior to creating a
             :class:`~planestress.analysis.PlaneStress` object.
@@ -1169,10 +1169,10 @@ class Geometry:
             TODO.
         """
         # get keyword arguments
-        title: str = kwargs.get("title", "Geometry")
-        labels: list[str] = kwargs.get("label", ["control_points"])
-        plot_cps: bool = kwargs.get("plot_cps", True)
-        legend: bool = kwargs.get("legend", True)
+        title: str = kwargs.pop("title", "Geometry")
+        labels: list[str] = kwargs.pop("label", ["control_points"])
+        plot_cps: bool = kwargs.pop("plot_cps", True)
+        legend: bool = kwargs.pop("legend", True)
 
         # create plot and setup the plot
         with plotting_context(title=title, **kwargs) as (_, ax):
@@ -1256,7 +1256,7 @@ class Geometry:
          Keyword Args:
             title (str): Plot title. Defaults to ``"Finite Element Mesh"``.
             materials (bool): If set to ``True`` shades the elements with the specified
-                material colours. Defaults to ``True``.
+                material colors. Defaults to ``True``.
             nodes (bool): If set to ``True`` plots the nodes of the mesh. Defaults to
                 ``False``.
             node_indexes (bool): If set to ``True``, plots the indexes of each node.
@@ -1280,24 +1280,25 @@ class Geometry:
             TODO.
         """
         # get keyword arguments
-        title: str = kwargs.get("title", "Finite Element Mesh")
-        materials: bool = kwargs.get("materials", True)
-        nodes: bool = kwargs.get("nodes", False)
-        node_indexes: bool = kwargs.get("node_indexes", False)
-        element_indexes: bool = kwargs.get("element_indexes", False)
-        alpha: float = kwargs.get("alpha", 0.5)
-        mask: list[bool] | None = kwargs.get("mask", None)
+        title: str = kwargs.pop("title", "Finite Element Mesh")
+        materials: bool = kwargs.pop("materials", True)
+        nodes: bool = kwargs.pop("nodes", False)
+        node_indexes: bool = kwargs.pop("node_indexes", False)
+        element_indexes: bool = kwargs.pop("element_indexes", False)
+        alpha: float = kwargs.pop("alpha", 0.5)
+        mask: list[bool] | None = kwargs.pop("mask", None)
 
         if self.mesh is not None:
             return self.mesh.plot_mesh(
+                load_case=load_case,
                 material_list=self.materials,
-                nodes=nodes,
-                nd_num=node_indexes,
-                el_num=element_indexes,
+                title=title,
                 materials=materials,
+                nodes=nodes,
+                node_indexes=node_indexes,
+                element_indexes=element_indexes,
                 alpha=alpha,
                 mask=mask,
-                title=title,
                 **kwargs,
             )
         else:
