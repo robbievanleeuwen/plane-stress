@@ -139,6 +139,7 @@ class Results:
         Args:
             direction: Displacement field to plot. May be either ``"x"``, ``"y"`` or
                 ``"xy"`` (resultant displacement).
+            kwargs: See below.
 
         Keyword Args:
             title (str): Plot title. Defaults to
@@ -162,7 +163,7 @@ class Results:
                 :meth:`~planestress.post.plotting.plotting_context`.
 
         Raises:
-            RuntimeError: If the value for ``direction`` is not valid.
+            ValueError: If the value for ``direction`` is not valid.
 
         Returns:
             Matplotlib axes object.
@@ -264,6 +265,7 @@ class Results:
 
         Args:
             displacement_scale: Displacement scale.
+            kwargs: See below.
 
         Keyword Args:
             title (str): Plot title. Defaults to
@@ -307,6 +309,7 @@ class Results:
 
         Args:
             stress: Stress value to plot. See below for list of values.
+            kwargs: See below.
 
         Keyword Args:
             title (str): Plot title. Defaults to ``"Stress Contour Plot - {stress}"``.

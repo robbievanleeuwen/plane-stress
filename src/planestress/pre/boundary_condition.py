@@ -35,9 +35,6 @@ class BoundaryCondition:
 
         Raises:
             NotImplementedError: If this method has not been implemented.
-
-        Returns:
-            Modified stiffness matrix and load vector (``k``, ``f``).
         """
         raise NotImplementedError
 

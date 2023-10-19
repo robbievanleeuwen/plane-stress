@@ -123,9 +123,6 @@ class FiniteElement:
 
         Raises:
             NotImplementedError: If this method hasn't been implemented for an element.
-
-        Returns:
-            The values of the shape functions.
         """
         raise NotImplementedError
 
@@ -140,9 +137,6 @@ class FiniteElement:
 
         Raises:
             NotImplementedError: If this method hasn't been implemented for an element.
-
-        Returns:
-            The partial derivatives of the shape functions.
         """
         raise NotImplementedError
 
@@ -168,9 +162,6 @@ class FiniteElement:
 
         Raises:
             NotImplementedError:If this method hasn't been implemented for an element.
-
-        Returns:
-            Values of the isoparametric coordinates at all nodes.
         """
         raise NotImplementedError
 

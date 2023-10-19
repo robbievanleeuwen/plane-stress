@@ -52,8 +52,7 @@ class Geometry:
                 ``12``.
 
         Raises:
-            ValueError:
-                If the number of ``materials`` does not equal the number of
+            ValueError: If the number of ``materials`` does not equal the number of
                 ``polygons``.
 
         Example:
@@ -1150,6 +1149,7 @@ class Geometry:
         Args:
             load_case: Plots the boundary conditions within a load case if provided.
                 Defaults to ``None``.
+            kwargs: See below.
 
         Keyword Args:
             title (str): Plot title. Defaults to ``"Geometry"``.
@@ -1252,6 +1252,7 @@ class Geometry:
         Args:
             load_case: Plots the boundary conditions within a load case if provided.
                 Defaults to ``None``.
+            kwargs: See below.
 
          Keyword Args:
             title (str): Plot title. Defaults to ``"Finite Element Mesh"``.
