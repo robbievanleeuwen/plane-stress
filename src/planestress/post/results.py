@@ -226,7 +226,7 @@ class Results:
 
             # plot the contour lines
             if contours:
-                ax.tricontour(triang, u, colors="k", levels=15)
+                ax.tricontour(triang, u, colors="k", levels=v)
 
             # display the colorbar
             divider = make_axes_locatable(axes=ax)
@@ -438,7 +438,7 @@ class Results:
 
             # plot the contour lines
             if contours:
-                ax.tricontour(triang, sigs, colors="k", levels=15)
+                ax.tricontour(triang, sigs, colors="k", levels=v)
 
             # display the colorbar
             divider = make_axes_locatable(axes=ax)

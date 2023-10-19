@@ -114,7 +114,7 @@ def gravity(
         raise ValueError(f"{units} is not a valid input for 'units'.") from exc
 
 
-def steel(
+def steel_material(
     thickness: float,
     units: str = "MPa",
     color: str = "grey",

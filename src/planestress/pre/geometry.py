@@ -1170,7 +1170,7 @@ class Geometry:
         """
         # get keyword arguments
         title: str = kwargs.pop("title", "Geometry")
-        labels: list[str] = kwargs.pop("label", ["control_points"])
+        labels: list[str] = kwargs.pop("labels", ["control_points"])
         plot_cps: bool = kwargs.pop("plot_cps", True)
         legend: bool = kwargs.pop("legend", True)
 
