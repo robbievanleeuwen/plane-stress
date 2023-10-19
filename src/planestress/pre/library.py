@@ -15,7 +15,23 @@ def rectangle(
     material: Material = DEFAULT_MATERIAL,
     tol: int = 12,
 ) -> Geometry:
-    """Creates a rectangular geometry."""
+    """Creates a rectangular geometry with the bottom-left corner at the origin.
+
+    Args:
+        d: Depth of the rectangle.
+        b: Width of the rectangle.
+        material: ```Material`` object to apply to the rectangle. Defaults to
+            ``DEFAULT_MATERIAL``, i.e. a material with unit properties and a Poisson's
+            ratio of zero.
+        tol: The points in the geometry get rounded to ``tol`` digits. Defaults to
+            ``12``.
+
+    Returns:
+        Rectangular ``Geometry`` object.
+
+    Example:
+        TODO.
+    """
     shell = [(0, 0), (b, 0), (b, d), (0, d)]
     poly = Polygon(shell=shell)
 
@@ -28,7 +44,23 @@ def circle(
     material: Material = DEFAULT_MATERIAL,
     tol: int = 12,
 ) -> Geometry:
-    """Creates a circular geometry."""
+    """Creates a circular geometry with the centre at the origin.
+
+    Args:
+        d: Diameter of the circle.
+        n: Number of points to discretise the circle.
+        material: ```Material`` object to apply to the circle. Defaults to
+            ``DEFAULT_MATERIAL``, i.e. a material with unit properties and a Poisson's
+            ratio of zero.
+        tol: The points in the geometry get rounded to ``tol`` digits. Defaults to
+            ``12``.
+
+    Returns:
+        Circular ``Geometry`` object.
+
+    Example:
+        TODO.
+    """
     points = []
 
     # loop through each point on the circle
@@ -51,7 +83,23 @@ def circle(
 def gravity(
     units: str = "MPa",
 ) -> float:
-    """Returns gravity with consistent units."""
+    r"""Returns the gravitational acceleration with consistent units.
+
+    Args:
+        units: Units system to use. See below for options. Defaults to ``"MPa"``.
+
+    Raises:
+        ValueError: If the value of ``units`` is not in the list below.
+
+    Returns:
+        Acceleration due to gravity.
+
+    .. admonition:: Units
+        The value for ``units`` may be one of the following:
+
+          - ``"MPa"`` - :math:`g = 9.81 \times 10^3 \textrm{mm/s}^2`
+          - ``"SI"`` - :math:`g = 9.81 \textrm{m/s}^2`
+    """
     # convert units to lower case
     units = units.lower()
 
@@ -60,7 +108,10 @@ def gravity(
         "si": 9.81,  # m/s^2
     }
 
-    return gravity_units[units]
+    try:
+        return gravity_units[units]
+    except KeyError as exc:
+        raise ValueError(f"{units} is not a valid input for 'units'.") from exc
 
 
 def steel(
@@ -68,7 +119,37 @@ def steel(
     units: str = "MPa",
     colour: str = "grey",
 ) -> Material:
-    """Creates a steel material object."""
+    r"""Creates a steel material object with consistent units.
+
+    Args:
+        thickness: Thickness of the steel.
+        units: Units system to use. See below for options. Defaults to ``"MPa"``.
+        colour: Material color for rendering. Defaults to ``"grey"``.
+
+    Raises:
+        ValueError: If the value of ``units`` is not in the list below.
+
+    Returns:
+        Steel material object.
+
+    .. admonition:: Units
+        The value for ``units`` may be one of the following:
+
+          - ``"MPa"``: Newtons [N] and millimetres [mm]
+
+            - Elastic modulus: :math:`200 \times 10^3 \textrm{MPa}`
+            - Poisson's ratio: :math:`0.3`
+            - Density: :math:`7.85 \times 10^{-6} \textrm{kg/mm}`^3`
+
+          - ``"SI"``: Newtons [N] and metres [m]
+
+            - Elastic modulus: :math:`200 \times 10^9 \textrm{Pa}`
+            - Poisson's ratio: :math:`0.3`
+            - Density: :math:`7.85 \times 10^3 \textrm{kg/m}`^3`
+
+    Example:
+        TODO.
+    """
     # convert units to lower case
     units = units.lower()
 
@@ -85,11 +166,14 @@ def steel(
         },
     }
 
-    return Material(
-        name=f"Steel [{unit_props[units]['name']}]",
-        elastic_modulus=unit_props[units]["elastic_modulus"],
-        poissons_ratio=0.3,
-        thickness=thickness,
-        density=unit_props[units]["density"],
-        colour=colour,
-    )
+    try:
+        return Material(
+            name=f"Steel [{unit_props[units]['name']}]",
+            elastic_modulus=unit_props[units]["elastic_modulus"],
+            poissons_ratio=0.3,
+            thickness=thickness,
+            density=unit_props[units]["density"],
+            colour=colour,
+        )
+    except KeyError as exc:
+        raise ValueError(f"{units} is not a valid input for 'units'.") from exc

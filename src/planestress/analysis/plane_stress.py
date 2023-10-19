@@ -116,7 +116,7 @@ class PlaneStress:
 
             # apply boundary conditions # TODO - Tri6 elements LineBC!
             for boundary_condition in lc.boundary_conditions:
-                # get node indices of current boundary condition
+                # get node indexes of current boundary condition
                 # if we are a node boundary condition
                 if isinstance(boundary_condition, bc.NodeBoundaryCondition):
                     # get index of the node the boundary condition is applied to
@@ -125,17 +125,17 @@ class PlaneStress:
                     ]
                 # otherwise we must be a line boundary condition
                 else:
-                    # get indices of the segment the boundary condition is applied to
+                    # get indexes of the segment the boundary condition is applied to
                     seg_idxs = [
                         idx
                         for idx, seg_marker in enumerate(self.mesh.segment_markers)
                         if seg_marker == boundary_condition.marker_id
                     ]
 
-                    # get nodes indices of segments
+                    # get nodes indexes of segments
                     node_idxs = []
 
-                    # loop through segment indices
+                    # loop through segment indexes
                     for seg_idx in seg_idxs:
                         seg = self.mesh.segments[seg_idx]
 
@@ -144,7 +144,7 @@ class PlaneStress:
                             if node_idx not in node_idxs:
                                 node_idxs.append(node_idx)
 
-                # get degrees of freedom for node indices
+                # get degrees of freedom for node indexes
                 dofs = dof_map(node_idxs=node_idxs)
 
                 # apply boundary condition

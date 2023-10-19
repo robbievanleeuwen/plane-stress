@@ -20,6 +20,8 @@ from planestress.pre.mesh import Mesh
 if TYPE_CHECKING:
     import matplotlib.axes
 
+    from planestress.pre.load_case import LoadCase
+
 
 class Geometry:
     """Class describing a geometric region."""
@@ -133,7 +135,7 @@ class Geometry:
             # add control points to the global list
             self.control_points.append(poly_cp)
 
-        # assign point indices
+        # assign point indexes
         for idx, pt in enumerate(self.points):
             pt.idx = idx
 
@@ -306,8 +308,8 @@ class Geometry:
 
         Args:
             align_to: Location to align the centroid to, either another ``Geometry``
-            object, a point (``x``, ``y``) or ``None``. Defaults to ``None`` (i.e. align
-            to the origin).
+                object, a point (``x``, ``y``) or ``None``. Defaults to ``None`` (i.e.
+                align to the origin).
 
         Raises:
             ValueError: If ``align_to`` is not a valid input.
@@ -812,7 +814,7 @@ class Geometry:
             pt_idx: If the index of the point is known, this can be provided as an
                 alternative to ``point``. Defaults to ``None``.
 
-        Warning:
+        Warns:
             If the node support is added after generating a mesh, the mesh will need to
             be regenerated prior to creating a
             :class:`~planestress.analysis.PlaneStress` object.
@@ -1065,22 +1067,25 @@ class Geometry:
         Args:
             mesh_sizes: A list of the maximum mesh element areas for each ``polygon`` in
                 the ``Geometry`` object. If a list of length 1 or a ``float`` is passed,
-                then the one size will be applied to all ``polygons``. A value of ``0``
+                then this one size will be applied to all ``polygons``. A value of ``0``
                 removes the area constraint. Defaults to ``0.0``.
             linear: Order of the triangular mesh, if ``True`` generates linear ``Tri3``
                 elements, if ``False`` generates quadratic ``Tri6`` elements. Defaults
                 to ``True``.
             min_angle: The meshing algorithm adds vertices to the mesh to ensure that no
                 angle is smaller than the minimum angle (in degrees, rounded to 1
-                decimal place). Note that small angles between input segments cannot be
-                eliminated. If the minimum angle is 20.7 deg or smaller, the
-                triangulation algorithm is theoretically guaranteed to terminate (given
-                sufficient precision). The algorithm often doesn't terminate for angles
-                greater than 33 deg. Some meshes may require angles well below 20 deg to
-                avoid problems associated with insufficient floating-point precision.
-                Defaults to ``30.0``.
+                decimal place). Defaults to ``30.0``.
             coarse: If set to ``True``, will create a coarse mesh (no area or quality
                 constraints). Defaults to ``False``.
+
+        .. admonition:: A note on ``min_angle``
+
+            Note that small angles between input segments cannot be eliminated. If the
+            minimum angle is 20.7° or smaller, the triangulation algorithm is
+            theoretically guaranteed to terminate (given sufficient precision). The
+            algorithm often doesn't terminate for angles greater than 33°. Some meshes
+            may require angles well below 20° to avoid problems associated with
+            insufficient floating-point precision.
         """
         if isinstance(mesh_sizes, (float, int)):
             mesh_sizes = [mesh_sizes]
@@ -1135,16 +1140,39 @@ class Geometry:
 
     def plot_geometry(
         self,
-        title: str = "Geometry",
-        labels: list[str] | None = None,
-        cp: bool = True,
-        legend: bool = True,
+        load_case: LoadCase | None = None,
         **kwargs: Any,
     ) -> matplotlib.axes.Axes:
-        """Plots the geometry."""
-        # create default labels
-        if labels is None:
-            labels = ["control_points"]
+        """Plots the geometry.
+
+        Optionally also renders the boundary conditions of a load case if provided.
+
+        Args:
+            load_case: Plots the boundary conditions within a load case if provided.
+                Defaults to ``None``.
+
+        Keyword Args:
+            title (str): Plot title. Defaults to ``"Geometry"``.
+            labels(list[str]): A list of index labels to plot, can contain any of the
+                following: ``"points"``, ``"facets"``, ``"holes"``,
+                ``"control_points"``. Defaults to ``["control_points"]``.
+            plot_cps (bool): If set to ``True``, plots the control points. Defaults to
+                ``True``.
+            legend (bool):  If set to ``True``, plots the legend. Defaults to ``True``.
+            kwargs (dict[str, Any]): Other keyword arguments are passed to
+                :meth:`~planestress.post.plotting.plotting_context`.
+
+        Returns:
+            Matplotlib axes object.
+
+        Example:
+            TODO.
+        """
+        # get keyword arguments
+        title: str = kwargs.get("title", "Geometry")
+        labels: list[str] = kwargs.get("label", ["control_points"])
+        plot_cps: bool = kwargs.get("plot_cps", True)
+        legend: bool = kwargs.get("legend", True)
 
         # create plot and setup the plot
         with plotting_context(title=title, **kwargs) as (_, ax):
@@ -1171,7 +1199,7 @@ class Geometry:
                 label = None
 
             # plot the control points
-            if cp:
+            if plot_cps:
                 label = "Control Points"
                 for cpts in self.control_points:
                     ax.plot(cpts.x, cpts.y, "bo", markersize=5, label=label)
@@ -1200,6 +1228,12 @@ class Geometry:
                 for idx, pt in enumerate(self.holes):
                     ax.annotate(str(idx), xy=(pt.x, pt.y), color="r")
 
+            # plot the load case
+            if load_case is not None:
+                for boundary_condition in load_case.boundary_conditions:
+                    # boundary_condition.plot()
+                    print(boundary_condition.marker_id)  # TODO - plot this!
+
             # display the legend
             if legend:
                 ax.legend(loc="center left", bbox_to_anchor=(1, 0.5))
@@ -1208,26 +1242,58 @@ class Geometry:
 
     def plot_mesh(
         self,
-        nodes: bool = False,
-        nd_num: bool = False,
-        el_num: bool = False,
-        nd_markers: bool = False,
-        seg_markers: bool = False,
-        materials: bool = False,
-        alpha: float = 0.5,
-        mask: list[bool] | None = None,
-        title: str = "Finite Element Mesh",
+        load_case: LoadCase | None = None,
         **kwargs: Any,
     ) -> matplotlib.axes.Axes:
-        """Plots the finite element mesh."""
+        r"""Plots the finite element mesh.
+
+        Optionally also renders the boundary conditions of a load case if provided.
+
+        Args:
+            load_case: Plots the boundary conditions within a load case if provided.
+                Defaults to ``None``.
+
+         Keyword Args:
+            title (str): Plot title. Defaults to ``"Finite Element Mesh"``.
+            materials (bool): If set to ``True`` shades the elements with the specified
+                material colours. Defaults to ``True``.
+            nodes (bool): If set to ``True`` plots the nodes of the mesh. Defaults to
+                ``False``.
+            node_indexes (bool): If set to ``True``, plots the indexes of each node.
+                Defaults to ``False``.
+            element_indexes (bool): If set to ``True``, plots the indexes of each
+                element. Defaults to ``False``.
+            alpha (float): Transparency of the mesh outlines,
+                :math:`0 \leq \alpha \leq 1`. Defaults to ``0.5``.
+            mask (list[bool] | None): Mask array to mask out triangles, must be same
+                length as number of elements in mesh. Defaults to ``None``.
+            kwargs (dict[str, Any]): Other keyword arguments are passed to
+                :meth:`~planestress.post.plotting.plotting_context`.
+
+        Raises:
+            RuntimeError: If a mesh has not yet been generated.
+
+        Returns:
+            Matplotlib axes object.
+
+        Example:
+            TODO.
+        """
+        # get keyword arguments
+        title: str = kwargs.get("title", "Finite Element Mesh")
+        materials: bool = kwargs.get("materials", True)
+        nodes: bool = kwargs.get("nodes", False)
+        node_indexes: bool = kwargs.get("node_indexes", False)
+        element_indexes: bool = kwargs.get("element_indexes", False)
+        alpha: float = kwargs.get("alpha", 0.5)
+        mask: list[bool] | None = kwargs.get("mask", None)
+
         if self.mesh is not None:
             return self.mesh.plot_mesh(
                 material_list=self.materials,
                 nodes=nodes,
-                nd_num=nd_num,
-                el_num=el_num,
-                nd_markers=nd_markers,
-                seg_markers=seg_markers,
+                nd_num=node_indexes,
+                el_num=element_indexes,
                 materials=materials,
                 alpha=alpha,
                 mask=mask,
@@ -1240,7 +1306,14 @@ class Geometry:
 
 @dataclass(eq=True)
 class Point:
-    """Class describing a point in 2D space."""
+    """Class describing a point in 2D space.
+
+    Args:
+        x: ``x`` location of the point.
+        y: ``y`` location of the point.
+        tol: Number of digits to round the point to.
+        idx: Point index. Defaults to ``None``.
+    """
 
     x: float
     y: float
@@ -1255,7 +1328,14 @@ class Point:
         self,
         other: Point,
     ) -> bool:
-        """Override __eq__ method to neglect index."""
+        """Override __eq__ method to neglect index.
+
+        Args:
+            other: Other ``Point`` to check equality against.
+
+        Returns:
+            ``True`` if ``Points`` objects are equal.
+        """
         return self.x == other.x and self.y == other.y
 
     def round(self) -> None:
@@ -1264,17 +1344,30 @@ class Point:
         self.y = round(self.y, self.tol)
 
     def to_tuple(self) -> tuple[float, float]:
-        """Converts the point to a tuple."""
+        """Converts the point to a tuple.
+
+        Returns:
+            ``Point`` in tuple format (``x``, ``y``).
+        """
         return self.x, self.y
 
     def to_shapely_point(self) -> shapely.Point:
-        """Converts the point to a ``shapely`` ``Point`` object."""
+        """Converts the point to a ``shapely`` ``Point`` object.
+
+        Returns:
+            ``Point`` as a :class:`shapely.Point`.
+        """
         return shapely.Point(self.x, self.y)
 
 
 @dataclass(eq=True)
 class Facet:
-    """Class describing a facet of a 2D geometry, i.e. an edge."""
+    """Class describing a facet of a 2D geometry, i.e. an edge.
+
+    Args:
+        pt1: First point in the facet
+        pt2: Second point in the facet
+    """
 
     pt1: Point
     pt2: Point
@@ -1283,13 +1376,27 @@ class Facet:
         self,
         other: Facet,
     ) -> bool:
-        """Override __eq__ method to account for points in either order."""
+        """Override __eq__ method to account for points in either order.
+
+        Args:
+            other: Other ``Facet`` to check equality against.
+
+        Returns:
+            ``True`` if ``Facet`` objects are equal.
+        """
         return (self.pt1 == other.pt1 and self.pt2 == other.pt2) or (
             self.pt1 == other.pt2 and self.pt2 == other.pt1
         )
 
     def to_tuple(self) -> tuple[float, float]:
-        """Converts the facet to a tuple."""
+        """Converts the facet to a tuple.
+
+        Raises:
+            RuntimeError: If a point in the facet hasn't been assigned an index.
+
+        Returns:
+            ``Facet`` in tuple format (``pt1_idx``, ``pt2_idx``).
+        """
         idx_1 = self.pt1.idx
         idx_2 = self.pt2.idx
 
@@ -1301,14 +1408,22 @@ class Facet:
 
         return idx_1, idx_2
 
-    def to_shapely_line(self) -> shapely.Point:
-        """Converts the point to a ``shapely`` ``Point`` object."""
+    def to_shapely_line(self) -> shapely.LineString:
+        """Converts the line to a ``shapely`` ``Line`` object.
+
+        Returns:
+            ``Facet`` as a :class:`shapely.LineString`.
+        """
         return shapely.LineString(
             [self.pt1.to_shapely_point(), self.pt2.to_shapely_point()]
         )
 
     def zero_length(self) -> bool:
-        """Tests whether or not a facet is zero length."""
+        """Tests whether or not a facet is zero length.
+
+        Returns:
+            ``True`` if the facet has zero length (i.e. ``pt1 == pt2``).
+        """
         return self.pt1 == self.pt2
 
     def update_point(
@@ -1316,7 +1431,12 @@ class Facet:
         old: Point,
         new: Point,
     ) -> None:
-        """If the facet contains the point ``old``, replace with ``new``."""
+        """If the facet contains the point ``old``, replace with ``new``.
+
+        Args:
+            old: Old ``Point`` to replace.
+            new: ``Point`` to replace ``old`` with.
+        """
         if self.pt1 == old:
             self.pt1 = new
 
