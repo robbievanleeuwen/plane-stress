@@ -12,6 +12,10 @@ import numpy.typing as npt
 class Material:
     """Class for a plane-stress material.
 
+    The color can be a multitude of different formats, refer to
+    https://matplotlib.org/stable/api/colors_api.html and
+    https://matplotlib.org/stable/gallery/color/named_colors.html for more information.
+
     Args:
         name: Material name. Defaults to ``"default"``.
         elastic_modulus: Material modulus of elasticity. Defaults to ``1.0``.
@@ -53,8 +57,8 @@ class Material:
     def get_d_matrix(self) -> npt.NDArray[np.float64]:
         r"""Returns the constitutive matrix for plane-stress.
 
-        The constitutive matrix (D) is definied as
-        :math:`\bolsymbol{\sigma} = \textbf{D} \bolsymbol{\varepsilon}`.
+        The constitutive matrix (D) is defined as
+        :math:`\boldsymbol{\sigma} = \textbf{D} \boldsymbol{\varepsilon}`.
 
         TODO - consider caching the result.
 

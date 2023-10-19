@@ -20,7 +20,7 @@ def rectangle(
     Args:
         d: Depth of the rectangle.
         b: Width of the rectangle.
-        material: ```Material`` object to apply to the rectangle. Defaults to
+        material: ``Material`` object to apply to the rectangle. Defaults to
             ``DEFAULT_MATERIAL``, i.e. a material with unit properties and a Poisson's
             ratio of zero.
         tol: The points in the geometry get rounded to ``tol`` digits. Defaults to
@@ -95,10 +95,11 @@ def gravity(
         Acceleration due to gravity.
 
     .. admonition:: Units
+
         The value for ``units`` may be one of the following:
 
-        - ``"MPa"`` - :math:`g = 9.81 \times 10^3 \textrm{mm/s}^2`
-        - ``"SI"`` - :math:`g = 9.81 \textrm{m/s}^2`
+        - ``"MPa"`` - :math:`g = 9.81 \times 10^3 \textrm{ mm/s}^2`
+        - ``"SI"`` - :math:`g = 9.81 \textrm{ m/s}^2`
     """
     # convert units to lower case
     units = units.lower()
@@ -133,19 +134,20 @@ def steel_material(
         Steel material object.
 
     .. admonition:: Units
+
         The value for ``units`` may be one of the following:
 
-        - ``"MPa"``: Newtons [N] and millimetres [mm]
+        - ``"MPa"``: Newtons :math:`[\textrm{N}]` and millimetres :math:`[\textrm{mm}]`.
 
-          - Elastic modulus: :math:`200 \times 10^3 \textrm{MPa}`
+          - Elastic modulus: :math:`200 \times 10^3 \textrm{ MPa}`
           - Poisson's ratio: :math:`0.3`
-          - Density: :math:`7.85 \times 10^{-6} \textrm{kg/mm}`^3`
+          - Density: :math:`7.85 \times 10^{-6} \textrm{ kg/mm}`^3`
 
-        - ``"SI"``: Newtons [N] and metres [m]
+        - ``"SI"``: Newtons :math:`[\textrm{N}]` and metres :math:`[\textrm{m}]`.
 
-          - Elastic modulus: :math:`200 \times 10^9 \textrm{Pa}`
+          - Elastic modulus: :math:`200 \times 10^9 \textrm{ Pa}`
           - Poisson's ratio: :math:`0.3`
-          - Density: :math:`7.85 \times 10^3 \textrm{kg/m}`^3`
+          - Density: :math:`7.85 \times 10^3 \textrm{ kg/m}`^3`
 
     Example:
         TODO.

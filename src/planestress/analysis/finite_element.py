@@ -64,7 +64,7 @@ class FiniteElement:
             ValueError: If ``n_points`` is not 1, 3, 4 or 6.
 
         Returns:
-            Gaussian weights and locations. For each gauss point:
+            Gaussian weights and locations. For each gauss point -
             ``[weight, eta, xi, zeta]``.
         """
         # one point gaussian integration
@@ -275,8 +275,8 @@ class FiniteElement:
 
         Calculates the following:
 
-          - Stresses at nodes
-          - TODO
+        - Stresses at nodes
+        - TODO
 
         Args:
             u: Displacement vector for the element.

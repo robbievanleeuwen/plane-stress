@@ -814,9 +814,9 @@ class Geometry:
                 alternative to ``point``. Defaults to ``None``.
 
         Warns:
-            If the node support is added after generating a mesh, the mesh will need to
-            be regenerated prior to creating a
-            :class:`~planestress.analysis.PlaneStress` object.
+            Warning: If the node support is added after generating a mesh, the mesh will
+                need to be regenerated prior to creating a
+                :class:`~planestress.analysis.PlaneStress` object.
 
         Returns:
             Node support boundary condition object.
@@ -1254,7 +1254,7 @@ class Geometry:
                 Defaults to ``None``.
             kwargs: See below.
 
-         Keyword Args:
+        Keyword Args:
             title (str): Plot title. Defaults to ``"Finite Element Mesh"``.
             materials (bool): If set to ``True`` shades the elements with the specified
                 material colors. Defaults to ``True``.
