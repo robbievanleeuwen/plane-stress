@@ -25,7 +25,17 @@ class FiniteElement:
         material: Material,
         num_nodes: int,
     ) -> None:
-        """Inits the FiniteElement class."""
+        """Inits the FiniteElement class.
+
+        Args:
+            el_idx: Element index.
+            coords: A :class:`numpy.ndarray` of coordinates defining the element, e.g.
+                ``[[x1, x2, x3], [y1, y2, y3]]``.
+            node_idxs: List of node indexes defining the element, e.g.
+                ``[idx1, idx2, idx3]``.
+            material: Material of the element.
+            num_nodes: Number of nodes in the finite element.
+        """
         self.el_idx = el_idx
         self.coords = coords
         self.node_idxs = node_idxs
@@ -33,7 +43,11 @@ class FiniteElement:
         self.num_nodes = num_nodes
 
     def __str__(self) -> str:
-        """Override string method."""
+        """Override string method.
+
+        Returns:
+            String representation of the object.
+        """
         return (
             f"{self.__class__.__name__} - id: {self.el_idx}, material: "
             f"{self.material.name}"
@@ -41,7 +55,18 @@ class FiniteElement:
 
     @staticmethod
     def gauss_points(n_points: int) -> npt.NDArray[np.float64]:
-        """Gaussian weights and locations for ``n_point`` Gaussian integration."""
+        """Gaussian weights and locations for ``n_point`` Gaussian integration.
+
+        Args:
+            n_points: Number of gauss points.
+
+        Raises:
+            ValueError: If ``n_points`` is not 1, 3, 4 or 6.
+
+        Returns:
+            Gaussian weights and locations. For each gauss point -
+            ``[weight, eta, xi, zeta]``.
+        """
         # one point gaussian integration
         if n_points == 1:
             return np.array([[1.0, 1.0 / 3, 1.0 / 3, 1.0 / 3]])
@@ -91,37 +116,67 @@ class FiniteElement:
     def shape_functions(
         iso_coords: tuple[float, float, float]
     ) -> npt.NDArray[np.float64]:
-        """Returns the shape functions for the finite element."""
+        """Returns the shape functions at a point.
+
+        Args:
+            iso_coords: Location of the point in isoparametric coordinates.
+
+        Raises:
+            NotImplementedError: If this method hasn't been implemented for an element.
+        """
         raise NotImplementedError
 
     @staticmethod
     def shape_functions_derivatives(
         iso_coords: tuple[float, float, float]
     ) -> npt.NDArray[np.float64]:
-        """Returns the derivatives of the shape functions for the finite element."""
+        """Returns the derivatives of the shape functions at a point.
+
+        Args:
+            iso_coords: Location of the point in isoparametric coordinates.
+
+        Raises:
+            NotImplementedError: If this method hasn't been implemented for an element.
+        """
         raise NotImplementedError
 
     def iso_to_global(
         self,
         iso_coords: tuple[float, float, float],
     ) -> tuple[float, float]:
-        """Returns the global coordinates of the isoparametric coordinates."""
+        """Converts a point in isoparametric coordinates to global coordinates.
+
+        Args:
+            iso_coords: Location of the point in isoparametric coordinates.
+
+        Returns:
+            Location of the point in global coordinates (``x``, ``y``).
+        """
         x, y = self.coords @ self.shape_functions(iso_coords=iso_coords)
 
         return x, y
 
     @staticmethod
     def nodal_isoparametric_coordinates() -> npt.NDArray[np.float64]:
-        """Returns the values of the isoparametric coordinates at the nodes."""
+        """Returns the values of the isoparametric coordinates at the nodes.
+
+        Raises:
+            NotImplementedError:If this method hasn't been implemented for an element.
+        """
         raise NotImplementedError
 
     def b_matrix_jacobian(
         self,
         iso_coords: tuple[float, float, float],
     ) -> tuple[npt.NDArray[np.float64], float]:
-        """Calculates the B matrix and jacobian for a plane-stress element.
+        """Calculates the B matrix and jacobian at an isoparametric point..
 
-        See Felippa Ch. 24
+        Args:
+            iso_coords: Location of the point in isoparametric coordinates.
+
+        Returns:
+            Derivatives of the shape function (B matrix) and value of the jacobian,
+            (``b_mat``, ``j``).
         """
         # get the b matrix wrt. the isoparametric coordinates
         b_iso = self.shape_functions_derivatives(iso_coords=iso_coords)
@@ -160,7 +215,14 @@ class FiniteElement:
         self,
         n_points: int,
     ) -> npt.NDArray[np.float64]:
-        """Assembles the stiffness matrix for the element."""
+        """Assembles the stiffness matrix for the element.
+
+        Args:
+            n_points: Number of integration points.
+
+        Returns:
+            Element stiffness matrix.
+        """
         # allocate element stiffness matrix
         k_el = np.zeros((2 * self.num_nodes, 2 * self.num_nodes))
 
@@ -190,7 +252,14 @@ class FiniteElement:
         self,
         n_points: int,
     ) -> npt.NDArray[np.float64]:
-        """Assembles the load matrix for the element."""
+        """Assembles the load vector for the element.
+
+        Args:
+            n_points: Number of integration points.
+
+        Returns:
+            Element load vector.
+        """
         # allocate element load vector
         k_el = np.zeros(2 * self.num_nodes)
 
@@ -202,10 +271,18 @@ class FiniteElement:
         self,
         u: npt.NDArray[np.float64],
     ) -> ElementResults:
-        """Calculates results for the finite element.
+        """Calculates various results for the finite element given nodal displacements.
 
-        Note for superparametric triangles we don't need to extrapolate from Gauss
-        points (Felippa).
+        Calculates the following:
+
+        - Stresses at nodes
+        - TODO
+
+        Args:
+            u: Displacement vector for the element.
+
+        Returns:
+            ``ElementResults`` object.
         """
         # initialise stress results
         sigs = np.zeros((self.num_nodes, 3))
@@ -234,10 +311,7 @@ class FiniteElement:
 
 
 class Tri3(FiniteElement):
-    """Class for a three-noded linear triangular element.
-
-    Coords: 2 x 3
-    """
+    """Class for a three-noded linear triangular element."""
 
     def __init__(
         self,
@@ -246,7 +320,16 @@ class Tri3(FiniteElement):
         node_idxs: list[int],
         material: Material,
     ) -> None:
-        """Inits the Tri3 class."""
+        """Inits the Tri3 class.
+
+        Args:
+            el_idx: Element index.
+            coords: A ``2 x 3`` :class:`numpy.ndarray` of coordinates defining the
+                element, i.e. ``[[x1, x2, x3], [y1, y2, y3]]``.
+            node_idxs: A list of node indexes defining the element, i.e.
+                ``[idx1, idx2, idx3]``.
+            material: Material of the element.
+        """
         super().__init__(
             el_idx=el_idx,
             coords=coords,
@@ -259,7 +342,14 @@ class Tri3(FiniteElement):
     def shape_functions(
         iso_coords: tuple[float, float, float]
     ) -> npt.NDArray[np.float64]:
-        """Returns the shape functions for a Tri3 element."""
+        """Returns the shape functions at a point for a Tri3 element.
+
+        Args:
+            iso_coords: Location of the point in isoparametric coordinates.
+
+        Returns:
+            The values of the shape functions ``[N1, N2, N3]``.
+        """
         # location of isoparametric coordinates
         eta, xi, zeta = iso_coords
 
@@ -270,7 +360,14 @@ class Tri3(FiniteElement):
     def shape_functions_derivatives(
         iso_coords: tuple[float, float, float]
     ) -> npt.NDArray[np.float64]:
-        """Returns the derivatives of the shape functions for a Tri3 element."""
+        """Returns the derivatives of the shape functions at a point for a Tri3 element.
+
+        Args:
+            iso_coords: Location of the point in isoparametric coordinates.
+
+        Returns:
+            The partial derivatives of the shape functions.
+        """
         # derivatives of the shape functions wrt the isoparametric coordinates
         return np.array(
             [
@@ -282,7 +379,11 @@ class Tri3(FiniteElement):
 
     @staticmethod
     def nodal_isoparametric_coordinates() -> npt.NDArray[np.float64]:
-        """Returns the values of the isoparametric coordinates at the nodes."""
+        """Returns the values of the isoparametric coordinates at the nodes.
+
+        Returns:
+            Values of the isoparametric coordinates at the nodes.
+        """
         return np.array(
             [
                 [1.0, 0.0, 0.0],  # node 1
@@ -293,10 +394,7 @@ class Tri3(FiniteElement):
 
 
 class Tri6(FiniteElement):
-    """Class for a six-noded quadratic triangular element.
-
-    Coords: 2 x 6
-    """
+    """Class for a six-noded quadratic triangular element."""
 
     def __init__(
         self,
@@ -305,7 +403,16 @@ class Tri6(FiniteElement):
         node_idxs: list[int],
         material: Material,
     ) -> None:
-        """Inits the Tri6 class."""
+        """Inits the Tri6 class.
+
+        Args:
+            el_idx: Element index.
+            coords: A ``2 x 6`` :class:`numpy.ndarray` of coordinates defining the
+                element, i.e. ``[[x1, ..., x6], [y1, ..., y6]]``.
+            node_idxs: A list of node indexes defining the element, i.e.
+                ``[idx1, ..., idx6]``.
+            material: Material of the element.
+        """
         super().__init__(
             el_idx=el_idx,
             coords=coords,
@@ -318,7 +425,14 @@ class Tri6(FiniteElement):
     def shape_functions(
         iso_coords: tuple[float, float, float]
     ) -> npt.NDArray[np.float64]:
-        """Returns the shape functions for a Tri6 element."""
+        """Returns the shape functions at a point for a Tri6 element.
+
+        Args:
+            iso_coords: Location of the point in isoparametric coordinates.
+
+        Returns:
+            The values of the shape functions ``[N1, N2, N3, N4, N5, N6]``.
+        """
         # location of isoparametric cooordinates
         eta, xi, zeta = iso_coords
 
@@ -338,7 +452,14 @@ class Tri6(FiniteElement):
     def shape_functions_derivatives(
         iso_coords: tuple[float, float, float]
     ) -> npt.NDArray[np.float64]:
-        """Returns the derivatives of the shape functions for a Tri6 element."""
+        """Returns the derivatives of the shape functions at a point for a Tri6 element.
+
+        Args:
+            iso_coords: Location of the point in isoparametric coordinates.
+
+        Returns:
+            The partial derivatives of the shape functions.
+        """
         # location of isoparametric coordinates
         eta, xi, zeta = iso_coords
 
@@ -353,7 +474,11 @@ class Tri6(FiniteElement):
 
     @staticmethod
     def nodal_isoparametric_coordinates() -> npt.NDArray[np.float64]:
-        """Returns the values of the isoparametric coordinates at the nodes."""
+        """Returns the values of the isoparametric coordinates at the nodes.
+
+        Returns:
+            Values of the isoparametric coordinates at the nodes.
+        """
         return np.array(
             [
                 [1.0, 0.0, 0.0],  # node 1
@@ -378,7 +503,19 @@ class ElementResults(FiniteElement):
         num_nodes: int,
         sigs: npt.NDArray[np.float64],
     ) -> None:
-        """Inits the ElementResults class."""
+        """Inits the ElementResults class.
+
+        Args:
+            el_idx: Element index.
+            coords: A :class:`numpy.ndarray` of coordinates defining the element, e.g.
+                ``[[x1, x2, x3], [y1, y2, y3]]``.
+            node_idxs: List of node indexes defining the element, e.g.
+                ``[idx1, idx2, idx3]``.
+            material: Material of the element.
+            num_nodes: Number of nodes in the finite element.
+            sigs: Nodal stresses, e.g.
+                ``[[sigxx_1, sigyy_1, sigxy_1], ..., [sigxx_3, sigyy_3, sigxy_3]]``.
+        """
         super().__init__(
             el_idx=el_idx,
             coords=coords,

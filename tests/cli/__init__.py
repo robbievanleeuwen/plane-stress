@@ -1,1 +1,1 @@
-"""CLI tests for sectionproperties."""
+"""CLI tests for planestress."""

@@ -20,6 +20,8 @@ from planestress.pre.mesh import Mesh
 if TYPE_CHECKING:
     import matplotlib.axes
 
+    from planestress.pre.load_case import LoadCase
+
 
 class Geometry:
     """Class describing a geometric region."""
@@ -32,7 +34,29 @@ class Geometry:
     ) -> None:
         """Inits the Geometry class.
 
-        Note ensure length of materials = number of polygons
+        .. note::
+            Length of ``materials`` must equal the number of ``polygons``, i.e.
+            ``len(polygons.geoms)``.
+
+        Args:
+            polygons: A :class:`shapely.Polygon` or :class:`shapely.MultiPolygon`
+                describing the geometry. A :class:`~shapely.MultiPolygon` comprises of a
+                list of :class:`~shapely.Polygon` objects, that can describe a geometry
+                with multiple distinct regions.
+            materials: A list of :class:`~planestress.pre.Material` objects describing
+                the material properties of each ``polygon`` within the geometry. If a
+                single :class:`planestress.pre.Material` is supplied, this material is
+                applied to all regions. Defaults to ``DEFAULT_MATERIAL``, i.e. a
+                material with unit properties and a Poisson's ratio of zero.
+            tol: The points in the geometry get rounded to ``tol`` digits. Defaults to
+                ``12``.
+
+        Raises:
+            ValueError: If the number of ``materials`` does not equal the number of
+                ``polygons``.
+
+        Example:
+            TODO.
         """
         # convert polygon to multipolygon
         if isinstance(polygons, shapely.Polygon):
@@ -110,7 +134,7 @@ class Geometry:
             # add control points to the global list
             self.control_points.append(poly_cp)
 
-        # assign point indices
+        # assign point indexes
         for idx, pt in enumerate(self.points):
             pt.idx = idx
 
@@ -118,7 +142,15 @@ class Geometry:
         self,
         polygon: shapely.Polygon,
     ) -> tuple[list[Point], list[Facet], list[Point], Point]:
-        """Create a list of points, facets and holes + control point given a Polygon."""
+        """Creates points, facets, holes and a control point given a ``Polygon``.
+
+        Args:
+            polygon: A :class:`~shapely.Polygon` object.
+
+        Returns:
+            A list of points, facets, holes and a control point (``points``, ``facets``,
+            ``holes``, ``control_point``).
+        """
         pt_list: list[Point] = []
         fct_list: list[Facet] = []
         hl_list: list[Point] = []
@@ -167,7 +199,14 @@ class Geometry:
 
     @staticmethod
     def create_facet_list(pt_list: list[Point]) -> list[Facet]:
-        """Creates a closed list of facets from a list of points."""
+        """Creates a closed list of facets from a list of points.
+
+        Args:
+            pt_list: List of points.
+
+        Returns:
+            Closed list of facets.
+        """
         fct_list: list[Facet] = []
 
         # create facets
@@ -190,7 +229,24 @@ class Geometry:
         on: str,
         inner: bool = False,
     ) -> Geometry:
-        """Aligns the geometry to another ``Geometry`` or point."""
+        """Aligns the geometry to another ``Geometry`` object or point.
+
+        Returns a new ``Geometry`` object, representing ``self`` translated so that is
+        aligned on one of the outer or inner bounding box edges of ``other``.
+
+        Args:
+            other: A ``Geometry`` or point (``x``, ``y``) to align to.
+            on: Which side of ``other`` to align to, either ``“left”``, ``“right”``,
+                ``“bottom”``, or ``“top”``.
+            inner: If ``True``, aligns to the inner bounding box edge of ``other``.
+                Defaults to ``False``.
+
+        Returns:
+            New ``Geometry`` object aligned to ``other``.
+
+        Example:
+            TODO.
+        """
         # setup mappings for transformations
         align_self_map = {
             "left": 1,
@@ -244,7 +300,25 @@ class Geometry:
         self,
         align_to: Geometry | tuple[float, float] | None = None,
     ) -> Geometry:
-        """Aligns the geometry to a centre point."""
+        """Aligns the centroid of the geometry to another ``Geometry``, point or origin.
+
+        Returns a new ``Geometry`` object, translated such that its centroid is aligned
+        to the centroid of another ``Geometry``, a point, or the origin.
+
+        Args:
+            align_to: Location to align the centroid to, either another ``Geometry``
+                object, a point (``x``, ``y``) or ``None``. Defaults to ``None`` (i.e.
+                align to the origin).
+
+        Raises:
+            ValueError: If ``align_to`` is not a valid input.
+
+        Returns:
+            New ``Geometry`` object aligned to ``align_to``.
+
+        Example:
+            TODO.
+        """
         cx, cy = self.calculate_centroid()
 
         # align to geometry centroid
@@ -274,7 +348,18 @@ class Geometry:
         x: float = 0.0,
         y: float = 0.0,
     ) -> Geometry:
-        """Shifts the geometry by (``x``, ``y``)."""
+        """Shifts the geometry by (``x``, ``y``).
+
+        Args:
+            x: Distance to shift along the ``x`` axis. Defaults to ``0.0``.
+            y: Distance to shift along the ``y`` axis. Defaults to ``0.0``.
+
+        Returns:
+            New ``Geometry`` object shifted by (``x``, ``y``).
+
+        Example:
+            TODO.
+        """
         return Geometry(
             polygons=affinity.translate(geom=self.polygons, xoff=x, yoff=y),
             materials=self.materials,
@@ -287,12 +372,28 @@ class Geometry:
         rot_point: tuple[float, float] | str = "center",
         use_radians: bool = False,
     ) -> Geometry:
-        """Rotates the geometry."""
+        """Rotates the geometry by an ``angle`` about a ``rot_point``.
+
+        Args:
+            angle: Angle by which to rotate the section. A positive angle leads to a
+                counter-clockwise rotation.
+            rot_point: Point (``x``, ``y``) about which to rotate the section. May also
+                be ``"center"`` (rotates about centre of bounding box) or "centroid"
+                (rotates about centroid). Defaults to ``"center"``.
+            use_radians: If True, ``angle`` is in radians, if ``False`` angle is in
+                degrees. Defaults to ``False``.
+
+        Returns:
+            New ``Geometry`` object rotated by ``angle`` about ``rot_point``.
+
+        Example:
+            TODO.
+        """
         return Geometry(
             polygons=affinity.rotate(
                 geom=self.polygons,
                 angle=angle,
-                origin=rot_point,  # type: ignore
+                origin=rot_point,
                 use_radians=use_radians,
             ),
             materials=self.materials,
@@ -304,7 +405,23 @@ class Geometry:
         axis: str = "x",
         mirror_point: tuple[float, float] | str = "center",
     ) -> Geometry:
-        """Compound & geom."""
+        """Mirrors the geometry about a point on either the ``x`` or ``y`` axis.
+
+        Args:
+            axis: Mirror axis, may be ``"x"`` or ``"y"``. Defaults to ``"x"``.
+            mirror_point: Point (``x``, ``y``) about which to mirror the section. May
+                also be ``"center"`` (mirrors about centre of bounding box) or
+                "centroid" (mirrors about centroid). Defaults to ``"center"``.
+
+        Raises:
+            ValueError: If ``axis`` is not ``"x"`` or ``"y"``.
+
+        Returns:
+             New ``Geometry`` object mirrored about ``mirror_point`` on ``axis``.
+
+        Example:
+            TODO.
+        """
         if axis == "x":
             xfact = 1.0
             yfact = -1.0
@@ -316,7 +433,7 @@ class Geometry:
 
         return Geometry(
             polygons=affinity.scale(
-                geom=self.polygons, xfact=xfact, yfact=yfact, origin=mirror_point  # type: ignore
+                geom=self.polygons, xfact=xfact, yfact=yfact, origin=mirror_point
             ),
             materials=self.materials,
             tol=self.tol,
@@ -358,18 +475,33 @@ class Geometry:
         self,
         other: Geometry,
     ) -> Geometry:
-        """Performs a difference operation using the ``|`` operator.
+        """Performs a union operation using the ``|`` operator.
 
-        Note - applies material of first geometry to entire new geom.
+        .. note::
+            The material of the first geometry is applied to the entire region of the
+            "unioned" geometry. Keeps the smallest value of ``tol`` between the two
+            geometries.
+
+        Args:
+            other: ``Geometry`` object to union with.
+
+        Raises:
+            ValueError: If ``shapely`` is unable to perform the union.
+
+        Returns:
+            New ``Geometry`` object unioned with ``other``.
+
+        Example:
+            TODO.
         """
+        tol = min(self.tol, other.tol)
+
         try:
             new_polygon = self.filter_non_polygons(
                 input_geom=self.polygons | other.polygons
             )
 
-            return Geometry(
-                polygons=new_polygon, materials=self.materials[0], tol=self.tol
-            )
+            return Geometry(polygons=new_polygon, materials=self.materials[0], tol=tol)
         except Exception as exc:
             raise ValueError(
                 f"Cannot perform union on these two objects: {self} | {other}"
@@ -381,7 +513,25 @@ class Geometry:
     ) -> Geometry:
         """Performs a difference operation using the ``-`` operator.
 
-        Note about combining resulting geometry into one section! Check in materials!
+        .. warning::
+            If ``self`` or ``other`` contains multiple regions, these regions may be
+            combined into one region after the difference operation. It is recommended
+            to first perform difference operations on :class:`~shapely.Polygon` objects,
+            and later combine into into :class:`shapely.MultiPolygon` objects, see the
+            example below. *Check the assignment of materials after a difference
+            operation.*
+
+        Args:
+            other: ``Geometry`` object to difference with.
+
+        Raises:
+            ValueError: If ``shapely`` is unable to perform the difference.
+
+        Returns:
+            New ``Geometry`` object differenced with ``other``.
+
+        Example:
+            TODO. Use brackets to show order of operations important!
         """
         try:
             new_polygon = self.filter_non_polygons(
@@ -413,7 +563,17 @@ class Geometry:
     ) -> Geometry:
         """Performs an addition operation using the ``+`` operator.
 
-        Keeps the largest tol.
+        .. note::
+            The smallest value of ``tol`` is applied to both geometries.
+
+        Args:
+            other: ``Geometry`` object to add to.
+
+        Returns:
+            New ``Geometry`` object added with ``other``.
+
+        Example:
+            TODO.
         """
         poly_list: list[shapely.Polygon] = []
         mat_list: list[Material] = []
@@ -427,7 +587,7 @@ class Geometry:
             poly_list.append(poly)
             mat_list.append(mat)
 
-        tol = max(self.tol, other.tol)
+        tol = min(self.tol, other.tol)
 
         return Geometry(
             polygons=shapely.MultiPolygon(polygons=poly_list),
@@ -441,16 +601,31 @@ class Geometry:
     ) -> Geometry:
         """Performs an intersection operation using the ``&`` operator.
 
-        Note - applies material of first geometry to entire new geom.
+        .. note::
+            The material of the first geometry is applied to the entire region of the
+            "intersected" geometry. Keeps the smallest value of ``tol`` between the two
+            geometries.
+
+        Args:
+            other: ``Geometry`` object to intersection with.
+
+        Raises:
+            ValueError: If ``shapely`` is unable to perform the intersection.
+
+        Returns:
+            New ``Geometry`` object intersected with ``other``.
+
+        Example:
+            TODO.
         """
+        tol = min(self.tol, other.tol)
+
         try:
             new_polygon = self.filter_non_polygons(
                 input_geom=self.polygons - other.polygons
             )
 
-            return Geometry(
-                polygons=new_polygon, materials=self.materials[0], tol=self.tol
-            )
+            return Geometry(polygons=new_polygon, materials=self.materials[0], tol=tol)
         except Exception as exc:
             raise ValueError(
                 f"Cannot perform intersection on these two Geometry instances: "
@@ -501,7 +676,14 @@ class Geometry:
         self,
         point: tuple[float, float],
     ) -> int:
-        """Returns the index of the point in the geometry closest to ``point``."""
+        """Returns the index of the point in the geometry closest to ``point``.
+
+        Args:
+            point: Point (``x``, ``y``) to find in the geometry.
+
+        Returns:
+            Index of closest point in geometry to ``point``.
+        """
         pt = shapely.Point(point[0], point[1])
         idx = self.pts_str_tree.nearest(geometry=pt)
 
@@ -512,7 +694,15 @@ class Geometry:
         point1: tuple[float, float],
         point2: tuple[float, float],
     ) -> int:
-        """Returns the index of the facet in the geometry closest to ``facet``."""
+        """Returns the index of the facet in the geometry closest to ``facet``.
+
+        Args:
+            point1: First point (``x``, ``y``) of the facet to find in the geometry.
+            point2: Second point (``x``, ``y``) of the facet to find in the geometry.
+
+        Returns:
+            Index of closest facet in geometry to ``facet``.
+        """
         mid_point = shapely.Point(
             0.5 * (point1[0] + point2[0]), 0.5 * (point1[1] + point2[1])
         )
@@ -524,7 +714,17 @@ class Geometry:
         self,
         pt_idx: int,
     ) -> int:
-        """Performs the tasks required to add a marker to a point."""
+        """Performs the tasks required to add a marker to a point.
+
+        Args:
+            pt_idx: Index of the point to add a marker to.
+
+        Raises:
+            ValueError: If the index is invalid.
+
+        Returns:
+            Mesh marker ID.
+        """
         # check point index lies in range
         if pt_idx < 0 or pt_idx > len(self.points) - 1:
             raise ValueError(
@@ -557,7 +757,17 @@ class Geometry:
         self,
         fct_idx: int,
     ) -> int:
-        """Performs the tasks required to add a marker to a facet."""
+        """Performs the tasks required to add a marker to a facet.
+
+        Args:
+            fct_idx: Index of the facet to add a marker to.
+
+        Raises:
+            ValueError: If the index is invalid.
+
+        Returns:
+            Mesh marker ID.
+        """
         # check facet index lies in range
         if fct_idx < 0 or fct_idx > len(self.facets) - 1:
             raise ValueError(
@@ -593,7 +803,27 @@ class Geometry:
         value: float = 0.0,
         pt_idx: int | None = None,
     ) -> bc.NodeSupport:
-        """Adds a node support to the geometry."""
+        """Adds a node support to the geometry.
+
+        Args:
+            point: Point location (``x``, ``y``) of the node support.
+            direction: Direction of the node support, either ``"x"`` or ``"y"``.
+            value: Imposed displacement to apply to the node support. Defaults to
+                ``0.0``, i.e. a fixed node support.
+            pt_idx: If the index of the point is known, this can be provided as an
+                alternative to ``point``. Defaults to ``None``.
+
+        Warns:
+            Warning: If the node support is added after generating a mesh, the mesh will
+                need to be regenerated prior to creating a
+                :class:`~planestress.analysis.PlaneStress` object.
+
+        Returns:
+            Node support boundary condition object.
+
+        Example:
+            TODO.
+        """
         # get the point index
         if not pt_idx:
             pt_idx = self.find_point_index(point=point)
@@ -615,7 +845,26 @@ class Geometry:
         value: float,
         pt_idx: int | None = None,
     ) -> bc.NodeSpring:
-        """Adds a node spring to the geometry."""
+        """Adds a node spring to the geometry.
+
+        Args:
+            point: Point location (``x``, ``y``) of the node spring.
+            direction: Direction of the node spring, either ``"x"`` or ``"y"``.
+            value: Spring stiffness.
+            pt_idx: If the index of the point is known, this can be provided as an
+                alternative to ``point``. Defaults to ``None``.
+
+        Warns:
+            If the node spring is added after generating a mesh, the mesh will need to
+            be regenerated prior to creating a
+            :class:`~planestress.analysis.PlaneStress` object.
+
+        Returns:
+            Node spring boundary condition object.
+
+        Example:
+            TODO.
+        """
         # get the point index
         if not pt_idx:
             pt_idx = self.find_point_index(point=point)
@@ -637,7 +886,26 @@ class Geometry:
         value: float,
         pt_idx: int | None = None,
     ) -> bc.NodeLoad:
-        """Adds a node load to the geometry."""
+        """Adds a node load to the geometry.
+
+        Args:
+            point: Point location (``x``, ``y``) of the node load.
+            direction: Direction of the node load, either ``"x"`` or ``"y"``.
+            value: Node load.
+            pt_idx: If the index of the point is known, this can be provided as an
+                alternative to ``point``. Defaults to ``None``.
+
+        Warns:
+            If the node load is added after generating a mesh, the mesh will need to
+            be regenerated prior to creating a
+            :class:`~planestress.analysis.PlaneStress` object.
+
+        Returns:
+            Node load boundary condition object.
+
+        Example:
+            TODO.
+        """
         # get the point index
         if not pt_idx:
             pt_idx = self.find_point_index(point=point)
@@ -659,7 +927,30 @@ class Geometry:
         value: float = 0.0,
         fct_idx: int | None = None,
     ) -> bc.LineSupport:
-        """Adds a line support to the geometry."""
+        """Adds a line support to the geometry.
+
+        All nodes along the line will have this boundary condition applied.
+
+        Args:
+            point1: Point location (``x``, ``y``) of the start of the line support.
+            point2: Point location (``x``, ``y``) of the end of the line support.
+            direction: Direction of the line support, either ``"x"`` or ``"y"``.
+            value: Imposed displacement to apply to the line support. Defaults to
+                ``0.0``, i.e. a fixed line support.
+            fct_idx: If the index of the facet is known, this can be provided as an
+                alternative to ``point1`` and ``point2``. Defaults to ``None``.
+
+        Warns:
+            If the line support is added after generating a mesh, the mesh will need to
+            be regenerated prior to creating a
+            :class:`~planestress.analysis.PlaneStress` object.
+
+        Returns:
+            Line support boundary condition object.
+
+        Example:
+            TODO.
+        """
         # get the facet index
         if not fct_idx:
             fct_idx = self.find_facet_index(point1=point1, point2=point2)
@@ -674,15 +965,83 @@ class Geometry:
 
         return line_support
 
+    def add_line_spring(
+        self,
+        point1: tuple[float, float],
+        point2: tuple[float, float],
+        direction: str,
+        value: float,
+        fct_idx: int | None = None,
+    ) -> bc.LineSpring:
+        """Adds a line spring to the geometry.
+
+        The spring stiffness is specified per unit length and equivalent nodal springs
+        applied to nodes along this line.
+
+        TODO - look into elastic foundation?
+
+        Args:
+            point1: Point location (``x``, ``y``) of the start of the line spring.
+            point2: Point location (``x``, ``y``) of the end of the line spring.
+            direction: Direction of the line spring, either ``"x"`` or ``"y"``.
+            value: Spring stiffness per unit length.
+            fct_idx: If the index of the facet is known, this can be provided as an
+                alternative to ``point1`` and ``point2``. Defaults to ``None``.
+
+        Warns:
+            If the line spring is added after generating a mesh, the mesh will need to
+            be regenerated prior to creating a
+            :class:`~planestress.analysis.PlaneStress` object.
+
+        Returns:
+            Line spring boundary condition object.
+
+        Example:
+            TODO.
+        """
+        # get the facet index
+        if not fct_idx:
+            fct_idx = self.find_facet_index(point1=point1, point2=point2)
+
+        # add the facet marker to the specified point
+        marker_id = self.add_facet_marker(fct_idx=fct_idx)
+
+        # create line support boundary condition
+        line_spring = bc.LineSpring(
+            marker_id=marker_id, direction=direction, value=value
+        )
+
+        return line_spring
+
     def add_line_load(
         self,
         point1: tuple[float, float],
         point2: tuple[float, float],
         direction: str,
-        value: float = 0.0,
+        value: float,
         fct_idx: int | None = None,
     ) -> bc.LineLoad:
-        """Adds a line load to the geometry."""
+        """Adds a line load to the geometry.
+
+        Args:
+            point1: Point location (``x``, ``y``) of the start of the line load.
+            point2: Point location (``x``, ``y``) of the end of the line load.
+            direction: Direction of the node load, either ``"x"`` or ``"y"``.
+            value: Line load per unit length.
+            fct_idx: If the index of the facet is known, this can be provided as an
+                alternative to ``point1`` and ``point2``. Defaults to ``None``.
+
+        Warns:
+            If the line load is added after generating a mesh, the mesh will need to
+            be regenerated prior to creating a
+            :class:`~planestress.analysis.PlaneStress` object.
+
+        Returns:
+            Line load boundary condition object.
+
+        Example:
+            TODO.
+        """
         # get the facet index
         if not fct_idx:
             fct_idx = self.find_facet_index(point1=point1, point2=point2)
@@ -702,25 +1061,30 @@ class Geometry:
         min_angle: float = 30.0,
         coarse: bool = False,
     ) -> None:
-        """Creates a triangular mesh of the geometry.
+        """Creates and stores a triangular mesh of the geometry.
 
         Args:
-            mesh_sizes: A float describing the maximum mesh element area to be used in
-                the finite-element mesh for each polygon the ``Geometry`` object. If a
-                list of length 1 or a ``float`` is passed, then the one size will be
-                applied to all polygons. A value of ``0`` removes the area constraint.
-            linear: Order of triangular mesh, if ``True`` gives linear elements and if
-                ``False`` gives quadratic elements
+            mesh_sizes: A list of the maximum mesh element areas for each ``polygon`` in
+                the ``Geometry`` object. If a list of length 1 or a ``float`` is passed,
+                then this one size will be applied to all ``polygons``. A value of ``0``
+                removes the area constraint. Defaults to ``0.0``.
+            linear: Order of the triangular mesh, if ``True`` generates linear ``Tri3``
+                elements, if ``False`` generates quadratic ``Tri6`` elements. Defaults
+                to ``True``.
             min_angle: The meshing algorithm adds vertices to the mesh to ensure that no
-                angle smaller than the minimum angle (in degrees, rounded to 1 decimal
-                place). Note that small angles between input segments cannot be
-                eliminated. If the minimum angle is 20.7 deg or smaller, the
-                triangulation algorithm is theoretically guaranteed to terminate (given
-                sufficient precision). The algorithm often doesn't terminate for angles
-                greater than 33 deg. Some meshes may require angles well below 20 deg to
-                avoid problems associated with insufficient floating-point precision.
-            coarse: If set to True, will create a coarse mesh (no area or quality
-                constraints)
+                angle is smaller than the minimum angle (in degrees, rounded to 1
+                decimal place). Defaults to ``30.0``.
+            coarse: If set to ``True``, will create a coarse mesh (no area or quality
+                constraints). Defaults to ``False``.
+
+        .. admonition:: A note on ``min_angle``
+
+            Note that small angles between input segments cannot be eliminated. If the
+            minimum angle is 20.7° or smaller, the triangulation algorithm is
+            theoretically guaranteed to terminate (given sufficient precision). The
+            algorithm often doesn't terminate for angles greater than 33°. Some meshes
+            may require angles well below 20° to avoid problems associated with
+            insufficient floating-point precision.
         """
         if isinstance(mesh_sizes, (float, int)):
             mesh_sizes = [mesh_sizes]
@@ -775,16 +1139,40 @@ class Geometry:
 
     def plot_geometry(
         self,
-        title: str = "Geometry",
-        labels: list[str] | None = None,
-        cp: bool = True,
-        legend: bool = True,
+        load_case: LoadCase | None = None,
         **kwargs: Any,
     ) -> matplotlib.axes.Axes:
-        """Plots the geometry."""
-        # create default labels
-        if labels is None:
-            labels = ["control_points"]
+        """Plots the geometry.
+
+        Optionally also renders the boundary conditions of a load case if provided.
+
+        Args:
+            load_case: Plots the boundary conditions within a load case if provided.
+                Defaults to ``None``.
+            kwargs: See below.
+
+        Keyword Args:
+            title (str): Plot title. Defaults to ``"Geometry"``.
+            labels(list[str]): A list of index labels to plot, can contain any of the
+                following: ``"points"``, ``"facets"``, ``"holes"``,
+                ``"control_points"``. Defaults to ``["control_points"]``.
+            plot_cps (bool): If set to ``True``, plots the control points. Defaults to
+                ``True``.
+            legend (bool):  If set to ``True``, plots the legend. Defaults to ``True``.
+            kwargs (dict[str, Any]): Other keyword arguments are passed to
+                :meth:`~planestress.post.plotting.plotting_context`.
+
+        Returns:
+            Matplotlib axes object.
+
+        Example:
+            TODO.
+        """
+        # get keyword arguments
+        title: str = kwargs.pop("title", "Geometry")
+        labels: list[str] = kwargs.pop("labels", ["control_points"])
+        plot_cps: bool = kwargs.pop("plot_cps", True)
+        legend: bool = kwargs.pop("legend", True)
 
         # create plot and setup the plot
         with plotting_context(title=title, **kwargs) as (_, ax):
@@ -811,7 +1199,7 @@ class Geometry:
                 label = None
 
             # plot the control points
-            if cp:
+            if plot_cps:
                 label = "Control Points"
                 for cpts in self.control_points:
                     ax.plot(cpts.x, cpts.y, "bo", markersize=5, label=label)
@@ -840,6 +1228,12 @@ class Geometry:
                 for idx, pt in enumerate(self.holes):
                     ax.annotate(str(idx), xy=(pt.x, pt.y), color="r")
 
+            # plot the load case
+            if load_case is not None:
+                for boundary_condition in load_case.boundary_conditions:
+                    # boundary_condition.plot()
+                    print(boundary_condition.marker_id)  # TODO - plot this!
+
             # display the legend
             if legend:
                 ax.legend(loc="center left", bbox_to_anchor=(1, 0.5))
@@ -848,30 +1242,64 @@ class Geometry:
 
     def plot_mesh(
         self,
-        nodes: bool = False,
-        nd_num: bool = False,
-        el_num: bool = False,
-        nd_markers: bool = False,
-        seg_markers: bool = False,
-        materials: bool = False,
-        alpha: float = 0.5,
-        mask: list[bool] | None = None,
-        title: str = "Finite Element Mesh",
+        load_case: LoadCase | None = None,
         **kwargs: Any,
     ) -> matplotlib.axes.Axes:
-        """Plots the finite element mesh."""
+        r"""Plots the finite element mesh.
+
+        Optionally also renders the boundary conditions of a load case if provided.
+
+        Args:
+            load_case: Plots the boundary conditions within a load case if provided.
+                Defaults to ``None``.
+            kwargs: See below.
+
+        Keyword Args:
+            title (str): Plot title. Defaults to ``"Finite Element Mesh"``.
+            materials (bool): If set to ``True`` shades the elements with the specified
+                material colors. Defaults to ``True``.
+            nodes (bool): If set to ``True`` plots the nodes of the mesh. Defaults to
+                ``False``.
+            node_indexes (bool): If set to ``True``, plots the indexes of each node.
+                Defaults to ``False``.
+            element_indexes (bool): If set to ``True``, plots the indexes of each
+                element. Defaults to ``False``.
+            alpha (float): Transparency of the mesh outlines,
+                :math:`0 \leq \alpha \leq 1`. Defaults to ``0.5``.
+            mask (list[bool] | None): Mask array to mask out triangles, must be same
+                length as number of elements in mesh. Defaults to ``None``.
+            kwargs (dict[str, Any]): Other keyword arguments are passed to
+                :meth:`~planestress.post.plotting.plotting_context`.
+
+        Raises:
+            RuntimeError: If a mesh has not yet been generated.
+
+        Returns:
+            Matplotlib axes object.
+
+        Example:
+            TODO.
+        """
+        # get keyword arguments
+        title: str = kwargs.pop("title", "Finite Element Mesh")
+        materials: bool = kwargs.pop("materials", True)
+        nodes: bool = kwargs.pop("nodes", False)
+        node_indexes: bool = kwargs.pop("node_indexes", False)
+        element_indexes: bool = kwargs.pop("element_indexes", False)
+        alpha: float = kwargs.pop("alpha", 0.5)
+        mask: list[bool] | None = kwargs.pop("mask", None)
+
         if self.mesh is not None:
             return self.mesh.plot_mesh(
+                load_case=load_case,
                 material_list=self.materials,
-                nodes=nodes,
-                nd_num=nd_num,
-                el_num=el_num,
-                nd_markers=nd_markers,
-                seg_markers=seg_markers,
+                title=title,
                 materials=materials,
+                nodes=nodes,
+                node_indexes=node_indexes,
+                element_indexes=element_indexes,
                 alpha=alpha,
                 mask=mask,
-                title=title,
                 **kwargs,
             )
         else:
@@ -880,7 +1308,14 @@ class Geometry:
 
 @dataclass(eq=True)
 class Point:
-    """Class describing a point in 2D space."""
+    """Class describing a point in 2D space.
+
+    Args:
+        x: ``x`` location of the point.
+        y: ``y`` location of the point.
+        tol: Number of digits to round the point to.
+        idx: Point index. Defaults to ``None``.
+    """
 
     x: float
     y: float
@@ -893,10 +1328,20 @@ class Point:
 
     def __eq__(
         self,
-        other: Point,
+        other: object,
     ) -> bool:
-        """Override __eq__ method to neglect index."""
-        return self.x == other.x and self.y == other.y
+        """Override __eq__ method to neglect index.
+
+        Args:
+            other: Other object to check equality against.
+
+        Returns:
+            ``True`` if ``Points`` objects are equal.
+        """
+        if isinstance(other, Point):
+            return self.x == other.x and self.y == other.y
+        else:
+            return False
 
     def round(self) -> None:
         """Rounds the point to ``tol`` digits."""
@@ -904,32 +1349,62 @@ class Point:
         self.y = round(self.y, self.tol)
 
     def to_tuple(self) -> tuple[float, float]:
-        """Converts the point to a tuple."""
+        """Converts the point to a tuple.
+
+        Returns:
+            ``Point`` in tuple format (``x``, ``y``).
+        """
         return self.x, self.y
 
     def to_shapely_point(self) -> shapely.Point:
-        """Converts the point to a ``shapely`` ``Point`` object."""
+        """Converts the point to a ``shapely`` ``Point`` object.
+
+        Returns:
+            ``Point`` as a :class:`shapely.Point`.
+        """
         return shapely.Point(self.x, self.y)
 
 
 @dataclass(eq=True)
 class Facet:
-    """Class describing a facet of a 2D geometry, i.e. an edge."""
+    """Class describing a facet of a 2D geometry, i.e. an edge.
+
+    Args:
+        pt1: First point in the facet
+        pt2: Second point in the facet
+    """
 
     pt1: Point
     pt2: Point
 
     def __eq__(
         self,
-        other: Facet,
+        other: object,
     ) -> bool:
-        """Override __eq__ method to account for points in either order."""
-        return (self.pt1 == other.pt1 and self.pt2 == other.pt2) or (
-            self.pt1 == other.pt2 and self.pt2 == other.pt1
-        )
+        """Override __eq__ method to account for points in either order.
+
+        Args:
+            other: Other object to check equality against.
+
+        Returns:
+            ``True`` if ``Facet`` objects are equal.
+        """
+        if isinstance(other, Facet):
+            return (self.pt1 == other.pt1 and self.pt2 == other.pt2) or (
+                self.pt1 == other.pt2 and self.pt2 == other.pt1
+            )
+        else:
+            return False
 
     def to_tuple(self) -> tuple[float, float]:
-        """Converts the facet to a tuple."""
+        """Converts the facet to a tuple.
+
+        Raises:
+            RuntimeError: If a point in the facet hasn't been assigned an index.
+
+        Returns:
+            ``Facet`` in tuple format (``pt1_idx``, ``pt2_idx``).
+        """
         idx_1 = self.pt1.idx
         idx_2 = self.pt2.idx
 
@@ -941,14 +1416,22 @@ class Facet:
 
         return idx_1, idx_2
 
-    def to_shapely_line(self) -> shapely.Point:
-        """Converts the point to a ``shapely`` ``Point`` object."""
+    def to_shapely_line(self) -> shapely.LineString:
+        """Converts the line to a ``shapely`` ``Line`` object.
+
+        Returns:
+            ``Facet`` as a :class:`shapely.LineString`.
+        """
         return shapely.LineString(
             [self.pt1.to_shapely_point(), self.pt2.to_shapely_point()]
         )
 
     def zero_length(self) -> bool:
-        """Tests whether or not a facet is zero length."""
+        """Tests whether or not a facet is zero length.
+
+        Returns:
+            ``True`` if the facet has zero length (i.e. ``pt1 == pt2``).
+        """
         return self.pt1 == self.pt2
 
     def update_point(
@@ -956,7 +1439,12 @@ class Facet:
         old: Point,
         new: Point,
     ) -> None:
-        """If the facet contains the point ``old``, replace with ``new``."""
+        """If the facet contains the point ``old``, replace with ``new``.
+
+        Args:
+            old: Old ``Point`` to replace.
+            new: ``Point`` to replace ``old`` with.
+        """
         if self.pt1 == old:
             self.pt1 = new
 
