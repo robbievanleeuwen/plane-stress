@@ -1,5 +1,6 @@
 """Nox sessions."""
 import os
+import platform
 import shlex
 import shutil
 import sys
@@ -161,6 +162,16 @@ def tests(session: Session) -> None:
         session: Nox session
     """
     session.install(".")
+
+    if platform.system().lower() == "linux":
+        session.run(
+            "pip",
+            "install",
+            "-i",
+            "https://gmsh.info/python-packages-dev-nox/gmsh/gmsh-4.11.1.dev1+nox-py2.py3-none-manylinux1_x86_64.whl",
+            "--force-reinstall",
+        )
+
     # install relevant tooling
     session.install("coverage[toml]", "pytest", "pygments", "pytest-check")
 
