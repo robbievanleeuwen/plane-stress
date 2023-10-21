@@ -171,7 +171,7 @@ def tests(session: Session) -> None:
             "-i",
             "https://gmsh.info/python-packages-dev-nox",
             "--force-reinstall",
-            "gmsh==4.11.1",
+            "gmsh==4.11.1.dev1+nox",
         )
 
     # install relevant tooling
@@ -231,7 +231,7 @@ def docs_build(session: Session) -> None:
             "-i",
             "https://gmsh.info/python-packages-dev-nox",
             "--force-reinstall",
-            "gmsh==4.11.1",
+            "gmsh==4.11.1.dev1+nox",
         )
 
     session.install(
@@ -272,7 +272,7 @@ def docs(session: Session) -> None:
             "-i",
             "https://gmsh.info/python-packages-dev-nox",
             "--force-reinstall",
-            "gmsh==4.11.1",
+            "gmsh==4.11.1.dev1+nox",
         )
 
     session.install(
