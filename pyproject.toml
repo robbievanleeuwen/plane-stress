@@ -49,11 +49,6 @@ triangle = "^20230923"
 rich = "^13.5.0"
 click = "^8.1.7"
 gmsh = "^4.11.1"
-# gmsh = [
-#     { platform = "linux", url = "https://gmsh.info/python-packages-dev-nox/gmsh/gmsh-4.11.1.dev1+nox-py2.py3-none-manylinux1_x86_64.whl" },
-#     { platform = "darwin", version = "^4.11.1", source = "pypi" },
-#     { platform = "win32", version = "^4.11.1", source = "pypi" },
-# ]
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.10.0"

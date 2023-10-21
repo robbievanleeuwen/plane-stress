@@ -163,6 +163,7 @@ def tests(session: Session) -> None:
     """
     session.install(".")
 
+    # linux CI needs the no X Windows versions of gmsh
     if platform.system().lower() == "linux":
         session.run(
             "pip",
@@ -170,7 +171,7 @@ def tests(session: Session) -> None:
             "-i",
             "https://gmsh.info/python-packages-dev-nox",
             "--force-reinstall",
-            "gmsh",
+            "gmsh==4.11.1",
         )
 
     # install relevant tooling
@@ -221,6 +222,18 @@ def docs_build(session: Session) -> None:
         args.insert(0, "--color")
 
     session.install(".")
+
+    # linux CI needs the no X Windows versions of gmsh
+    if platform.system().lower() == "linux":
+        session.run(
+            "pip",
+            "install",
+            "-i",
+            "https://gmsh.info/python-packages-dev-nox",
+            "--force-reinstall",
+            "gmsh==4.11.1",
+        )
+
     session.install(
         "furo",
         "ipykernel",
@@ -250,6 +263,18 @@ def docs(session: Session) -> None:
     """
     args = session.posargs or ["--open-browser", "docs", "docs/_build"]
     session.install(".")
+
+    # linux CI needs the no X Windows versions of gmsh
+    if platform.system().lower() == "linux":
+        session.run(
+            "pip",
+            "install",
+            "-i",
+            "https://gmsh.info/python-packages-dev-nox",
+            "--force-reinstall",
+            "gmsh==4.11.1",
+        )
+
     session.install(
         "furo",
         "ipykernel",
