@@ -168,8 +168,9 @@ def tests(session: Session) -> None:
             "pip",
             "install",
             "-i",
-            "https://gmsh.info/python-packages-dev-nox/gmsh/gmsh-4.11.1.dev1+nox-py2.py3-none-manylinux1_x86_64.whl",
+            "https://gmsh.info/python-packages-dev-nox",
             "--force-reinstall",
+            "gmsh",
         )
 
     # install relevant tooling
