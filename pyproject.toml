@@ -110,6 +110,7 @@ show_error_context = true
 
 [[tool.mypy.overrides]]
 module = [
+    "gmsh.*",
     "mpl_toolkits.*",
     "numba.*",
     "pypardiso.*",

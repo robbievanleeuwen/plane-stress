@@ -9,7 +9,6 @@ import numpy as np
 
 import planestress.analysis.solver as solver
 import planestress.pre.boundary_condition as bc
-from planestress.analysis.finite_element import FiniteElement, Tri3, Tri6
 from planestress.analysis.utils import dof_map
 from planestress.post.results import Results
 
@@ -43,9 +42,6 @@ class PlaneStress:
         self.load_cases = load_cases
         self.int_points = int_points
 
-        # initialise other class variables
-        self.elements: list[FiniteElement] = []
-
         # check mesh has been created
         if self.geometry.mesh is None:
             raise RuntimeError(
@@ -54,27 +50,6 @@ class PlaneStress:
             )
 
         self.mesh: Mesh = self.geometry.mesh
-
-        # get finite element type
-        el_type: type = Tri3 if self.mesh.linear else Tri6
-
-        # loop through each element in the mesh
-        for idx, node_idxs in enumerate(self.mesh.elements):
-            # create a list containing the vertex and mid-node coordinates
-            coords = self.mesh.nodes[node_idxs, :].transpose()
-
-            # get attribute index of current element
-            att_el = self.mesh.attributes[idx]
-
-            # fetch the material
-            material = self.geometry.materials[att_el]
-
-            # add element to the list of elements
-            self.elements.append(
-                el_type(
-                    el_idx=idx, coords=coords, node_idxs=node_idxs, material=material
-                )
-            )
 
     def solve(self) -> list[Results]:
         """Solves each load case.
@@ -94,7 +69,7 @@ class PlaneStress:
         results: list[Results] = []
 
         # assemble stiffness matrix
-        for el in self.elements:
+        for el in self.mesh.elements:
             # get element stiffness matrix
             k_el = el.element_stiffness_matrix(n_points=self.int_points)
 
@@ -111,7 +86,7 @@ class PlaneStress:
             k_mod = copy.deepcopy(k)
 
             # assemble load vector
-            for el in self.elements:
+            for el in self.mesh.elements:
                 # get element load vector
                 f_el = el.element_load_vector(n_points=self.int_points)
 
@@ -163,7 +138,7 @@ class PlaneStress:
             # post-processing
             res = Results(plane_stress=self, u=u)
             res.calculate_node_forces(k=k)
-            res.calculate_element_results(elements=self.elements)
+            res.calculate_element_results(elements=self.mesh.elements)
 
             # add to results list
             results.append(res)

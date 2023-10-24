@@ -15,11 +15,12 @@ TRI_ARRAY = np.array([[0.0, 1.0, 0.0], [0.0, 0.0, 1.0]])
 
 
 class FiniteElement:
-    """Abstract base class for a triangular plane-stress finite element."""
+    """Abstract base class for a plane-stress finite element."""
 
     def __init__(
         self,
         el_idx: int,
+        el_tag: int,
         coords: npt.NDArray[np.float64],
         node_idxs: list[int],
         material: Material,
@@ -29,6 +30,7 @@ class FiniteElement:
 
         Args:
             el_idx: Element index.
+            el_tag: Element mesh tag.
             coords: A :class:`numpy.ndarray` of coordinates defining the element, e.g.
                 ``[[x1, x2, x3], [y1, y2, y3]]``.
             node_idxs: List of node indexes defining the element, e.g.
@@ -37,80 +39,36 @@ class FiniteElement:
             num_nodes: Number of nodes in the finite element.
         """
         self.el_idx = el_idx
+        self.el_tag = el_tag
         self.coords = coords
         self.node_idxs = node_idxs
         self.material = material
         self.num_nodes = num_nodes
 
-    def __str__(self) -> str:
-        """Override string method.
+    def __repr__(self) -> str:
+        """Override repr method.
 
         Returns:
             String representation of the object.
         """
         return (
-            f"{self.__class__.__name__} - id: {self.el_idx}, material: "
-            f"{self.material.name}"
+            f"{self.__class__.__name__} - id: {self.el_idx}, tag: {self.el_tag}, "
+            f"material: {self.material.name}."
         )
 
-    @staticmethod
-    def gauss_points(n_points: int) -> npt.NDArray[np.float64]:
+    def gauss_points(
+        self,
+        n_points: int,
+    ) -> npt.NDArray[np.float64]:
         """Gaussian weights and locations for ``n_point`` Gaussian integration.
 
         Args:
             n_points: Number of gauss points.
 
         Raises:
-            ValueError: If ``n_points`` is not 1, 3, 4 or 6.
-
-        Returns:
-            Gaussian weights and locations. For each gauss point -
-            ``[weight, eta, xi, zeta]``.
+            NotImplementedError: If this method hasn't been implemented for an element.
         """
-        # one point gaussian integration
-        if n_points == 1:
-            return np.array([[1.0, 1.0 / 3, 1.0 / 3, 1.0 / 3]])
-
-        # three point gaussian integration
-        if n_points == 3:
-            return np.array(
-                [
-                    [1.0 / 3, 2.0 / 3, 1.0 / 6, 1.0 / 6],
-                    [1.0 / 3, 1.0 / 6, 2.0 / 3, 1.0 / 6],
-                    [1.0 / 3, 1.0 / 6, 1.0 / 6, 2.0 / 3],
-                ]
-            )
-
-        # four-point integration
-        if n_points == 4:
-            return np.array(
-                [
-                    [-27.0 / 48.0, 1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0],
-                    [25.0 / 48.0, 0.6, 0.2, 0.2],
-                    [25.0 / 48.0, 0.2, 0.6, 0.2],
-                    [25.0 / 48.0, 0.2, 0.2, 0.6],
-                ]
-            )
-
-        # six point gaussian integration
-        if n_points == 6:
-            g1 = 1.0 / 18 * (8 - np.sqrt(10) + np.sqrt(38 - 44 * np.sqrt(2.0 / 5)))
-            g2 = 1.0 / 18 * (8 - np.sqrt(10) - np.sqrt(38 - 44 * np.sqrt(2.0 / 5)))
-            w1 = (620 + np.sqrt(213125 - 53320 * np.sqrt(10))) / 3720
-            w2 = (620 - np.sqrt(213125 - 53320 * np.sqrt(10))) / 3720
-
-            return np.array(
-                [
-                    [w2, 1 - 2 * g2, g2, g2],
-                    [w2, g2, 1 - 2 * g2, g2],
-                    [w2, g2, g2, 1 - 2 * g2],
-                    [w1, g1, g1, 1 - 2 * g1],
-                    [w1, 1 - 2 * g1, g1, g1],
-                    [w1, g1, 1 - 2 * g1, g1],
-                ]
-            )
-
-        raise ValueError("n must be 1, 3, 4 or 6.")
+        raise NotImplementedError
 
     @staticmethod
     def shape_functions(
@@ -161,7 +119,7 @@ class FiniteElement:
         """Returns the values of the isoparametric coordinates at the nodes.
 
         Raises:
-            NotImplementedError:If this method hasn't been implemented for an element.
+            NotImplementedError: If this method hasn't been implemented for an element.
         """
         raise NotImplementedError
 
@@ -169,47 +127,15 @@ class FiniteElement:
         self,
         iso_coords: tuple[float, float, float],
     ) -> tuple[npt.NDArray[np.float64], float]:
-        """Calculates the B matrix and jacobian at an isoparametric point..
+        """Calculates the B matrix and jacobian at an isoparametric point.
 
         Args:
             iso_coords: Location of the point in isoparametric coordinates.
 
-        Returns:
-            Derivatives of the shape function (B matrix) and value of the jacobian,
-            (``b_mat``, ``j``).
+        Raises:
+            NotImplementedError: If this method hasn't been implemented for an element.
         """
-        # get the b matrix wrt. the isoparametric coordinates
-        b_iso = self.shape_functions_derivatives(iso_coords=iso_coords)
-
-        # form Jacobian matrix
-        j = np.ones((3, 3))
-        j[:, 1:] = b_iso @ self.coords.transpose()
-
-        # calculate the jacobian
-        jacobian = 0.5 * np.linalg.det(j)
-
-        # if the area of the element is not zero
-        if jacobian != 0:
-            b_mat = TRI_ARRAY @ np.linalg.solve(j, b_iso)
-        else:
-            b_mat = np.zeros((2, self.num_nodes))  # empty b matrix
-
-        # form plane stress b matrix
-        b_mat_ps = np.zeros((3, 2 * self.num_nodes))
-
-        # fill first two rows with first two rows of b matrix
-        # first row - every second entry starting with first
-        # second row - every second entry starting with second
-        for i in range(2):
-            b_mat_ps[i, i::2] = b_mat[i, :]
-
-        # last row:
-        # fill every second entry (starting with the first) from second row of b matrix
-        b_mat_ps[2, ::2] = b_mat[1, :]
-        # fill every second entry (starting with the second) from first row of b matrix
-        b_mat_ps[2, 1::2] = b_mat[0, :]
-
-        return b_mat_ps, jacobian
+        raise NotImplementedError
 
     def element_stiffness_matrix(
         self,
@@ -302,6 +228,7 @@ class FiniteElement:
 
         return ElementResults(
             el_idx=self.el_idx,
+            el_tag=self.el_tag,
             coords=self.coords,
             node_idxs=self.node_idxs,
             material=self.material,
@@ -310,12 +237,157 @@ class FiniteElement:
         )
 
 
-class Tri3(FiniteElement):
+class TriangularElement(FiniteElement):
+    """Abstract base class for a triangular plane-stress finite element."""
+
+    def __init__(
+        self,
+        el_idx: int,
+        el_tag: int,
+        coords: npt.NDArray[np.float64],
+        node_idxs: list[int],
+        material: Material,
+        num_nodes: int,
+    ) -> None:
+        """Inits the FiniteElement class.
+
+        Args:
+            el_idx: Element index.
+            el_tag: Element mesh tag.
+            coords: A :class:`numpy.ndarray` of coordinates defining the element, e.g.
+                ``[[x1, x2, x3], [y1, y2, y3]]``.
+            node_idxs: List of node indexes defining the element, e.g.
+                ``[idx1, idx2, idx3]``.
+            material: Material of the element.
+            num_nodes: Number of nodes in the finite element.
+        """
+        super().__init__(
+            el_idx=el_idx,
+            el_tag=el_tag,
+            coords=coords,
+            node_idxs=node_idxs,
+            material=material,
+            num_nodes=num_nodes,
+        )
+
+    def gauss_points(
+        self,
+        n_points: int,
+    ) -> npt.NDArray[np.float64]:
+        """Gaussian weights and locations for ``n_point`` Gaussian integration.
+
+        Args:
+            n_points: Number of gauss points.
+
+        Raises:
+            ValueError: If ``n_points`` is not 1, 3, 4 or 6.
+
+        Returns:
+            Gaussian weights and locations. For each gauss point -
+            ``[weight, eta, xi, zeta]``.
+        """
+        # one point gaussian integration
+        if n_points == 1:
+            return np.array([[1.0, 1.0 / 3, 1.0 / 3, 1.0 / 3]])
+
+        # three point gaussian integration
+        if n_points == 3:
+            return np.array(
+                [
+                    [1.0 / 3, 2.0 / 3, 1.0 / 6, 1.0 / 6],
+                    [1.0 / 3, 1.0 / 6, 2.0 / 3, 1.0 / 6],
+                    [1.0 / 3, 1.0 / 6, 1.0 / 6, 2.0 / 3],
+                ]
+            )
+
+        # four-point integration
+        if n_points == 4:
+            return np.array(
+                [
+                    [-27.0 / 48.0, 1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0],
+                    [25.0 / 48.0, 0.6, 0.2, 0.2],
+                    [25.0 / 48.0, 0.2, 0.6, 0.2],
+                    [25.0 / 48.0, 0.2, 0.2, 0.6],
+                ]
+            )
+
+        # six point gaussian integration
+        if n_points == 6:
+            g1 = 1.0 / 18 * (8 - np.sqrt(10) + np.sqrt(38 - 44 * np.sqrt(2.0 / 5)))
+            g2 = 1.0 / 18 * (8 - np.sqrt(10) - np.sqrt(38 - 44 * np.sqrt(2.0 / 5)))
+            w1 = (620 + np.sqrt(213125 - 53320 * np.sqrt(10))) / 3720
+            w2 = (620 - np.sqrt(213125 - 53320 * np.sqrt(10))) / 3720
+
+            return np.array(
+                [
+                    [w2, 1 - 2 * g2, g2, g2],
+                    [w2, g2, 1 - 2 * g2, g2],
+                    [w2, g2, g2, 1 - 2 * g2],
+                    [w1, g1, g1, 1 - 2 * g1],
+                    [w1, 1 - 2 * g1, g1, g1],
+                    [w1, g1, 1 - 2 * g1, g1],
+                ]
+            )
+
+        raise ValueError(
+            f"'n_points' must be 1, 3, 4 or 6 for a {self.__class__.__name__}. element."
+        )
+
+    def b_matrix_jacobian(
+        self,
+        iso_coords: tuple[float, float, float],
+    ) -> tuple[npt.NDArray[np.float64], float]:
+        """Calculates the B matrix and jacobian at an isoparametric point.
+
+        Args:
+            iso_coords: Location of the point in isoparametric coordinates.
+
+        Returns:
+            Derivatives of the shape function (B matrix) and value of the jacobian,
+            (``b_mat``, ``j``).
+        """
+        # TODO - is this general for rectangular as well? probably not... iso_coords
+        # get the b matrix wrt. the isoparametric coordinates
+        b_iso = self.shape_functions_derivatives(iso_coords=iso_coords)
+
+        # form Jacobian matrix
+        j = np.ones((3, 3))
+        j[:, 1:] = b_iso @ self.coords.transpose()
+
+        # calculate the jacobian
+        jacobian = 0.5 * np.linalg.det(j)
+
+        # if the area of the element is not zero
+        if jacobian != 0:
+            b_mat = TRI_ARRAY @ np.linalg.solve(j, b_iso)
+        else:
+            b_mat = np.zeros((2, self.num_nodes))  # empty b matrix
+
+        # form plane stress b matrix
+        b_mat_ps = np.zeros((3, 2 * self.num_nodes))
+
+        # fill first two rows with first two rows of b matrix
+        # first row - every second entry starting with first
+        # second row - every second entry starting with second
+        for i in range(2):
+            b_mat_ps[i, i::2] = b_mat[i, :]
+
+        # last row:
+        # fill every second entry (starting with the first) from second row of b matrix
+        b_mat_ps[2, ::2] = b_mat[1, :]
+        # fill every second entry (starting with the second) from first row of b matrix
+        b_mat_ps[2, 1::2] = b_mat[0, :]
+
+        return b_mat_ps, jacobian
+
+
+class Tri3(TriangularElement):
     """Class for a three-noded linear triangular element."""
 
     def __init__(
         self,
         el_idx: int,
+        el_tag: int,
         coords: npt.NDArray[np.float64],
         node_idxs: list[int],
         material: Material,
@@ -324,6 +396,7 @@ class Tri3(FiniteElement):
 
         Args:
             el_idx: Element index.
+            el_tag: Element mesh tag.
             coords: A ``2 x 3`` :class:`numpy.ndarray` of coordinates defining the
                 element, i.e. ``[[x1, x2, x3], [y1, y2, y3]]``.
             node_idxs: A list of node indexes defining the element, i.e.
@@ -332,6 +405,7 @@ class Tri3(FiniteElement):
         """
         super().__init__(
             el_idx=el_idx,
+            el_tag=el_tag,
             coords=coords,
             node_idxs=node_idxs,
             material=material,
@@ -393,12 +467,13 @@ class Tri3(FiniteElement):
         )
 
 
-class Tri6(FiniteElement):
+class Tri6(TriangularElement):
     """Class for a six-noded quadratic triangular element."""
 
     def __init__(
         self,
         el_idx: int,
+        el_tag: int,
         coords: npt.NDArray[np.float64],
         node_idxs: list[int],
         material: Material,
@@ -407,6 +482,7 @@ class Tri6(FiniteElement):
 
         Args:
             el_idx: Element index.
+            el_tag: Element mesh tag.
             coords: A ``2 x 6`` :class:`numpy.ndarray` of coordinates defining the
                 element, i.e. ``[[x1, ..., x6], [y1, ..., y6]]``.
             node_idxs: A list of node indexes defining the element, i.e.
@@ -415,6 +491,7 @@ class Tri6(FiniteElement):
         """
         super().__init__(
             el_idx=el_idx,
+            el_tag=el_tag,
             coords=coords,
             node_idxs=node_idxs,
             material=material,
@@ -491,12 +568,84 @@ class Tri6(FiniteElement):
         )
 
 
+class RectangularElement:
+    """Abstract base class for a rectangular plane-stress finite element."""
+
+    pass
+
+
+class LineElement:
+    """Abstract base class for a line element."""
+
+    def __init__(
+        self,
+        line_idx: int,
+        line_tag: int,
+        coords: npt.NDArray[np.float64],
+        node_idxs: list[int],
+    ) -> None:
+        """Inits the LineElement class.
+
+        Args:
+            line_idx: Line element index.
+            line_tag: Mesh line element tag.
+            coords: A :class:`numpy.ndarray` of coordinates defining the element, e.g.
+                ``[[x1, x2], [y1, y2]]``.
+            node_idxs: List of node indexes defining the element, e.g.
+                ``[idx1, idx2]``.
+        """
+        self.line_idx = line_idx
+        self.line_tag = line_tag
+        self.coords = coords
+        self.node_idxs = node_idxs
+
+    def __repr__(self) -> str:
+        """Override repr method.
+
+        Returns:
+            String representation of the object.
+        """
+        return (
+            f"{self.__class__.__name__} - id: {self.line_idx}, "
+            f"tag: {self.line_tag}."
+        )
+
+
+class LinearLine(LineElement):
+    """Class for a two-noded linear line element."""
+
+    def __init__(
+        self,
+        line_idx: int,
+        line_tag: int,
+        coords: npt.NDArray[np.float64],
+        node_idxs: list[int],
+    ) -> None:
+        """Inits the LinearLine class.
+
+        Args:
+            line_idx: Line element index.
+            line_tag: Mesh line element tag.
+            coords: A :class:`numpy.ndarray` of coordinates defining the element, e.g.
+                ``[[x1, x2], [y1, y2]]``.
+            node_idxs: List of node indexes defining the element, e.g.
+                ``[idx1, idx2]``.
+        """
+        super().__init__(
+            line_idx=line_idx,
+            line_tag=line_tag,
+            coords=coords,
+            node_idxs=node_idxs,
+        )
+
+
 class ElementResults(FiniteElement):
     """Class for storing the results of a finite element."""
 
     def __init__(
         self,
         el_idx: int,
+        el_tag: int,
         coords: npt.NDArray[np.float64],
         node_idxs: list[int],
         material: Material,
@@ -507,6 +656,7 @@ class ElementResults(FiniteElement):
 
         Args:
             el_idx: Element index.
+            el_tag: Element mesh tag.
             coords: A :class:`numpy.ndarray` of coordinates defining the element, e.g.
                 ``[[x1, x2, x3], [y1, y2, y3]]``.
             node_idxs: List of node indexes defining the element, e.g.
@@ -518,6 +668,7 @@ class ElementResults(FiniteElement):
         """
         super().__init__(
             el_idx=el_idx,
+            el_tag=el_tag,
             coords=coords,
             node_idxs=node_idxs,
             material=material,
