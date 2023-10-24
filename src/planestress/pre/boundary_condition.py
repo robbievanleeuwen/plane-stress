@@ -2,36 +2,39 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import numpy as np
 import numpy.typing as npt
 
+from planestress.analysis.utils import dof_map
+
+
+if TYPE_CHECKING:
+    from planestress.pre.mesh import TaggedEntity, TaggedLine, TaggedNode
+
 
 class BoundaryCondition:
-    """Abstract base class for a boundary condition."""
+    """Abstract base class for a boundary condition.
 
-    def __init__(
-        self,
-        marker_id: int,
-    ) -> None:
-        """Inits the BoundaryCondition class.
+    Attributes:
+        mesh_tag: Tagged entity object.
+    """
 
-        Args:
-            marker_id: Mesh marker ID.
-        """
-        self.marker_id = marker_id
+    def __init__(self) -> None:
+        """Inits the BoundaryCondition class."""
+        self.mesh_tag: TaggedEntity
 
     def apply_bc(
         self,
         k: npt.NDArray[np.float64],
         f: npt.NDArray[np.float64],
-        dofs: list[int],
     ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
         """Applies the boundary condition.
 
         Args:
             k: Stiffness matrix.
             f: Load vector.
-            dofs: Degrees of freedom.
 
         Raises:
             NotImplementedError: If this method has not been implemented.
@@ -40,60 +43,90 @@ class BoundaryCondition:
 
 
 class NodeBoundaryCondition(BoundaryCondition):
-    """Abstract base class for a boundary condition at a node."""
+    """Abstract base class for a boundary condition at a node.
+
+    Attributes:
+        mesh_tag: Tagged node object.
+    """
 
     def __init__(
         self,
-        marker_id: int,
+        point: tuple[float, float],
         direction: str,
         value: float,
     ) -> None:
         """Inits the NodeBoundaryCondition class.
 
         Args:
-            marker_id: Mesh marker ID.
+            point: Point tuple (``x``, ``y``) describing the node location.
             direction: Direction of the boundary condition, ``"x"`` or ``"y"``.
             value: Value of the boundary condition.
         """
-        super().__init__(marker_id=marker_id)
+        self.point = point
         self.direction = direction  # TODO - verify input
         self.value = value
+        self.mesh_tag: TaggedNode
+
+    def __repr__(self) -> str:
+        """Override __repr__ method.
+
+        Returns:
+            String representation of the object.
+        """
+        return (
+            f"BC Type: {self.__class__.__name__}, dir: {self.direction}, val: "
+            f"{self.value}\n"
+            f"Mesh Tag: {self.mesh_tag}"
+        )
+
+    def get_node_dofs(self) -> list[int]:
+        """Get the degrees of freedom of the node.
+
+        Returns:
+            List (length 2) of degrees of freedom.
+        """
+        return dof_map(node_idxs=[self.mesh_tag.node_idx])
 
 
 class NodeSupport(NodeBoundaryCondition):
-    """Class for adding a support to a node."""
+    """Class for adding a support to a node.
+
+    Attributes:
+        mesh_tag: Tagged node object.
+    """
 
     def __init__(
         self,
-        marker_id: int,
+        point: tuple[float, float],
         direction: str,
         value: float,
     ) -> None:
         """Inits the NodeSupport class.
 
         Args:
-            marker_id: Mesh marker ID.
+            point: Point tuple (``x``, ``y``) describing the node location.
             direction: Direction of the boundary condition, ``"x"`` or ``"y"``.
             value: Value of the boundary condition.
         """
-        super().__init__(marker_id=marker_id, direction=direction, value=value)
+        super().__init__(point=point, direction=direction, value=value)
 
     def apply_bc(
         self,
         k: npt.NDArray[np.float64],
         f: npt.NDArray[np.float64],
-        dofs: list[int],
     ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
         """Applies the boundary condition.
 
         Args:
             k: Stiffness matrix.
             f: Load vector.
-            dofs: Degrees of freedom, length is two for a node BC.
 
         Returns:
             Modified stiffness matrix and load vector (``k``, ``f``).
         """
+        # get nodal dofs
+        dofs = self.get_node_dofs()
+
         # get relevant dof
         dof = dofs[0] if self.direction == "x" else dofs[1]
 
@@ -106,39 +139,44 @@ class NodeSupport(NodeBoundaryCondition):
 
 
 class NodeSpring(NodeBoundaryCondition):
-    """Class for adding a spring to a node."""
+    """Class for adding a spring to a node.
+
+    Attributes:
+        mesh_tag: Tagged node object.
+    """
 
     def __init__(
         self,
-        marker_id: int,
+        point: tuple[float, float],
         direction: str,
         value: float,
     ) -> None:
         """Inits the NodeSpring class.
 
         Args:
-            marker_id: Mesh marker ID.
+            point: Point tuple (``x``, ``y``) describing the node location.
             direction: Direction of the boundary condition, ``"x"`` or ``"y"``.
             value: Value of the boundary condition.
         """
-        super().__init__(marker_id=marker_id, direction=direction, value=value)
+        super().__init__(point=point, direction=direction, value=value)
 
     def apply_bc(
         self,
         k: npt.NDArray[np.float64],
         f: npt.NDArray[np.float64],
-        dofs: list[int],
     ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
         """Applies the boundary condition.
 
         Args:
             k: Stiffness matrix.
             f: Load vector.
-            dofs: Degrees of freedom, length is two for a node BC.
 
         Returns:
             Modified stiffness matrix and load vector (``k``, ``f``).
         """
+        # get nodal dofs
+        dofs = self.get_node_dofs()
+
         # get relevant dof
         dof = dofs[0] if self.direction == "x" else dofs[1]
 
@@ -149,39 +187,44 @@ class NodeSpring(NodeBoundaryCondition):
 
 
 class NodeLoad(NodeBoundaryCondition):
-    """Class for adding a load to a node."""
+    """Class for adding a load to a node.
+
+    Attributes:
+        mesh_tag: Tagged node object.
+    """
 
     def __init__(
         self,
-        marker_id: int,
+        point: tuple[float, float],
         direction: str,
         value: float,
     ) -> None:
         """Inits the NodeLoad class.
 
         Args:
-            marker_id: Mesh marker ID.
+            point: Point tuple (``x``, ``y``) describing the node location.
             direction: Direction of the boundary condition, ``"x"`` or ``"y"``.
             value: Value of the boundary condition.
         """
-        super().__init__(marker_id=marker_id, direction=direction, value=value)
+        super().__init__(point=point, direction=direction, value=value)
 
     def apply_bc(
         self,
         k: npt.NDArray[np.float64],
         f: npt.NDArray[np.float64],
-        dofs: list[int],
     ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
         """Applies the boundary condition.
 
         Args:
             k: Stiffness matrix.
             f: Load vector.
-            dofs: Degrees of freedom, length is two for a node BC.
 
         Returns:
             Modified stiffness matrix and load vector (``k``, ``f``).
         """
+        # get nodal dofs
+        dofs = self.get_node_dofs()
+
         # get relevant dof
         dof = dofs[0] if self.direction == "x" else dofs[1]
 
@@ -192,60 +235,102 @@ class NodeLoad(NodeBoundaryCondition):
 
 
 class LineBoundaryCondition(BoundaryCondition):
-    """Abstract base class for a boundary condition along a line."""
+    """Abstract base class for a boundary condition along a line.
+
+    Attributes:
+        mesh_tag: Tagged line object.
+    """
 
     def __init__(
         self,
-        marker_id: int,
+        point1: tuple[float, float],
+        point2: tuple[float, float],
         direction: str,
         value: float,
     ) -> None:
         """Inits the LineBoundaryCondition class.
 
         Args:
-            marker_id: Mesh marker ID.
+            point1: Point location (``x``, ``y``) of the start of the line.
+            point2: Point location (``x``, ``y``) of the end of the line.
             direction: Direction of the boundary condition, ``"x"`` or ``"y"``.
             value: Value of the boundary condition.
         """
-        super().__init__(marker_id=marker_id)
+        self.point1 = point1
+        self.point2 = point2
         self.direction = direction  # TODO - verify input
         self.value = value
+        self.mesh_tag: TaggedLine
+
+    def __repr__(self) -> str:
+        """Override __repr__ method.
+
+        Returns:
+            String representation of the object.
+        """
+        return (
+            f"BC Type: {self.__class__.__name__}, dir: {self.direction}, val: "
+            f"{self.value}\n"
+            f"Mesh Tag: {self.mesh_tag}"
+        )
+
+    def get_unique_nodes(self) -> list[int]:
+        """Returns a list of unique node indexes along the line BC."""
+        # get list of node indexes along line BC
+        node_idxs = []
+
+        # loop through all line elements along the line BC
+        for line_el in self.mesh_tag.elements:
+            # loop through all nodes that make up the line element
+            for node_idx in line_el.node_idxs:
+                # if we haven't encountered this node, add it to the list
+                if node_idx not in node_idxs:
+                    node_idxs.append(node_idx)
+
+        return node_idxs
 
 
 class LineSupport(LineBoundaryCondition):
-    """Class for adding supports along a line."""
+    """Class for adding supports along a line.
+
+    Attributes:
+        mesh_tag: Tagged line object.
+    """
 
     def __init__(
         self,
-        marker_id: int,
+        point1: tuple[float, float],
+        point2: tuple[float, float],
         direction: str,
         value: float,
     ) -> None:
         """Inits the LineSupport class.
 
         Args:
-            marker_id: Mesh marker ID.
+            point1: Point location (``x``, ``y``) of the start of the line.
+            point2: Point location (``x``, ``y``) of the end of the line.
             direction: Direction of the boundary condition, ``"x"`` or ``"y"``.
             value: Value of the boundary condition.
         """
-        super().__init__(marker_id=marker_id, direction=direction, value=value)
+        super().__init__(point1=point1, point2=point2, direction=direction, value=value)
 
     def apply_bc(
         self,
         k: npt.NDArray[np.float64],
         f: npt.NDArray[np.float64],
-        dofs: list[int],
     ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
         """Applies the boundary condition.
 
         Args:
             k: Stiffness matrix.
             f: Load vector.
-            dofs: Degrees of freedom.
 
         Returns:
             Modified stiffness matrix and load vector (``k``, ``f``).
         """
+        # get degrees of freedom for node indexes
+        dofs = dof_map(node_idxs=self.get_unique_nodes())
+
         # get relevant dofs
         dof_list = dofs[0::2] if self.direction == "x" else dofs[1::2]
 
@@ -259,22 +344,28 @@ class LineSupport(LineBoundaryCondition):
 
 
 class LineSpring(LineBoundaryCondition):
-    """Class for adding springs along a line."""
+    """Class for adding springs along a line.
+
+    Attributes:
+        mesh_tag: Tagged line object.
+    """
 
     def __init__(
         self,
-        marker_id: int,
+        point1: tuple[float, float],
+        point2: tuple[float, float],
         direction: str,
         value: float,
     ) -> None:
         """Inits the LineSpring class.
 
         Args:
-            marker_id: Mesh marker ID.
+            point1: Point location (``x``, ``y``) of the start of the line.
+            point2: Point location (``x``, ``y``) of the end of the line.
             direction: Direction of the boundary condition, ``"x"`` or ``"y"``.
             value: Value of the boundary condition.
         """
-        super().__init__(marker_id=marker_id, direction=direction, value=value)
+        super().__init__(point1=point1, point2=point2, direction=direction, value=value)
 
     # def apply_bc(
     #     self,
@@ -304,22 +395,28 @@ class LineSpring(LineBoundaryCondition):
 
 
 class LineLoad(LineBoundaryCondition):
-    """Class for adding a load to a line."""
+    """Class for adding a load to a line.
+
+    Attributes:
+        mesh_tag: Tagged line object.
+    """
 
     def __init__(
         self,
-        marker_id: int,
+        point1: tuple[float, float],
+        point2: tuple[float, float],
         direction: str,
         value: float,
     ) -> None:
         """Inits the LineLoad class.
 
         Args:
-            marker_id: Mesh marker ID.
+            point1: Point location (``x``, ``y``) of the start of the line.
+            point2: Point location (``x``, ``y``) of the end of the line.
             direction: Direction of the boundary condition, ``"x"`` or ``"y"``.
             value: Value of the boundary condition.
         """
-        super().__init__(marker_id=marker_id, direction=direction, value=value)
+        super().__init__(point1=point1, point2=point2, direction=direction, value=value)
 
     # def apply_bc(
     #     self,

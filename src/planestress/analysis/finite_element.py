@@ -46,7 +46,7 @@ class FiniteElement:
         self.num_nodes = num_nodes
 
     def __repr__(self) -> str:
-        """Override repr method.
+        """Override __repr__ method.
 
         Returns:
             String representation of the object.
@@ -600,7 +600,7 @@ class LineElement:
         self.node_idxs = node_idxs
 
     def __repr__(self) -> str:
-        """Override repr method.
+        """Override __repr__ method.
 
         Returns:
             String representation of the object.

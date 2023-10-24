@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-import warnings
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 import shapely as shapely
 import shapely.affinity as affinity
@@ -87,14 +86,6 @@ class Geometry:
 
         # compile the geometry into points, facets and holes
         self.compile_geometry()
-
-        # create point STRtree
-        self.pts_str_tree = shapely.STRtree(
-            [pt.to_shapely_point() for pt in self.points]
-        )
-        self.fcts_str_tree = shapely.STRtree(
-            [fct.to_shapely_line() for fct in self.facets]
-        )
 
         # allocate mesh
         self.mesh: Mesh = Mesh()
@@ -741,136 +732,11 @@ class Geometry:
         else:
             return shapely.Polygon()
 
-    def find_point_index(
-        self,
-        point: tuple[float, float],
-    ) -> int:
-        """Returns the index of the point in the geometry closest to ``point``.
-
-        Args:
-            point: Point (``x``, ``y``) to find in the geometry.
-
-        Returns:
-            Index of closest point in geometry to ``point``.
-        """
-        pt = shapely.Point(point[0], point[1])
-        idx = self.pts_str_tree.nearest(geometry=pt)
-
-        return cast(int, idx)
-
-    def find_facet_index(
-        self,
-        point1: tuple[float, float],
-        point2: tuple[float, float],
-    ) -> int:
-        """Returns the index of the facet in the geometry closest to ``facet``.
-
-        Args:
-            point1: First point (``x``, ``y``) of the facet to find in the geometry.
-            point2: Second point (``x``, ``y``) of the facet to find in the geometry.
-
-        Returns:
-            Index of closest facet in geometry to ``facet``.
-        """
-        mid_point = shapely.Point(
-            0.5 * (point1[0] + point2[0]), 0.5 * (point1[1] + point2[1])
-        )
-        idx = self.fcts_str_tree.nearest(geometry=mid_point)
-
-        return cast(int, idx)
-
-    def add_point_marker(
-        self,
-        pt_idx: int,
-    ) -> int:
-        """Performs the tasks required to add a marker to a point.
-
-        Args:
-            pt_idx: Index of the point to add a marker to.
-
-        Raises:
-            ValueError: If the index is invalid.
-
-        Returns:
-            Mesh marker ID.
-        """
-        # check point index lies in range
-        if pt_idx < 0 or pt_idx > len(self.points) - 1:
-            raise ValueError(
-                f"pt_idx must be an integer between 0 and {len(self.points) - 1}."
-            )
-
-        # check to see if a mesh has already been generated
-        if self.mesh:
-            warnings.warn(
-                "Please regenerate the mesh prior to creating a PlaneStress object."
-            )
-
-        # check to see if point already has custom point marker
-        if self.point_markers[pt_idx] == 0:
-            # add point marker to point
-            # note custom point marker ids start at 2 and increment by 2
-            if max(self.point_markers) == 0:
-                marker_id = 2
-            else:
-                marker_id = max(self.point_markers) + 2
-
-            self.point_markers[pt_idx] = marker_id
-        else:
-            # get marker id
-            marker_id = self.point_markers[pt_idx]
-
-        return marker_id
-
-    def add_facet_marker(
-        self,
-        fct_idx: int,
-    ) -> int:
-        """Performs the tasks required to add a marker to a facet.
-
-        Args:
-            fct_idx: Index of the facet to add a marker to.
-
-        Raises:
-            ValueError: If the index is invalid.
-
-        Returns:
-            Mesh marker ID.
-        """
-        # check facet index lies in range
-        if fct_idx < 0 or fct_idx > len(self.facets) - 1:
-            raise ValueError(
-                f"fct_idx must be an integer between 0 and {len(self.facets) - 1}."
-            )
-
-        # check to see if a mesh has already been generated
-        if self.mesh:
-            warnings.warn(
-                "Please regenerate the mesh prior to creating a PlaneStress object."
-            )
-
-        # check to see if facet already has custom point marker
-        if self.facet_markers[fct_idx] == 0:
-            # add facet marker to facet
-            # note custom facet marker ids start at 3 and increment by 2
-            if max(self.facet_markers) == 0:
-                marker_id = 3
-            else:
-                marker_id = max(self.facet_markers) + 2
-
-            self.facet_markers[fct_idx] = marker_id
-        else:
-            # get marker id
-            marker_id = self.facet_markers[fct_idx]
-
-        return marker_id
-
     def add_node_support(
         self,
         point: tuple[float, float],
         direction: str,
         value: float = 0.0,
-        pt_idx: int | None = None,
     ) -> bc.NodeSupport:
         """Adds a node support to the geometry.
 
@@ -879,13 +745,6 @@ class Geometry:
             direction: Direction of the node support, either ``"x"`` or ``"y"``.
             value: Imposed displacement to apply to the node support. Defaults to
                 ``0.0``, i.e. a fixed node support.
-            pt_idx: If the index of the point is known, this can be provided as an
-                alternative to ``point``. Defaults to ``None``.
-
-        Warns:
-            Warning: If the node support is added after generating a mesh, the mesh will
-                need to be regenerated prior to creating a
-                :class:`~planestress.analysis.PlaneStress` object.
 
         Returns:
             Node support boundary condition object.
@@ -893,17 +752,8 @@ class Geometry:
         Example:
             TODO.
         """
-        # get the point index
-        if not pt_idx:
-            pt_idx = self.find_point_index(point=point)
-
-        # add the point marker to the specified point
-        marker_id = self.add_point_marker(pt_idx=pt_idx)
-
         # create node support boundary condition
-        node_support = bc.NodeSupport(
-            marker_id=marker_id, direction=direction, value=value
-        )
+        node_support = bc.NodeSupport(point=point, direction=direction, value=value)
 
         return node_support
 
@@ -912,7 +762,6 @@ class Geometry:
         point: tuple[float, float],
         direction: str,
         value: float,
-        pt_idx: int | None = None,
     ) -> bc.NodeSpring:
         """Adds a node spring to the geometry.
 
@@ -920,13 +769,6 @@ class Geometry:
             point: Point location (``x``, ``y``) of the node spring.
             direction: Direction of the node spring, either ``"x"`` or ``"y"``.
             value: Spring stiffness.
-            pt_idx: If the index of the point is known, this can be provided as an
-                alternative to ``point``. Defaults to ``None``.
-
-        Warns:
-            If the node spring is added after generating a mesh, the mesh will need to
-            be regenerated prior to creating a
-            :class:`~planestress.analysis.PlaneStress` object.
 
         Returns:
             Node spring boundary condition object.
@@ -934,17 +776,8 @@ class Geometry:
         Example:
             TODO.
         """
-        # get the point index
-        if not pt_idx:
-            pt_idx = self.find_point_index(point=point)
-
-        # add the point marker to the specified point
-        marker_id = self.add_point_marker(pt_idx=pt_idx)
-
         # create node spring boundary condition
-        node_spring = bc.NodeSpring(
-            marker_id=marker_id, direction=direction, value=value
-        )
+        node_spring = bc.NodeSpring(point=point, direction=direction, value=value)
 
         return node_spring
 
@@ -953,7 +786,6 @@ class Geometry:
         point: tuple[float, float],
         direction: str,
         value: float,
-        pt_idx: int | None = None,
     ) -> bc.NodeLoad:
         """Adds a node load to the geometry.
 
@@ -961,13 +793,6 @@ class Geometry:
             point: Point location (``x``, ``y``) of the node load.
             direction: Direction of the node load, either ``"x"`` or ``"y"``.
             value: Node load.
-            pt_idx: If the index of the point is known, this can be provided as an
-                alternative to ``point``. Defaults to ``None``.
-
-        Warns:
-            If the node load is added after generating a mesh, the mesh will need to
-            be regenerated prior to creating a
-            :class:`~planestress.analysis.PlaneStress` object.
 
         Returns:
             Node load boundary condition object.
@@ -975,16 +800,8 @@ class Geometry:
         Example:
             TODO.
         """
-        # get the point index
-        if not pt_idx:
-            pt_idx = self.find_point_index(point=point)
-            print(pt_idx)
-
-        # add the point marker to the specified point
-        marker_id = self.add_point_marker(pt_idx=pt_idx)
-
         # create node support boundary condition
-        node_load = bc.NodeLoad(marker_id=marker_id, direction=direction, value=value)
+        node_load = bc.NodeLoad(point=point, direction=direction, value=value)
 
         return node_load
 
@@ -994,7 +811,6 @@ class Geometry:
         point2: tuple[float, float],
         direction: str,
         value: float = 0.0,
-        fct_idx: int | None = None,
     ) -> bc.LineSupport:
         """Adds a line support to the geometry.
 
@@ -1006,13 +822,6 @@ class Geometry:
             direction: Direction of the line support, either ``"x"`` or ``"y"``.
             value: Imposed displacement to apply to the line support. Defaults to
                 ``0.0``, i.e. a fixed line support.
-            fct_idx: If the index of the facet is known, this can be provided as an
-                alternative to ``point1`` and ``point2``. Defaults to ``None``.
-
-        Warns:
-            If the line support is added after generating a mesh, the mesh will need to
-            be regenerated prior to creating a
-            :class:`~planestress.analysis.PlaneStress` object.
 
         Returns:
             Line support boundary condition object.
@@ -1020,16 +829,9 @@ class Geometry:
         Example:
             TODO.
         """
-        # get the facet index
-        if not fct_idx:
-            fct_idx = self.find_facet_index(point1=point1, point2=point2)
-
-        # add the facet marker to the specified point
-        marker_id = self.add_facet_marker(fct_idx=fct_idx)
-
         # create line support boundary condition
         line_support = bc.LineSupport(
-            marker_id=marker_id, direction=direction, value=value
+            point1=point1, point2=point2, direction=direction, value=value
         )
 
         return line_support
@@ -1040,7 +842,6 @@ class Geometry:
         point2: tuple[float, float],
         direction: str,
         value: float,
-        fct_idx: int | None = None,
     ) -> bc.LineSpring:
         """Adds a line spring to the geometry.
 
@@ -1054,13 +855,6 @@ class Geometry:
             point2: Point location (``x``, ``y``) of the end of the line spring.
             direction: Direction of the line spring, either ``"x"`` or ``"y"``.
             value: Spring stiffness per unit length.
-            fct_idx: If the index of the facet is known, this can be provided as an
-                alternative to ``point1`` and ``point2``. Defaults to ``None``.
-
-        Warns:
-            If the line spring is added after generating a mesh, the mesh will need to
-            be regenerated prior to creating a
-            :class:`~planestress.analysis.PlaneStress` object.
 
         Returns:
             Line spring boundary condition object.
@@ -1068,16 +862,9 @@ class Geometry:
         Example:
             TODO.
         """
-        # get the facet index
-        if not fct_idx:
-            fct_idx = self.find_facet_index(point1=point1, point2=point2)
-
-        # add the facet marker to the specified point
-        marker_id = self.add_facet_marker(fct_idx=fct_idx)
-
         # create line support boundary condition
         line_spring = bc.LineSpring(
-            marker_id=marker_id, direction=direction, value=value
+            point1=point1, point2=point2, direction=direction, value=value
         )
 
         return line_spring
@@ -1088,7 +875,6 @@ class Geometry:
         point2: tuple[float, float],
         direction: str,
         value: float,
-        fct_idx: int | None = None,
     ) -> bc.LineLoad:
         """Adds a line load to the geometry.
 
@@ -1097,13 +883,6 @@ class Geometry:
             point2: Point location (``x``, ``y``) of the end of the line load.
             direction: Direction of the node load, either ``"x"`` or ``"y"``.
             value: Line load per unit length.
-            fct_idx: If the index of the facet is known, this can be provided as an
-                alternative to ``point1`` and ``point2``. Defaults to ``None``.
-
-        Warns:
-            If the line load is added after generating a mesh, the mesh will need to
-            be regenerated prior to creating a
-            :class:`~planestress.analysis.PlaneStress` object.
 
         Returns:
             Line load boundary condition object.
@@ -1111,15 +890,10 @@ class Geometry:
         Example:
             TODO.
         """
-        # get the facet index
-        if not fct_idx:
-            fct_idx = self.find_facet_index(point1=point1, point2=point2)
-
-        # add the facet marker to the specified point
-        marker_id = self.add_facet_marker(fct_idx=fct_idx)
-
         # create line load boundary condition
-        line_load = bc.LineLoad(marker_id=marker_id, direction=direction, value=value)
+        line_load = bc.LineLoad(
+            point1=point1, point2=point2, direction=direction, value=value
+        )
 
         return line_load
 
@@ -1222,7 +996,7 @@ class Geometry:
             if load_case is not None:
                 for boundary_condition in load_case.boundary_conditions:
                     # boundary_condition.plot()
-                    print(boundary_condition.marker_id)  # TODO - plot this!
+                    print(boundary_condition)  # TODO - plot this!
 
             # display the legend
             if legend:
@@ -1328,8 +1102,12 @@ class Point:
         else:
             return False
 
-    def __repr__(self):
-        """Override __repr__ method to account for unbound idx."""
+    def __repr__(self) -> str:
+        """Override __repr__ method to account for unbound idx.
+
+        Returns:
+            String representation of the object.
+        """
         try:
             idx = self.idx
         except AttributeError:

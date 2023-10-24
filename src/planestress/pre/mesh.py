@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, cast
 
@@ -43,66 +44,9 @@ class Mesh:
     line_elements: list[fe.LineElement] = field(init=False, default_factory=list)
     tagged_nodes: list[TaggedNode] = field(init=False, default_factory=list)
     tagged_lines: list[TaggedLine] = field(init=False, default_factory=list)
-    str_tree: shapely.STRtree = field(init=False)
-
-    def num_nodes(self) -> int:
-        """Returns the number of nodes in the mesh.
-
-        Returns:
-            Number of nodes in the mesh.
-        """
-        return len(self.nodes)
-
-    def get_node(
-        self,
-        x: float,
-        y: float,
-    ) -> int:
-        """Returns the node index at or nearest to the point (``x``, ``y``).
-
-        Args:
-            x: ``x`` location of the node to find.
-            y: ``y`` location of the node to find.
-
-        Returns:
-            Index of the node closest to (``x``, ``y``).
-        """
-        idx = self.str_tree.nearest(geometry=shapely.Point(x, y))
-
-        return cast(int, idx)
-
-    def get_tagged_node(
-        self,
-        tag: int,
-    ) -> TaggedNode:
-        """Returns a ``TaggedNode`` given a node tag."""
-        for tg in self.tagged_nodes:
-            if tg.tag == tag:
-                return tg
-        else:
-            raise ValueError(f"Cannot find TaggedNode with tag {tag}.")
-
-    def get_line_element_by_tag(
-        self,
-        tag: int,
-    ) -> fe.LineElement:
-        """Returns a ``LineElement`` given an element tag."""
-        for line in self.line_elements:
-            if line.line_tag == tag:
-                return line
-        else:
-            raise ValueError(f"Cannot find FiniteElement with tag {tag}.")
-
-    def get_finite_element_by_tag(
-        self,
-        tag: int,
-    ) -> fe.FiniteElement:
-        """Returns a ``FiniteElement`` given an element tag."""
-        for el in self.elements:
-            if el.el_tag == tag:
-                return el
-        else:
-            raise ValueError(f"Cannot find FiniteElement with tag {tag}.")
+    nodes_str_tree: shapely.STRtree = field(init=False)
+    tagged_nodes_str_tree: shapely.STRtree = field(init=False)
+    tagged_lines_str_tree: shapely.STRtree = field(init=False)
 
     def create_mesh(
         self,
@@ -203,7 +147,7 @@ class Mesh:
         self.nodes = np.array(node_coords[:, :2], dtype=np.float64)
 
         # create STRtree of nodes
-        self.str_tree = shapely.STRtree(
+        self.nodes_str_tree = shapely.STRtree(
             geoms=[shapely.Point(node[0], node[1]) for node in self.nodes]
         )
 
@@ -241,7 +185,8 @@ class Mesh:
 
                 # loop through each element
                 for el_tag, el_node_tags in zip(el_tags, el_node_tags_list):
-                    node_idxs = el_node_tags - 1  # convert gmsh tag to node index
+                    # convert gmsh tag to node index
+                    node_idxs = np.array(el_node_tags - 1, dtype=np.int32)
                     coords = self.nodes[node_idxs, :].transpose()
 
                     # add element to list of elements
@@ -250,7 +195,7 @@ class Mesh:
                             el_idx=el_idx,
                             el_tag=el_tag,
                             coords=coords,
-                            node_idxs=node_idxs,
+                            node_idxs=node_idxs.tolist(),
                             material=mat,
                         )
                     )
@@ -284,7 +229,8 @@ class Mesh:
 
             # loop through each line element
             for line_tag, line_node_tags in zip(line_tags, line_node_tags_list):
-                node_idxs = line_node_tags - 1  # convert gmsh tag to node index
+                # convert gmsh tag to node index
+                node_idxs = np.array(line_node_tags - 1, dtype=np.int32)
                 coords = self.nodes[node_idxs, :].transpose()
 
                 # add element to list of elements
@@ -293,7 +239,7 @@ class Mesh:
                         line_idx=line_idx,
                         line_tag=line_tag,
                         coords=coords,
-                        node_idxs=node_idxs,
+                        node_idxs=node_idxs.tolist(),
                     )
                 )
                 line_idx += 1
@@ -304,12 +250,24 @@ class Mesh:
             node_tag, node_coords, _ = gmsh.model.mesh.getNodes(dim=0, tag=tag)
 
             # get index of node in self.nodes
-            idx = self.get_node(x=node_coords[0], y=node_coords[1])
+            node_idx = self.get_node_idx_by_coordinates(
+                x=node_coords[0], y=node_coords[1]
+            )
 
             # add to list of tagged nodes
             self.tagged_nodes.append(
-                TaggedNode(idx=idx, tag=node_tag[0], x=node_coords[0], y=node_coords[1])
+                TaggedNode(
+                    node_idx=node_idx,
+                    tag=node_tag[0],
+                    x=node_coords[0],
+                    y=node_coords[1],
+                )
             )
+
+        # create STRtree of tagged nodes
+        self.tagged_nodes_str_tree = shapely.STRtree(
+            geoms=[shapely.Point(node.x, node.y) for node in self.tagged_nodes]
+        )
 
         # save line entities
         for _, tag in gmsh.model.get_entities(dim=1):
@@ -334,6 +292,120 @@ class Mesh:
             self.tagged_lines.append(
                 TaggedLine(tag=tag, tagged_nodes=tagged_nodes, elements=line_list)
             )
+
+        # create STRtree of tagged lines
+        self.tagged_lines_str_tree = shapely.STRtree(
+            geoms=[line.to_shapely_line() for line in self.tagged_lines]
+        )
+
+    def num_nodes(self) -> int:
+        """Returns the number of nodes in the mesh.
+
+        Returns:
+            Number of nodes in the mesh.
+        """
+        return len(self.nodes)
+
+    def get_node_idx_by_coordinates(
+        self,
+        x: float,
+        y: float,
+    ) -> int:
+        """Returns the node index at or nearest to the point (``x``, ``y``).
+
+        Args:
+            x: ``x`` location of the node to find.
+            y: ``y`` location of the node to find.
+
+        Returns:
+            Index of the node closest to (``x``, ``y``).
+        """
+        idx = self.nodes_str_tree.nearest(geometry=shapely.Point(x, y))
+
+        return cast(int, idx)
+
+    def get_tagged_node(
+        self,
+        tag: int,
+    ) -> TaggedNode:
+        """Returns a ``TaggedNode`` given a node tag."""
+        for tg in self.tagged_nodes:
+            if tg.tag == tag:
+                return tg
+        else:
+            raise ValueError(f"Cannot find TaggedNode with tag {tag}.")
+
+    def get_tagged_node_by_coordinates(
+        self,
+        x: float,
+        y: float,
+    ) -> TaggedNode:
+        """Returns a ``TaggedNode`` at or nearest to the point (``x``, ``y``).
+
+        Args:
+            x: ``x`` location of the tagged node to find.
+            y: ``y`` location of the tagged node to find.
+
+        Returns:
+            Tagged node closest to (``x``, ``y``).
+        """
+        idx = self.tagged_nodes_str_tree.nearest(geometry=shapely.Point(x, y))
+
+        return self.tagged_nodes[cast(int, idx)]
+
+    def get_tagged_line(
+        self,
+        tag: int,
+    ) -> TaggedLine:
+        """Returns a ``TaggedLine`` given a line tag."""
+        for tg in self.tagged_lines:
+            if tg.tag == tag:
+                return tg
+        else:
+            raise ValueError(f"Cannot find TaggedLine with tag {tag}.")
+
+    def get_tagged_line_by_coordinates(
+        self,
+        point1: tuple[float, float],
+        point2: tuple[float, float],
+    ) -> TaggedLine:
+        """Returns a ``TaggedLine`` closest to the line defined by two points.
+
+        Args:
+            point1: First point (``x``, ``y``) of the tagged line to find.
+            point2: Second point (``x``, ``y``) of the tagged line to find.
+
+        Returns:
+            Tagged line closest to the line defined by two points.
+        """
+        mid_point = shapely.Point(
+            0.5 * (point1[0] + point2[0]), 0.5 * (point1[1] + point2[1])
+        )
+        idx = self.tagged_lines_str_tree.nearest(geometry=mid_point)
+
+        return self.tagged_lines[cast(int, idx)]
+
+    def get_line_element_by_tag(
+        self,
+        tag: int,
+    ) -> fe.LineElement:
+        """Returns a ``LineElement`` given an element tag."""
+        for line in self.line_elements:
+            if line.line_tag == tag:
+                return line
+        else:
+            raise ValueError(f"Cannot find FiniteElement with tag {tag}.")
+
+    def get_finite_element_by_tag(
+        self,
+        tag: int,
+    ) -> fe.FiniteElement:
+        """Returns a ``FiniteElement`` given an element tag."""
+        for el in self.elements:
+            if el.el_tag == tag:
+                return el
+        else:
+            raise ValueError(f"Cannot find FiniteElement with tag {tag}.")
 
     def plot_mesh(
         self,
@@ -380,14 +452,27 @@ class Mesh:
             num_materials = len(self.materials)
 
             # generate an array of polygon vertices and colors for each material
-            verts = [[] for _ in range(num_materials)]
+            verts = []  # undeformed mesh (materials not important)
+            verts_u = [[] for _ in range(num_materials)]  # deformed mesh
             colors = [[] for _ in range(num_materials)]
 
             for element in self.elements:
-                # get material index
-                idx = self.materials.index(element.material)
-                # add vertices and colors
-                verts[idx].append(element.coords.transpose())
+                idx = self.materials.index(element.material)  # get material index
+
+                # add vertices
+                coords = element.coords.transpose()  # get coordinate of current element
+                verts.append(deepcopy(coords))
+
+                # add displacements
+                if ux is not None:
+                    coords[:, 0] += ux[element.node_idxs]
+
+                if uy is not None:
+                    coords[:, 1] += uy[element.node_idxs]
+
+                verts_u[idx].append(coords)
+
+                # add colors
                 colors[idx].append(element.material.color)
 
             # generate collection of polygons for each material
@@ -396,14 +481,24 @@ class Mesh:
                 if materials:
                     fcs = colors[idx]
                 else:
-                    fcs = "w"
+                    fcs = (1.0, 1.0, 1.0, 0.0)
 
                 col = collections.PolyCollection(
-                    verts[idx],
+                    verts_u[idx],
                     edgecolors=(0.0, 0.0, 0.0, alpha),
                     facecolors=fcs,
                     linewidth=0.5,
                     label=self.materials[idx].name,
+                )
+                ax.add_collection(collection=col)
+
+            # if deformed shape, plot the original mesh
+            if ux is not None or uy is not None:
+                col = collections.PolyCollection(
+                    verts,
+                    edgecolors=(0.0, 0.0, 0.0, 0.2),
+                    facecolors=(1.0, 1.0, 1.0, 0.0),
+                    linewidth=0.5,
                 )
                 ax.add_collection(collection=col)
 
@@ -415,20 +510,6 @@ class Mesh:
                     loc="center left",
                     bbox_to_anchor=(1, 0.5),
                 )
-
-            # TODO
-            # if deformed shape, plot the original mesh
-            # if ux is not None or uy is not None:
-            #     triang_orig = Triangulation(
-            #         self.nodes[:, 0], self.nodes[:, 1], self.elements[:, 0:3], mask=mask
-            #     )
-
-            #     ax.triplot(
-            #         triang_orig,
-            #         "ko-" if nodes else "k-",
-            #         lw=0.5,
-            #         alpha=0.2,
-            #     )
 
             # node numbers
             if node_indexes:
@@ -453,30 +534,49 @@ class Mesh:
             if load_case is not None:
                 for boundary_condition in load_case.boundary_conditions:
                     # boundary_condition.plot()
-                    print(boundary_condition.marker_id)  # TODO - plot this!
+                    print(boundary_condition)  # TODO - plot this!
 
         return ax
 
 
 @dataclass
-class TaggedNode:
+class TaggedEntity:
+    """Class describing a tagged entity in the mesh.
+
+    Args:
+        tag: Gmsh tag.
+    """
+
+    tag: int
+
+
+@dataclass
+class TaggedNode(TaggedEntity):
     """Class describing a tagged node.
 
     Args:
-        idx: Index of node in mesh.
         tag: Gmsh node tag.
+        node_idx: Index of node in mesh.
         x: ``x`` location of the node.
         y: ``y`` location of the node.
     """
 
-    idx: int
     tag: int
+    node_idx: int
     x: float
     y: float
 
+    def to_shapely_point(self) -> shapely.Point:
+        """Converts the tagged node to a ``shapely`` ``Point`` object.
+
+        Returns:
+            ``TaggedNode`` as a :class:`shapely.Point`.
+        """
+        return shapely.Point(self.x, self.y)
+
 
 @dataclass
-class TaggedLine:
+class TaggedLine(TaggedEntity):
     """Class describing a tagged line.
 
     Args:
@@ -488,3 +588,16 @@ class TaggedLine:
     tag: int
     tagged_nodes: list[TaggedNode]
     elements: list[fe.FiniteElement]
+
+    def to_shapely_line(self) -> shapely.LineString:
+        """Converts the tagged line to a ``shapely`` ``Line`` object.
+
+        Returns:
+            ``TaggedLine`` as a :class:`shapely.LineString`.
+        """
+        return shapely.LineString(
+            [
+                self.tagged_nodes[0].to_shapely_point(),
+                self.tagged_nodes[1].to_shapely_point(),
+            ]
+        )

@@ -287,14 +287,11 @@ class Results:
 
         return self.plane_stress.mesh.plot_mesh(
             load_case=None,
-            material_list=self.plane_stress.geometry.materials,
             title=title,
             materials=False,
-            nodes=False,
             node_indexes=False,
             element_indexes=False,
             alpha=alpha,
-            mask=None,
             ux=self.ux * displacement_scale,
             uy=self.uy * displacement_scale,
             **kwargs,

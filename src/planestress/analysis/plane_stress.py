@@ -20,7 +20,11 @@ if TYPE_CHECKING:
 
 
 class PlaneStress:
-    """Class for a plane-stress analysis."""
+    """Class for a plane-stress analysis.
+
+    Attributes:
+        mesh: ``Mesh`` object.
+    """
 
     def __init__(
         self,
@@ -50,6 +54,26 @@ class PlaneStress:
             )
 
         self.mesh: Mesh = self.geometry.mesh
+
+        # assign tagged items to boundary conditions
+        for load_case in self.load_cases:
+            for b in load_case.boundary_conditions:
+                # if a mesh tag hasn't been assigned yet
+                if not hasattr(b, "mesh_tag"):
+                    # if the boundary condition relates to a node
+                    if isinstance(b, bc.NodeBoundaryCondition):
+                        b.mesh_tag = self.mesh.get_tagged_node_by_coordinates(
+                            x=b.point[0],
+                            y=b.point[1],
+                        )
+                    # if the boundary condition relates to a line
+                    elif isinstance(b, bc.LineBoundaryCondition):
+                        b.mesh_tag = self.mesh.get_tagged_line_by_coordinates(
+                            point1=b.point1,
+                            point2=b.point2,
+                        )
+                    else:
+                        raise ValueError(f"{b} is not a valid boundary condition.")
 
     def solve(self) -> list[Results]:
         """Solves each load case.
@@ -96,41 +120,10 @@ class PlaneStress:
                 # add element load vector to global load vector
                 f[el_dofs] += f_el
 
-            # apply boundary conditions # TODO - Tri6 elements LineBC!
+            # apply boundary conditions
             for boundary_condition in lc.boundary_conditions:
-                # get node indexes of current boundary condition
-                # if we are a node boundary condition
-                if isinstance(boundary_condition, bc.NodeBoundaryCondition):
-                    # get index of the node the boundary condition is applied to
-                    node_idxs = [
-                        self.mesh.node_markers.index(boundary_condition.marker_id)
-                    ]
-                # otherwise we must be a line boundary condition
-                else:
-                    # get indexes of the segment the boundary condition is applied to
-                    seg_idxs = [
-                        idx
-                        for idx, seg_marker in enumerate(self.mesh.segment_markers)
-                        if seg_marker == boundary_condition.marker_id
-                    ]
-
-                    # get nodes indexes of segments
-                    node_idxs = []
-
-                    # loop through segment indexes
-                    for seg_idx in seg_idxs:
-                        seg = self.mesh.segments[seg_idx]
-
-                        # loop through each node index in segment
-                        for node_idx in seg:
-                            if node_idx not in node_idxs:
-                                node_idxs.append(node_idx)
-
-                # get degrees of freedom for node indexes
-                dofs = dof_map(node_idxs=node_idxs)
-
                 # apply boundary condition
-                k_mod, f = boundary_condition.apply_bc(k=k_mod, f=f, dofs=dofs)
+                k_mod, f = boundary_condition.apply_bc(k=k_mod, f=f)
 
             # solve system
             u = solver.solve_direct(k=k_mod, f=f)
