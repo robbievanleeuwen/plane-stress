@@ -9,7 +9,6 @@ import numpy as np
 
 import planestress.analysis.solver as solver
 import planestress.pre.boundary_condition as bc
-from planestress.analysis.finite_element import FiniteElement, Tri3, Tri6
 from planestress.analysis.utils import dof_map
 from planestress.post.results import Results
 
@@ -21,33 +20,34 @@ if TYPE_CHECKING:
 
 
 class PlaneStress:
-    """Class for a plane-stress analysis."""
+    """Class for a plane-stress analysis.
+
+    Attributes:
+        geometry: ``Geometry`` object containing a meshed geometry.
+        load_cases: List of load cases to analyse.
+        mesh: ``Mesh`` object.
+    """
 
     def __init__(
         self,
         geometry: Geometry,
         load_cases: list[LoadCase],
-        int_points: int = 3,
     ) -> None:
         """Inits the PlaneStress class.
 
         Args:
             geometry: ``Geometry`` object containing a meshed geometry.
             load_cases: List of load cases to analyse.
-            int_points: Number of integration points to use. Defaults to ``3``.
 
         Raises:
             RuntimeError: If there is no mesh in the ``Geometry`` object.
+            ValueError: If there is an invalid boundary condition in a load case.
         """
         self.geometry = geometry
         self.load_cases = load_cases
-        self.int_points = int_points
-
-        # initialise other class variables
-        self.elements: list[FiniteElement] = []
 
         # check mesh has been created
-        if self.geometry.mesh is None:
+        if len(self.geometry.mesh.nodes) < 1:
             raise RuntimeError(
                 "No mesh detected, run Geometry.create_mesh() before creating a "
                 "PlaneStress object."
@@ -55,26 +55,25 @@ class PlaneStress:
 
         self.mesh: Mesh = self.geometry.mesh
 
-        # get finite element type
-        el_type: type = Tri3 if self.mesh.linear else Tri6
-
-        # loop through each element in the mesh
-        for idx, node_idxs in enumerate(self.mesh.elements):
-            # create a list containing the vertex and mid-node coordinates
-            coords = self.mesh.nodes[node_idxs, :].transpose()
-
-            # get attribute index of current element
-            att_el = self.mesh.attributes[idx]
-
-            # fetch the material
-            material = self.geometry.materials[att_el]
-
-            # add element to the list of elements
-            self.elements.append(
-                el_type(
-                    el_idx=idx, coords=coords, node_idxs=node_idxs, material=material
-                )
-            )
+        # assign tagged items to boundary conditions
+        for load_case in self.load_cases:
+            for b in load_case.boundary_conditions:
+                # if a mesh tag hasn't been assigned yet
+                if not hasattr(b, "mesh_tag"):
+                    # if the boundary condition relates to a node
+                    if isinstance(b, bc.NodeBoundaryCondition):
+                        b.mesh_tag = self.mesh.get_tagged_node_by_coordinates(
+                            x=b.point[0],
+                            y=b.point[1],
+                        )
+                    # if the boundary condition relates to a line
+                    elif isinstance(b, bc.LineBoundaryCondition):
+                        b.mesh_tag = self.mesh.get_tagged_line_by_coordinates(
+                            point1=b.point1,
+                            point2=b.point2,
+                        )
+                    else:
+                        raise ValueError(f"{b} is not a valid boundary condition.")
 
     def solve(self) -> list[Results]:
         """Solves each load case.
@@ -94,9 +93,9 @@ class PlaneStress:
         results: list[Results] = []
 
         # assemble stiffness matrix
-        for el in self.elements:
+        for el in self.mesh.elements:
             # get element stiffness matrix
-            k_el = el.element_stiffness_matrix(n_points=self.int_points)
+            k_el = el.element_stiffness_matrix()
 
             # get element degrees of freedom
             el_dofs = dof_map(node_idxs=el.node_idxs)
@@ -111,9 +110,9 @@ class PlaneStress:
             k_mod = copy.deepcopy(k)
 
             # assemble load vector
-            for el in self.elements:
+            for el in self.mesh.elements:
                 # get element load vector
-                f_el = el.element_load_vector(n_points=self.int_points)
+                f_el = el.element_load_vector()
 
                 # get element degrees of freedom
                 el_dofs = dof_map(node_idxs=el.node_idxs)
@@ -121,41 +120,10 @@ class PlaneStress:
                 # add element load vector to global load vector
                 f[el_dofs] += f_el
 
-            # apply boundary conditions # TODO - Tri6 elements LineBC!
+            # apply boundary conditions
             for boundary_condition in lc.boundary_conditions:
-                # get node indexes of current boundary condition
-                # if we are a node boundary condition
-                if isinstance(boundary_condition, bc.NodeBoundaryCondition):
-                    # get index of the node the boundary condition is applied to
-                    node_idxs = [
-                        self.mesh.node_markers.index(boundary_condition.marker_id)
-                    ]
-                # otherwise we must be a line boundary condition
-                else:
-                    # get indexes of the segment the boundary condition is applied to
-                    seg_idxs = [
-                        idx
-                        for idx, seg_marker in enumerate(self.mesh.segment_markers)
-                        if seg_marker == boundary_condition.marker_id
-                    ]
-
-                    # get nodes indexes of segments
-                    node_idxs = []
-
-                    # loop through segment indexes
-                    for seg_idx in seg_idxs:
-                        seg = self.mesh.segments[seg_idx]
-
-                        # loop through each node index in segment
-                        for node_idx in seg:
-                            if node_idx not in node_idxs:
-                                node_idxs.append(node_idx)
-
-                # get degrees of freedom for node indexes
-                dofs = dof_map(node_idxs=node_idxs)
-
                 # apply boundary condition
-                k_mod, f = boundary_condition.apply_bc(k=k_mod, f=f, dofs=dofs)
+                k_mod, f = boundary_condition.apply_bc(k=k_mod, f=f)
 
             # solve system
             u = solver.solve_direct(k=k_mod, f=f)
@@ -163,7 +131,7 @@ class PlaneStress:
             # post-processing
             res = Results(plane_stress=self, u=u)
             res.calculate_node_forces(k=k)
-            res.calculate_element_results(elements=self.elements)
+            res.calculate_element_results(elements=self.mesh.elements)
 
             # add to results list
             results.append(res)
