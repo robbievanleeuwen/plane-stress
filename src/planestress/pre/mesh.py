@@ -30,18 +30,26 @@ class Mesh:
     Attributes:
         nodes: List of nodes describing the mesh, e.g. ``[[x1, y1], [x2, y2], ... ]``.
         elements: List of finite element objects in the mesh.
+        line_elements: List of line element objects in the mesh.
+        triangulation: List of indices defining the triangles in the mesh (quads &
+            higher order elements converted to triangles) for plotting purposes.
+        materials: List of material objects for each region in the mesh.
         tagged_nodes: List of nodes tagged in the mesh.
         tagged_lines: List of lines tagged in the mesh.
-        str_tree: A :class:`shapely.STRtree` of the nodes in the mesh.
+        nodes_str_tree: A :class:`shapely.STRtree` of the nodes in the mesh.
+        tagged_nodes_str_tree: A :class:`shapely.STRtree` of the tagged nodes in the
+            mesh.
+        tagged_lines_str_tree: A :class:`shapely.STRtree` of the tagged lines in the
+            mesh.
     """
 
     nodes: npt.NDArray[np.float64] = field(
         init=False, default_factory=lambda: np.array([])
     )
     elements: list[fe.FiniteElement] = field(init=False, default_factory=list)
+    line_elements: list[fe.LineElement] = field(init=False, default_factory=list)
     triangulation: list[tuple[int, int, int]] = field(init=False, default_factory=list)
     materials: list[Material] = field(init=False, default_factory=list)
-    line_elements: list[fe.LineElement] = field(init=False, default_factory=list)
     tagged_nodes: list[TaggedNode] = field(init=False, default_factory=list)
     tagged_lines: list[TaggedLine] = field(init=False, default_factory=list)
     nodes_str_tree: shapely.STRtree = field(init=False)
@@ -54,24 +62,24 @@ class Mesh:
         facets: list[Facet],
         curve_loops: list[CurveLoop],
         surfaces: list[Surface],
-        mesh_sizes: float | list[float],
+        mesh_sizes: list[float],
         materials: list[Material],
         verbosity: int = 0,
     ) -> None:
-        """Creates a mesh using gmsh."""
-        # convert mesh_size to an appropriately sized list
-        if isinstance(mesh_sizes, (float, int)):
-            mesh_sizes = [float(mesh_sizes)] * len(surfaces)
+        """Creates a mesh from geometry using gmsh.
 
-        if len(mesh_sizes) == 1:
-            mesh_sizes = mesh_sizes * len(surfaces)
-
-        # check mesh_sizes length
-        if len(mesh_sizes) != len(surfaces):
-            raise ValueError(
-                "Length of 'mesh_sizes' must equal the number of polygons or 1."
-            )
-
+        Args:
+            points: List of ``Point`` objects.
+            facets: List of ``Facet`` objects.
+            curve_loops: List of ``CurveLoop`` objects.
+            surfaces: List of ``Surface`` objects.
+            mesh_sizes: A list of the characteristic mesh lengths for each region in the
+                mesh.
+            materials: A list of ``Material`` objects for each region in the mesh.
+            verbosity: Gmsh verbosity level, see
+                https://gmsh.info/doc/texinfo/gmsh.html#index-General_002eVerbosity.
+                Defaults to ``0``.
+        """
         # save materials
         self.materials = materials
 
@@ -135,8 +143,19 @@ class Mesh:
         # create triangulation for plotting purpose
         self.create_triangulation()
 
-    def save_mesh(self, materials) -> None:
-        """Saves the generated gmsh to the ``Mesh`` object."""
+    def save_mesh(
+        self,
+        materials: list[Material],
+    ) -> None:
+        """Saves the generated gmsh to the ``Mesh`` object.
+
+        Args:
+            materials: List of material objects.
+
+        Raises:
+            ValueError: If there is an unsupported gmsh element type in the mesh.
+            NotImplementedError: If an element in the mesh is yet to be implemented.
+        """
         # reset mesh
         self.nodes = np.array([])
         self.elements = []
@@ -180,8 +199,17 @@ class Mesh:
                     el_node_tags_list = np.reshape(el_node_tags_list, (num_elements, 3))
                     # assign element object
                     el_obj = fe.Tri3
+                # quad4 elements
+                elif el_type == 3:
+                    raise NotImplementedError
                 # tri6 elements
                 elif el_type == 9:
+                    raise NotImplementedError
+                # quad9 elements
+                elif el_type == 10:
+                    raise NotImplementedError
+                # quad8 elements
+                elif el_type == 16:
                     raise NotImplementedError
                 else:
                     raise ValueError(f"Unsupported gmsh element type: type {el_type}.")
@@ -344,7 +372,17 @@ class Mesh:
         self,
         tag: int,
     ) -> TaggedNode:
-        """Returns a ``TaggedNode`` given a node tag."""
+        """Returns a ``TaggedNode`` given a node tag.
+
+        Args:
+            tag: Node tag.
+
+        Raises:
+            ValueError: If there is no ``TaggedNode`` with a tag equal to ``tag``.
+
+        Returns:
+            Tagged node identified by ``tag``.
+        """
         for tg in self.tagged_nodes:
             if tg.tag == tag:
                 return tg
@@ -373,7 +411,17 @@ class Mesh:
         self,
         tag: int,
     ) -> TaggedLine:
-        """Returns a ``TaggedLine`` given a line tag."""
+        """Returns a ``TaggedLine`` given a line tag.
+
+        Args:
+            tag: Line tag.
+
+        Raises:
+            ValueError: If there is no ``TaggedLine`` with a tag equal to ``tag``.
+
+        Returns:
+            Tagged line identified by ``tag``.
+        """
         for tg in self.tagged_lines:
             if tg.tag == tag:
                 return tg
@@ -405,18 +453,38 @@ class Mesh:
         self,
         tag: int,
     ) -> fe.LineElement:
-        """Returns a ``LineElement`` given an element tag."""
+        """Returns a ``LineElement`` given an element tag.
+
+        Args:
+            tag: Line element tag.
+
+        Raises:
+            ValueError: If there is no ``LineElement`` with a tag equal to ``tag``.
+
+        Returns:
+            Line element identified by ``tag``.
+        """
         for line in self.line_elements:
             if line.line_tag == tag:
                 return line
         else:
-            raise ValueError(f"Cannot find FiniteElement with tag {tag}.")
+            raise ValueError(f"Cannot find LineElement with tag {tag}.")
 
     def get_finite_element_by_tag(
         self,
         tag: int,
     ) -> fe.FiniteElement:
-        """Returns a ``FiniteElement`` given an element tag."""
+        """Returns a ``FiniteElement`` given an element tag.
+
+        Args:
+            tag: Finite element tag.
+
+        Raises:
+            ValueError: If there is no ``FiniteElement`` with a tag equal to ``tag``.
+
+        Returns:
+            Finite element identified by ``tag``.
+        """
         for el in self.elements:
             if el.el_tag == tag:
                 return el
@@ -445,7 +513,6 @@ class Mesh:
         Args:
             load_case: Plots the boundary conditions within a load case if provided.
                 Defaults to ``None``.
-            material_list: List of materials that correspond to the mesh attributes.
             title: Plot title.
             materials: If set to ``True`` shades the elements with the specified
                 material colors.
@@ -468,8 +535,10 @@ class Mesh:
             num_materials = len(self.materials)
 
             # generate an array of polygon vertices and colors for each material
-            verts = [[] for _ in range(num_materials)]
-            colors = [[] for _ in range(num_materials)]
+            verts: list[list[npt.NDArray[np.float64]]] = [
+                [] for _ in range(num_materials)
+            ]
+            colors: list[list[str | float]] = [[] for _ in range(num_materials)]
 
             for element in self.elements:
                 idx = self.materials.index(element.material)  # get material index
@@ -495,11 +564,11 @@ class Mesh:
                 if materials:
                     fcs = colors[idx]
                 else:
-                    fcs = (1.0, 1.0, 1.0, 0.0)
+                    fcs = [1.0, 1.0, 1.0, 0.0]
 
                 col = collections.PolyCollection(
                     verts[idx],
-                    edgecolors=(0.0, 0.0, 0.0, alpha),
+                    edgecolors=[0.0, 0.0, 0.0, alpha],
                     facecolors=fcs,
                     linewidth=0.5,
                     label=self.materials[idx].name,
@@ -516,8 +585,8 @@ class Mesh:
 
                 col = collections.PolyCollection(
                     verts_orig,
-                    edgecolors=(1.0, 0.0, 0.0, 0.1),
-                    facecolors=(1.0, 1.0, 1.0, 0.0),
+                    edgecolors=[1.0, 0.0, 0.0, 0.1],
+                    facecolors=[1.0, 1.0, 1.0, 0.0],
                     linewidth=0.5,
                     linestyle="dashed",
                 )
@@ -608,7 +677,7 @@ class TaggedLine(TaggedEntity):
 
     tag: int
     tagged_nodes: list[TaggedNode]
-    elements: list[fe.FiniteElement]
+    elements: list[fe.LineElement]
 
     def to_shapely_line(self) -> shapely.LineString:
         """Converts the tagged line to a ``shapely`` ``Line`` object.

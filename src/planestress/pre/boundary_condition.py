@@ -275,7 +275,11 @@ class LineBoundaryCondition(BoundaryCondition):
         )
 
     def get_unique_nodes(self) -> list[int]:
-        """Returns a list of unique node indexes along the line BC."""
+        """Returns a list of unique node indexes along the line BC.
+
+        Returns:
+            List of unique node indexes along the line.
+        """
         # get list of node indexes along line BC
         node_idxs = []
 

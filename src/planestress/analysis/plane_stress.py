@@ -41,13 +41,14 @@ class PlaneStress:
 
         Raises:
             RuntimeError: If there is no mesh in the ``Geometry`` object.
+            ValueError: If there is an invalid boundary condition in a load case.
         """
         self.geometry = geometry
         self.load_cases = load_cases
         self.int_points = int_points
 
         # check mesh has been created
-        if self.geometry.mesh is None:
+        if len(self.geometry.mesh.nodes) < 1:
             raise RuntimeError(
                 "No mesh detected, run Geometry.create_mesh() before creating a "
                 "PlaneStress object."

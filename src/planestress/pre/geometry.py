@@ -912,7 +912,24 @@ class Geometry:
             linear: Order of the triangular mesh, if ``True`` generates linear ``Tri3``
                 elements, if ``False`` generates quadratic ``Tri6`` elements. Defaults
                 to ``True``.
+
+        Raises:
+            ValueError: If the length of ``mesh_sizes`` does not equal the number of
+                polygons, or is not a float/list of length 1.
         """
+        # convert mesh_size to an appropriately sized list
+        if isinstance(mesh_sizes, (float, int)):
+            mesh_sizes = [float(mesh_sizes)] * len(self.surfaces)
+
+        if len(mesh_sizes) == 1:
+            mesh_sizes = mesh_sizes * len(self.surfaces)
+
+        # check mesh_sizes length
+        if len(mesh_sizes) != len(self.surfaces):
+            raise ValueError(
+                "Length of 'mesh_sizes' must equal the number of polygons or 1."
+            )
+
         self.mesh.create_mesh(
             points=self.points,
             facets=self.facets,
