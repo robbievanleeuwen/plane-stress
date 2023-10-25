@@ -25,6 +25,7 @@ class FiniteElement:
         node_idxs: list[int],
         material: Material,
         num_nodes: int,
+        int_points: int,
     ) -> None:
         """Inits the FiniteElement class.
 
@@ -37,6 +38,7 @@ class FiniteElement:
                 ``[idx1, idx2, idx3]``.
             material: Material of the element.
             num_nodes: Number of nodes in the finite element.
+            int_points: Number of integration points used for the finite element.
         """
         self.el_idx = el_idx
         self.el_tag = el_tag
@@ -44,6 +46,7 @@ class FiniteElement:
         self.node_idxs = node_idxs
         self.material = material
         self.num_nodes = num_nodes
+        self.int_points = int_points
 
     def __repr__(self) -> str:
         """Override __repr__ method.
@@ -137,14 +140,8 @@ class FiniteElement:
         """
         raise NotImplementedError
 
-    def element_stiffness_matrix(
-        self,
-        n_points: int,
-    ) -> npt.NDArray[np.float64]:
+    def element_stiffness_matrix(self) -> npt.NDArray[np.float64]:
         """Assembles the stiffness matrix for the element.
-
-        Args:
-            n_points: Number of integration points.
 
         Returns:
             Element stiffness matrix.
@@ -156,7 +153,7 @@ class FiniteElement:
         d_mat = self.material.get_d_matrix()
 
         # get Gauss points
-        gauss_points = self.gauss_points(n_points=n_points)
+        gauss_points = self.gauss_points(n_points=self.int_points)
 
         # loop through each gauss point
         for gauss_point in gauss_points:
@@ -174,14 +171,8 @@ class FiniteElement:
 
         return k_el
 
-    def element_load_vector(
-        self,
-        n_points: int,
-    ) -> npt.NDArray[np.float64]:
+    def element_load_vector(self) -> npt.NDArray[np.float64]:
         """Assembles the load vector for the element.
-
-        Args:
-            n_points: Number of integration points.
 
         Returns:
             Element load vector.
@@ -233,6 +224,7 @@ class FiniteElement:
             node_idxs=self.node_idxs,
             material=self.material,
             num_nodes=self.num_nodes,
+            int_points=self.int_points,
             sigs=sigs,
         )
 
@@ -256,6 +248,7 @@ class TriangularElement(FiniteElement):
         node_idxs: list[int],
         material: Material,
         num_nodes: int,
+        int_points: int,
     ) -> None:
         """Inits the FiniteElement class.
 
@@ -268,6 +261,7 @@ class TriangularElement(FiniteElement):
                 ``[idx1, idx2, idx3]``.
             material: Material of the element.
             num_nodes: Number of nodes in the finite element.
+            int_points: Number of integration points used for the finite element.
         """
         super().__init__(
             el_idx=el_idx,
@@ -276,6 +270,7 @@ class TriangularElement(FiniteElement):
             node_idxs=node_idxs,
             material=material,
             num_nodes=num_nodes,
+            int_points=int_points,
         )
 
     def gauss_points(
@@ -418,6 +413,7 @@ class Tri3(TriangularElement):
             node_idxs=node_idxs,
             material=material,
             num_nodes=3,
+            int_points=3,  # TODO - confirm
         )
 
     @staticmethod
@@ -512,6 +508,7 @@ class Tri6(TriangularElement):
             node_idxs=node_idxs,
             material=material,
             num_nodes=6,
+            int_points=3,  # TODO - confirm
         )
 
     @staticmethod
@@ -666,6 +663,7 @@ class ElementResults(FiniteElement):
         node_idxs: list[int],
         material: Material,
         num_nodes: int,
+        int_points: int,
         sigs: npt.NDArray[np.float64],
     ) -> None:
         """Inits the ElementResults class.
@@ -679,6 +677,7 @@ class ElementResults(FiniteElement):
                 ``[idx1, idx2, idx3]``.
             material: Material of the element.
             num_nodes: Number of nodes in the finite element.
+            int_points: Number of integration points used for the finite element.
             sigs: Nodal stresses, e.g.
                 ``[[sigxx_1, sigyy_1, sigxy_1], ..., [sigxx_3, sigyy_3, sigxy_3]]``.
         """
@@ -689,5 +688,6 @@ class ElementResults(FiniteElement):
             node_idxs=node_idxs,
             material=material,
             num_nodes=num_nodes,
+            int_points=int_points,
         )
         self.sigs = sigs

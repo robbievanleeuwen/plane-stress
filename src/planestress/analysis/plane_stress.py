@@ -23,6 +23,8 @@ class PlaneStress:
     """Class for a plane-stress analysis.
 
     Attributes:
+        geometry: ``Geometry`` object containing a meshed geometry.
+        load_cases: List of load cases to analyse.
         mesh: ``Mesh`` object.
     """
 
@@ -30,14 +32,12 @@ class PlaneStress:
         self,
         geometry: Geometry,
         load_cases: list[LoadCase],
-        int_points: int = 3,
     ) -> None:
         """Inits the PlaneStress class.
 
         Args:
             geometry: ``Geometry`` object containing a meshed geometry.
             load_cases: List of load cases to analyse.
-            int_points: Number of integration points to use. Defaults to ``3``.
 
         Raises:
             RuntimeError: If there is no mesh in the ``Geometry`` object.
@@ -45,7 +45,6 @@ class PlaneStress:
         """
         self.geometry = geometry
         self.load_cases = load_cases
-        self.int_points = int_points
 
         # check mesh has been created
         if len(self.geometry.mesh.nodes) < 1:
@@ -96,7 +95,7 @@ class PlaneStress:
         # assemble stiffness matrix
         for el in self.mesh.elements:
             # get element stiffness matrix
-            k_el = el.element_stiffness_matrix(n_points=self.int_points)
+            k_el = el.element_stiffness_matrix()
 
             # get element degrees of freedom
             el_dofs = dof_map(node_idxs=el.node_idxs)
@@ -113,7 +112,7 @@ class PlaneStress:
             # assemble load vector
             for el in self.mesh.elements:
                 # get element load vector
-                f_el = el.element_load_vector(n_points=self.int_points)
+                f_el = el.element_load_vector()
 
                 # get element degrees of freedom
                 el_dofs = dof_map(node_idxs=el.node_idxs)
