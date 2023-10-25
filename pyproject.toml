@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "planestress"
-version = "0.0.4"
+version = "0.0.3"
 description = "A python package for plane stress analysis using the finite element method."
 license = "MIT"
 authors = [
