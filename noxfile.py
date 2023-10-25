@@ -1,5 +1,6 @@
 """Nox sessions."""
 import os
+import platform
 import shlex
 import shutil
 import sys
@@ -161,6 +162,18 @@ def tests(session: Session) -> None:
         session: Nox session
     """
     session.install(".")
+
+    # linux CI needs the no X Windows versions of gmsh
+    if platform.system().lower() == "linux":
+        session.run(
+            "pip",
+            "install",
+            "-i",
+            "https://gmsh.info/python-packages-dev-nox",
+            "--force-reinstall",
+            "gmsh==4.11.1.dev1+nox",
+        )
+
     # install relevant tooling
     session.install("coverage[toml]", "pytest", "pygments", "pytest-check")
 
@@ -209,6 +222,18 @@ def docs_build(session: Session) -> None:
         args.insert(0, "--color")
 
     session.install(".")
+
+    # linux CI needs the no X Windows versions of gmsh
+    if platform.system().lower() == "linux":
+        session.run(
+            "pip",
+            "install",
+            "-i",
+            "https://gmsh.info/python-packages-dev-nox",
+            "--force-reinstall",
+            "gmsh==4.11.1.dev1+nox",
+        )
+
     session.install(
         "furo",
         "ipykernel",
@@ -238,6 +263,18 @@ def docs(session: Session) -> None:
     """
     args = session.posargs or ["--open-browser", "docs", "docs/_build"]
     session.install(".")
+
+    # linux CI needs the no X Windows versions of gmsh
+    if platform.system().lower() == "linux":
+        session.run(
+            "pip",
+            "install",
+            "-i",
+            "https://gmsh.info/python-packages-dev-nox",
+            "--force-reinstall",
+            "gmsh==4.11.1.dev1+nox",
+        )
+
     session.install(
         "furo",
         "ipykernel",

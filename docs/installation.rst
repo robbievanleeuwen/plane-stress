@@ -10,14 +10,12 @@ Installing ``planestress``
 --------------------------------
 
 ``planestress`` uses `shapely <https://github.com/shapely/shapely>`_ to prepare
-the cross-section geometry and `triangle <https://github.com/drufat/triangle>`_ to
-efficiently generate a conforming triangular mesh.
-`numpy <https://github.com/numpy/numpy>`_ and `scipy <https://github.com/scipy/scipy>`_
-are used to aid finite element computations, while
-`matplotlib <https://github.com/matplotlib/matplotlib>`_ and
-`rich <https://github.com/Textualize/rich>`_ are used for post-processing.
-Finally, `click <https://github.com/pallets/click>`_ is used to power the
-``planestress`` CLI.
+the cross-section geometry and `gmsh <https://gmsh.info/>`_ to generate a triangular or
+rectangular mesh. `numpy <https://github.com/numpy/numpy>`_ and
+`scipy <https://github.com/scipy/scipy>`_ are used to aid finite element computations,
+while `matplotlib <https://github.com/matplotlib/matplotlib>`_ and
+`rich <https://github.com/Textualize/rich>`_ are used for post-processing. Finally,
+`click <https://github.com/pallets/click>`_ is used to power the ``planestress`` CLI.
 
 ``planestress`` and all of its dependencies can be installed through the python
 package index:

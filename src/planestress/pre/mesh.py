@@ -5,19 +5,20 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, cast
 
+import gmsh
 import numpy as np
 import numpy.typing as npt
-from matplotlib.colors import ListedColormap
-from matplotlib.patches import Patch
-from matplotlib.tri import Triangulation
-from shapely import Point, STRtree
+import shapely as shapely
+from matplotlib import collections
 
+import planestress.analysis.finite_element as fe
 from planestress.post.plotting import plotting_context
 
 
 if TYPE_CHECKING:
     import matplotlib.axes
 
+    from planestress.pre.geometry import CurveLoop, Facet, Point, Surface
     from planestress.pre.load_case import LoadCase
     from planestress.pre.material import Material
 
@@ -26,34 +27,320 @@ if TYPE_CHECKING:
 class Mesh:
     """Class for a plane-stress mesh.
 
-    Args:
-        nodes: List of nodes of the mesh, e.g. ``[[x1, y1], [x2, y2], ... ]``.
-        elements: List of node indexes defining the elements in the mesh, e.g.
-            ``[[idx1, idx2, idx3], [idx2, idx4, idx3], ... ]``.
-        attributes: List of element attribute IDs.
-        node_markers: List of node marker IDs.
-        segments: List of node indexes defining the segments in the mesh, i.e. the edges
-            that lie on the facets of the original geometry.
-        segments_markers: List of segment marker IDs.
-        linear: If ``True`` the mesh consists of 3-noded triangles, if ``False`` the
-            mesh consists of 6-noded triangles.
-
     Attributes:
-        str_tree: A :class:`shapely.STRtree` of the nodes in the mesh.
+        nodes: List of nodes describing the mesh, e.g. ``[[x1, y1], [x2, y2], ... ]``.
+        elements: List of finite element objects in the mesh.
+        line_elements: List of line element objects in the mesh.
+        triangulation: List of indices defining the triangles in the mesh (quads &
+            higher order elements converted to triangles) for plotting purposes.
+        materials: List of material objects for each region in the mesh.
+        tagged_nodes: List of nodes tagged in the mesh.
+        tagged_lines: List of lines tagged in the mesh.
+        nodes_str_tree: A :class:`shapely.STRtree` of the nodes in the mesh.
+        tagged_nodes_str_tree: A :class:`shapely.STRtree` of the tagged nodes in the
+            mesh.
+        tagged_lines_str_tree: A :class:`shapely.STRtree` of the tagged lines in the
+            mesh.
     """
 
-    nodes: npt.NDArray[np.float64]
-    elements: npt.NDArray[np.int32]
-    attributes: list[int]
-    node_markers: list[int]
-    segments: npt.NDArray[np.int32]
-    segment_markers: list[int]
-    linear: bool
-    str_tree: STRtree = field(init=False)
+    nodes: npt.NDArray[np.float64] = field(
+        init=False, default_factory=lambda: np.array([])
+    )
+    elements: list[fe.FiniteElement] = field(init=False, default_factory=list)
+    line_elements: list[fe.LineElement] = field(init=False, default_factory=list)
+    triangulation: list[tuple[int, int, int]] = field(init=False, default_factory=list)
+    materials: list[Material] = field(init=False, default_factory=list)
+    tagged_nodes: list[TaggedNode] = field(init=False, default_factory=list)
+    tagged_lines: list[TaggedLine] = field(init=False, default_factory=list)
+    nodes_str_tree: shapely.STRtree = field(init=False)
+    tagged_nodes_str_tree: shapely.STRtree = field(init=False)
+    tagged_lines_str_tree: shapely.STRtree = field(init=False)
 
-    def __post_init__(self) -> None:
-        """Mesh post_init method."""
-        self.str_tree = STRtree(geoms=[Point(node[0], node[1]) for node in self.nodes])
+    def create_mesh(
+        self,
+        points: list[Point],
+        facets: list[Facet],
+        curve_loops: list[CurveLoop],
+        surfaces: list[Surface],
+        mesh_sizes: list[float],
+        materials: list[Material],
+        verbosity: int = 0,
+    ) -> None:
+        """Creates a mesh from geometry using gmsh.
+
+        Args:
+            points: List of ``Point`` objects.
+            facets: List of ``Facet`` objects.
+            curve_loops: List of ``CurveLoop`` objects.
+            surfaces: List of ``Surface`` objects.
+            mesh_sizes: A list of the characteristic mesh lengths for each region in the
+                mesh.
+            materials: A list of ``Material`` objects for each region in the mesh.
+            verbosity: Gmsh verbosity level, see
+                https://gmsh.info/doc/texinfo/gmsh.html#index-General_002eVerbosity.
+                Defaults to ``0``.
+        """
+        # save materials
+        self.materials = materials
+
+        # init gmsh
+        gmsh.initialize()
+
+        # set verbosity
+        gmsh.option.set_number("General.Verbosity", verbosity)
+
+        # init model
+        gmsh.model.add("plane-stress")
+
+        # build gmsh geometry
+        # add points to gmsh geometry
+        for point in points:
+            # determine mesh size (note surface idxs start at 1)
+            mesh_size_list = [mesh_sizes[idx - 1] for idx in point.poly_idxs]
+            mesh_size = min(mesh_size_list)  # take the minimum mesh size
+            gmsh.model.geo.add_point(
+                x=point.x, y=point.y, z=0.0, meshSize=mesh_size, tag=point.idx
+            )
+
+        # add facets (lines) to gmsh geometry
+        for facet in facets:
+            gmsh.model.geo.add_line(
+                startTag=facet.pt1.idx, endTag=facet.pt2.idx, tag=facet.idx
+            )
+
+        # add curve loops (line sequences) to gmsh geometry
+        for curve_loop in curve_loops:
+            curve_tags = [facet.idx for facet in curve_loop.facets]
+            gmsh.model.geo.add_curve_loop(
+                curveTags=curve_tags, tag=curve_loop.idx, reorient=True
+            )
+
+        # add surfaces to gmsh geometry
+        for surface in surfaces:
+            wire_tags = [curve_loop.idx for curve_loop in surface.curve_loops]
+            gmsh.model.geo.add_plane_surface(wireTags=wire_tags, tag=surface.idx)
+
+        # synchronize gmsh CAD entities
+        gmsh.model.geo.synchronize()
+
+        # TODO - ADD MESHING OPTIONS!
+        # linear/quadratic
+        # tri/quad
+        # mesh refinement options
+
+        # generate 2D mesh
+        gmsh.model.mesh.generate(2)
+
+        # view model - for debugging
+        # gmsh.fltk.run()
+
+        # save mesh to self
+        self.save_mesh(materials=materials)
+
+        # clean-up
+        gmsh.finalize()
+
+        # create triangulation for plotting purpose
+        self.create_triangulation()
+
+    def save_mesh(
+        self,
+        materials: list[Material],
+    ) -> None:
+        """Saves the generated gmsh to the ``Mesh`` object.
+
+        Args:
+            materials: List of material objects.
+
+        Raises:
+            ValueError: If there is an unsupported gmsh element type in the mesh.
+            NotImplementedError: If an element in the mesh is yet to be implemented.
+        """
+        # reset mesh
+        self.nodes = np.array([])
+        self.elements = []
+        self.line_elements = []
+        self.tagged_nodes = []
+        self.tagged_lines = []
+
+        # save all nodes
+        node_tags, node_coords, _ = gmsh.model.mesh.get_nodes()
+        node_coords = np.reshape(node_coords, (len(node_tags), 3))
+        self.nodes = np.array(node_coords[:, :2], dtype=np.float64)
+
+        # create STRtree of nodes
+        self.nodes_str_tree = shapely.STRtree(
+            geoms=[shapely.Point(node[0], node[1]) for node in self.nodes]
+        )
+
+        # save all finite elements
+        el_idx: int = 0
+        el_obj: type
+
+        # loop through all surface entities
+        for _, tag in gmsh.model.get_entities(dim=2):
+            mat = materials[int(tag) - 1]  # get material for current entity
+
+            # get elements for current entity
+            (
+                el_types,
+                el_tags_by_type,
+                el_node_tags_by_type,
+            ) = gmsh.model.mesh.get_elements(dim=2, tag=tag)
+
+            # for each element type
+            for el_type, el_tags, el_node_tags_list in zip(
+                el_types, el_tags_by_type, el_node_tags_by_type
+            ):
+                # tri3 elements
+                if el_type == 2:
+                    # reshape node tags list
+                    num_elements = int(len(el_tags))
+                    el_node_tags_list = np.reshape(el_node_tags_list, (num_elements, 3))
+                    # assign element object
+                    el_obj = fe.Tri3
+                # quad4 elements
+                elif el_type == 3:
+                    raise NotImplementedError
+                # tri6 elements
+                elif el_type == 9:
+                    raise NotImplementedError
+                # quad9 elements
+                elif el_type == 10:
+                    raise NotImplementedError
+                # quad8 elements
+                elif el_type == 16:
+                    raise NotImplementedError
+                else:
+                    raise ValueError(f"Unsupported gmsh element type: type {el_type}.")
+
+                # loop through each element
+                for el_tag, el_node_tags in zip(el_tags, el_node_tags_list):
+                    # convert gmsh tag to node index
+                    node_idxs = np.array(el_node_tags - 1, dtype=np.int32)
+                    coords = self.nodes[node_idxs, :].transpose()
+
+                    # add element to list of elements
+                    self.elements.append(
+                        el_obj(
+                            el_idx=el_idx,
+                            el_tag=el_tag,
+                            coords=coords,
+                            node_idxs=node_idxs.tolist(),
+                            material=mat,
+                        )
+                    )
+                    el_idx += 1
+
+        # save all line elements
+        line_idx: int = 0
+        line_obj: type
+        (
+            line_types,
+            line_tags_by_type,
+            line_node_tags_by_type,
+        ) = gmsh.model.mesh.get_elements(dim=1)
+
+        # for each line type
+        for line_type, line_tags, line_node_tags_list in zip(
+            line_types, line_tags_by_type, line_node_tags_by_type
+        ):
+            # linear line elements
+            if line_type == 1:
+                # reshape node tags list
+                num_lines = int(len(line_tags))
+                line_node_tags_list = np.reshape(line_node_tags_list, (num_lines, 2))
+                # assign element object
+                line_obj = fe.LinearLine
+            # quadratic line elements
+            elif line_type == 8:
+                raise NotImplementedError
+            else:
+                raise ValueError(f"Unsupported gmsh line type: type {line_type}.")
+
+            # loop through each line element
+            for line_tag, line_node_tags in zip(line_tags, line_node_tags_list):
+                # convert gmsh tag to node index
+                node_idxs = np.array(line_node_tags - 1, dtype=np.int32)
+                coords = self.nodes[node_idxs, :].transpose()
+
+                # add element to list of elements
+                self.line_elements.append(
+                    line_obj(
+                        line_idx=line_idx,
+                        line_tag=line_tag,
+                        coords=coords,
+                        node_idxs=node_idxs.tolist(),
+                    )
+                )
+                line_idx += 1
+
+        # save node entities
+        for _, tag in gmsh.model.get_entities(dim=0):
+            # get current node entitiy
+            node_tag, node_coords, _ = gmsh.model.mesh.getNodes(dim=0, tag=tag)
+
+            # get index of node in self.nodes
+            node_idx = self.get_node_idx_by_coordinates(
+                x=node_coords[0], y=node_coords[1]
+            )
+
+            # add to list of tagged nodes
+            self.tagged_nodes.append(
+                TaggedNode(
+                    node_idx=node_idx,
+                    tag=node_tag[0],
+                    x=node_coords[0],
+                    y=node_coords[1],
+                )
+            )
+
+        # create STRtree of tagged nodes
+        self.tagged_nodes_str_tree = shapely.STRtree(
+            geoms=[shapely.Point(node.x, node.y) for node in self.tagged_nodes]
+        )
+
+        # save line entities
+        for _, tag in gmsh.model.get_entities(dim=1):
+            # get node tags that define line
+            _, node_tags = gmsh.model.get_adjacencies(dim=1, tag=tag)
+
+            # build list of tagged nodes
+            tagged_nodes = []
+            for node_tag in node_tags:
+                tagged_nodes.append(self.get_tagged_node(tag=node_tag))
+
+            # get element tags of line elements along the line
+            _, line_tags_by_type, _ = gmsh.model.mesh.get_elements(dim=1, tag=tag)
+
+            # build list of line elements
+            line_list = []
+            for line_tags in line_tags_by_type:
+                for line_tag in line_tags:
+                    line_list.append(self.get_line_element_by_tag(tag=line_tag))
+
+            # add to list of tagged lines
+            self.tagged_lines.append(
+                TaggedLine(tag=tag, tagged_nodes=tagged_nodes, elements=line_list)
+            )
+
+        # create STRtree of tagged lines
+        self.tagged_lines_str_tree = shapely.STRtree(
+            geoms=[line.to_shapely_line() for line in self.tagged_lines]
+        )
+
+    def create_triangulation(self) -> None:
+        """Creates a list of triangle indices that are used for plotting purposes.
+
+        Elements that are not three-noded triangles need to be further subdivided into
+        triangles to allow for the use of triangular plotting functions in
+        post-processing.
+        """
+        # reset triangles
+        self.triangulation = []
+
+        for element in self.elements:
+            self.triangulation.extend(element.get_triangulation())
 
     def num_nodes(self) -> int:
         """Returns the number of nodes in the mesh.
@@ -63,7 +350,7 @@ class Mesh:
         """
         return len(self.nodes)
 
-    def get_node(
+    def get_node_idx_by_coordinates(
         self,
         x: float,
         y: float,
@@ -77,21 +364,141 @@ class Mesh:
         Returns:
             Index of the node closest to (``x``, ``y``).
         """
-        idx = self.str_tree.nearest(geometry=Point(x, y))
+        idx = self.nodes_str_tree.nearest(geometry=shapely.Point(x, y))
 
         return cast(int, idx)
+
+    def get_tagged_node(
+        self,
+        tag: int,
+    ) -> TaggedNode:
+        """Returns a ``TaggedNode`` given a node tag.
+
+        Args:
+            tag: Node tag.
+
+        Raises:
+            ValueError: If there is no ``TaggedNode`` with a tag equal to ``tag``.
+
+        Returns:
+            Tagged node identified by ``tag``.
+        """
+        for tg in self.tagged_nodes:
+            if tg.tag == tag:
+                return tg
+        else:
+            raise ValueError(f"Cannot find TaggedNode with tag {tag}.")
+
+    def get_tagged_node_by_coordinates(
+        self,
+        x: float,
+        y: float,
+    ) -> TaggedNode:
+        """Returns a ``TaggedNode`` at or nearest to the point (``x``, ``y``).
+
+        Args:
+            x: ``x`` location of the tagged node to find.
+            y: ``y`` location of the tagged node to find.
+
+        Returns:
+            Tagged node closest to (``x``, ``y``).
+        """
+        idx = self.tagged_nodes_str_tree.nearest(geometry=shapely.Point(x, y))
+
+        return self.tagged_nodes[cast(int, idx)]
+
+    def get_tagged_line(
+        self,
+        tag: int,
+    ) -> TaggedLine:
+        """Returns a ``TaggedLine`` given a line tag.
+
+        Args:
+            tag: Line tag.
+
+        Raises:
+            ValueError: If there is no ``TaggedLine`` with a tag equal to ``tag``.
+
+        Returns:
+            Tagged line identified by ``tag``.
+        """
+        for tg in self.tagged_lines:
+            if tg.tag == tag:
+                return tg
+        else:
+            raise ValueError(f"Cannot find TaggedLine with tag {tag}.")
+
+    def get_tagged_line_by_coordinates(
+        self,
+        point1: tuple[float, float],
+        point2: tuple[float, float],
+    ) -> TaggedLine:
+        """Returns a ``TaggedLine`` closest to the line defined by two points.
+
+        Args:
+            point1: First point (``x``, ``y``) of the tagged line to find.
+            point2: Second point (``x``, ``y``) of the tagged line to find.
+
+        Returns:
+            Tagged line closest to the line defined by two points.
+        """
+        mid_point = shapely.Point(
+            0.5 * (point1[0] + point2[0]), 0.5 * (point1[1] + point2[1])
+        )
+        idx = self.tagged_lines_str_tree.nearest(geometry=mid_point)
+
+        return self.tagged_lines[cast(int, idx)]
+
+    def get_line_element_by_tag(
+        self,
+        tag: int,
+    ) -> fe.LineElement:
+        """Returns a ``LineElement`` given an element tag.
+
+        Args:
+            tag: Line element tag.
+
+        Raises:
+            ValueError: If there is no ``LineElement`` with a tag equal to ``tag``.
+
+        Returns:
+            Line element identified by ``tag``.
+        """
+        for line in self.line_elements:
+            if line.line_tag == tag:
+                return line
+        else:
+            raise ValueError(f"Cannot find LineElement with tag {tag}.")
+
+    def get_finite_element_by_tag(
+        self,
+        tag: int,
+    ) -> fe.FiniteElement:
+        """Returns a ``FiniteElement`` given an element tag.
+
+        Args:
+            tag: Finite element tag.
+
+        Raises:
+            ValueError: If there is no ``FiniteElement`` with a tag equal to ``tag``.
+
+        Returns:
+            Finite element identified by ``tag``.
+        """
+        for el in self.elements:
+            if el.el_tag == tag:
+                return el
+        else:
+            raise ValueError(f"Cannot find FiniteElement with tag {tag}.")
 
     def plot_mesh(
         self,
         load_case: LoadCase | None,
-        material_list: list[Material],
         title: str,
         materials: bool,
-        nodes: bool,
         node_indexes: bool,
         element_indexes: bool,
         alpha: float,
-        mask: list[bool] | None,
         ux: npt.NDArray[np.float64] | None = None,
         uy: npt.NDArray[np.float64] | None = None,
         **kwargs: Any,
@@ -106,16 +513,12 @@ class Mesh:
         Args:
             load_case: Plots the boundary conditions within a load case if provided.
                 Defaults to ``None``.
-            material_list: List of materials that correspond to the mesh attributes.
             title: Plot title.
             materials: If set to ``True`` shades the elements with the specified
                 material colors.
-            nodes: If set to ``True`` plots the nodes of the mesh.
             node_indexes: If set to ``True``, plots the indexes of each node.
             element_indexes: If set to ``True``, plots the indexes of each element.
             alpha: Transparency of the mesh outlines, :math:`0 \leq \alpha \leq 1`.
-            mask: Mask array to mask out triangles, must be same length as number of
-                elements in mesh.
             ux: Deformation component in the ``x`` direction. Defaults to ``None``.
             uy: Deformation component in the ``y`` direction. Defaults to ``None``.
             kwargs (dict[str, Any]): Other keyword arguments are passed to
@@ -128,99 +531,163 @@ class Mesh:
         with plotting_context(title=title, **kwargs) as (_, ax):
             assert ax
 
-            # add deformed shape
-            if ux is not None:
-                x = self.nodes[:, 0] + ux
-                materials = False
-                load_case = None
-            else:
-                x = self.nodes[:, 0]
+            # get number of materials
+            num_materials = len(self.materials)
 
-            if uy is not None:
-                y = self.nodes[:, 1] + uy
-                materials = False
-                load_case = None
-            else:
-                y = self.nodes[:, 1]
+            # generate an array of polygon vertices and colors for each material
+            verts: list[list[npt.NDArray[np.float64]]] = [
+                [] for _ in range(num_materials)
+            ]
+            colors: list[list[str | float]] = [[] for _ in range(num_materials)]
 
-            # create mesh triangulation (add deformed shape)
-            triang = Triangulation(x, y, self.elements[:, 0:3], mask=mask)
+            for element in self.elements:
+                idx = self.materials.index(element.material)  # get material index
 
-            # if displaying materials
-            if materials:
-                color_array = []
-                legend_labels = []
-                c = []  # Indices of elements for mapping colors
+                # get vertices - take care to create new array so as not to change vals
+                coords = np.array(np.transpose(element.coords))
 
-                # create an array of finite element colors
-                for idx, attr in enumerate(self.attributes):
-                    color_array.append(material_list[int(attr)].color)
-                    c.append(idx)
+                # add displacements
+                if ux is not None:
+                    coords[:, 0] += ux[element.node_idxs]
 
-                # create a list of unique material legend entries
-                for idx, material in enumerate(material_list):
-                    # if the material has not be entered yet
-                    if idx == 0 or material not in material_list[0:idx]:
-                        # add the material color and name to the legend list
-                        patch = Patch(color=material.color, label=material.name)
-                        legend_labels.append(patch)
+                if uy is not None:
+                    coords[:, 1] += uy[element.node_idxs]
 
-                cmap = ListedColormap(colors=color_array)  # custom colormap
+                verts[idx].append(coords)
 
-                # plot the mesh colors
-                ax.tripcolor(
-                    triang,
-                    c,
-                    cmap=cmap,
+                # add colors
+                colors[idx].append(element.material.color)
+
+            # generate collection of polygons for each material
+            for idx in range(num_materials):
+                # get face color
+                if materials:
+                    fcs = colors[idx]
+                else:
+                    fcs = [1.0, 1.0, 1.0, 0.0]
+
+                col = collections.PolyCollection(
+                    verts[idx],
+                    edgecolors=[0.0, 0.0, 0.0, alpha],
+                    facecolors=fcs,
+                    linewidth=0.5,
+                    label=self.materials[idx].name,
                 )
-
-                # display the legend
-                ax.legend(
-                    loc="center left",
-                    bbox_to_anchor=(1, 0.5),
-                    handles=legend_labels,
-                )
-
-            # plot the mesh
-            ax.triplot(
-                triang,
-                "ko-" if nodes else "k-",
-                lw=0.5,
-                alpha=alpha,
-            )
+                ax.add_collection(collection=col)
 
             # if deformed shape, plot the original mesh
             if ux is not None or uy is not None:
-                triang_orig = Triangulation(
-                    self.nodes[:, 0], self.nodes[:, 1], self.elements[:, 0:3], mask=mask
-                )
+                verts_orig = []
 
-                ax.triplot(
-                    triang_orig,
-                    "ko-" if nodes else "k-",
-                    lw=0.5,
-                    alpha=0.2,
+                for element in self.elements:
+                    # add vertices
+                    verts_orig.append(np.transpose(element.coords))
+
+                col = collections.PolyCollection(
+                    verts_orig,
+                    edgecolors=[1.0, 0.0, 0.0, 0.1],
+                    facecolors=[1.0, 1.0, 1.0, 0.0],
+                    linewidth=0.5,
+                    linestyle="dashed",
+                )
+                ax.add_collection(collection=col)
+
+            ax.autoscale_view()
+
+            # if materials, display the legend
+            if materials:
+                ax.legend(
+                    loc="center left",
+                    bbox_to_anchor=(1, 0.5),
                 )
 
             # node numbers
             if node_indexes:
                 for idx, pt in enumerate(self.nodes):
-                    ax.annotate(str(idx), xy=(pt[0], pt[1]), color="r")
+                    ax.annotate(
+                        str(idx), xy=(pt[0], pt[1]), color="r", ha="center", va="center"
+                    )
 
             # element numbers
             if element_indexes:
-                for idx, el in enumerate(self.elements):
-                    pt1 = self.nodes[el[0]]
-                    pt2 = self.nodes[el[1]]
-                    pt3 = self.nodes[el[2]]
-                    el_x = (pt1[0] + pt2[0] + pt3[0]) / 3
-                    el_y = (pt1[1] + pt2[1] + pt3[1]) / 3
-                    ax.annotate(str(idx), xy=(el_x, el_y), color="b")
+                for el in self.elements:
+                    pt = np.average(el.coords, axis=1)
+                    ax.annotate(
+                        str(el.el_idx),
+                        xy=(pt[0], pt[1]),
+                        color="b",
+                        ha="center",
+                        va="center",
+                    )
 
             # plot the load case
             if load_case is not None:
                 for boundary_condition in load_case.boundary_conditions:
                     # boundary_condition.plot()
-                    print(boundary_condition.marker_id)  # TODO - plot this!
+                    print(boundary_condition)  # TODO - plot this!
 
         return ax
+
+
+@dataclass
+class TaggedEntity:
+    """Class describing a tagged entity in the mesh.
+
+    Args:
+        tag: Gmsh tag.
+    """
+
+    tag: int
+
+
+@dataclass
+class TaggedNode(TaggedEntity):
+    """Class describing a tagged node.
+
+    Args:
+        tag: Gmsh node tag.
+        node_idx: Index of node in mesh.
+        x: ``x`` location of the node.
+        y: ``y`` location of the node.
+    """
+
+    tag: int
+    node_idx: int
+    x: float
+    y: float
+
+    def to_shapely_point(self) -> shapely.Point:
+        """Converts the tagged node to a ``shapely`` ``Point`` object.
+
+        Returns:
+            ``TaggedNode`` as a :class:`shapely.Point`.
+        """
+        return shapely.Point(self.x, self.y)
+
+
+@dataclass
+class TaggedLine(TaggedEntity):
+    """Class describing a tagged line.
+
+    Args:
+        tag: Gmsh line tag.
+        tagged_nodes: List ``TaggedNode`` objects at each end of line.
+        elements: List of ``FiniteElement`` objects along the line.
+    """
+
+    tag: int
+    tagged_nodes: list[TaggedNode]
+    elements: list[fe.LineElement]
+
+    def to_shapely_line(self) -> shapely.LineString:
+        """Converts the tagged line to a ``shapely`` ``Line`` object.
+
+        Returns:
+            ``TaggedLine`` as a :class:`shapely.LineString`.
+        """
+        return shapely.LineString(
+            [
+                self.tagged_nodes[0].to_shapely_point(),
+                self.tagged_nodes[1].to_shapely_point(),
+            ]
+        )
