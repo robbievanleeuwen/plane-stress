@@ -201,7 +201,7 @@ class Results:
             triang = Triangulation(
                 self.plane_stress.mesh.nodes[:, 0],
                 self.plane_stress.mesh.nodes[:, 1],
-                self.plane_stress.mesh.elements[:, 0:3],
+                self.plane_stress.mesh.triangulation,
             )
 
             # determine min. and max. displacements
@@ -327,7 +327,7 @@ class Results:
                 ``"{x:.4e}"``, i.e. exponential format with 4 decimal places.
             colorbar_label (str): Colorbar label. Defaults to ``"Stress"``.
             alpha (float):  Transparency of the mesh outlines,
-                :math:`0 \leq \alpha \leq 1`. Defaults to ``0.5``.
+                :math:`0 \leq \alpha \leq 1`. Defaults to ``0.2``.
             agg_func (Callable[[list[float]], float]): A function that aggregates the
                 stresses if the point is shared by several elements. The function must
                 receive a list of stresses and return a single stress. Defaults to
@@ -380,7 +380,7 @@ class Results:
         normalize: bool = kwargs.pop("normalize", True)
         colorbar_format: str = kwargs.pop("colorbar_format", "{x:.4e}")
         colorbar_label: str = kwargs.pop("colorbar_label", "Stress")
-        alpha: float = kwargs.pop("alpha", 0.5)
+        alpha: float = kwargs.pop("alpha", 0.2)
         agg_func: Callable[[list[float]], float] = kwargs.pop("agg_func", np.average)
 
         # TODO - implement material_list -> see sectionproperties
@@ -406,7 +406,7 @@ class Results:
             triang = Triangulation(
                 self.plane_stress.mesh.nodes[:, 0],
                 self.plane_stress.mesh.nodes[:, 1],
-                self.plane_stress.mesh.elements[:, 0:3],
+                self.plane_stress.mesh.triangulation,
             )
 
             # determine minimum and maximum stress values for the contour list

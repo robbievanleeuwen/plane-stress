@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, cast
 
@@ -40,6 +39,7 @@ class Mesh:
         init=False, default_factory=lambda: np.array([])
     )
     elements: list[fe.FiniteElement] = field(init=False, default_factory=list)
+    triangulation: list[tuple[int, int, int]] = field(init=False, default_factory=list)
     materials: list[Material] = field(init=False, default_factory=list)
     line_elements: list[fe.LineElement] = field(init=False, default_factory=list)
     tagged_nodes: list[TaggedNode] = field(init=False, default_factory=list)
@@ -131,6 +131,9 @@ class Mesh:
 
         # clean-up
         gmsh.finalize()
+
+        # create triangulation for plotting purpose
+        self.create_triangulation()
 
     def save_mesh(self, materials) -> None:
         """Saves the generated gmsh to the ``Mesh`` object."""
@@ -298,6 +301,19 @@ class Mesh:
             geoms=[line.to_shapely_line() for line in self.tagged_lines]
         )
 
+    def create_triangulation(self) -> None:
+        """Creates a list of triangle indices that are used for plotting purposes.
+
+        Elements that are not three-noded triangles need to be further subdivided into
+        triangles to allow for the use of triangular plotting functions in
+        post-processing.
+        """
+        # reset triangles
+        self.triangulation = []
+
+        for element in self.elements:
+            self.triangulation.extend(element.get_triangulation())
+
     def num_nodes(self) -> int:
         """Returns the number of nodes in the mesh.
 
@@ -452,16 +468,14 @@ class Mesh:
             num_materials = len(self.materials)
 
             # generate an array of polygon vertices and colors for each material
-            verts = []  # undeformed mesh (materials not important)
-            verts_u = [[] for _ in range(num_materials)]  # deformed mesh
+            verts = [[] for _ in range(num_materials)]
             colors = [[] for _ in range(num_materials)]
 
             for element in self.elements:
                 idx = self.materials.index(element.material)  # get material index
 
-                # add vertices
-                coords = element.coords.transpose()  # get coordinate of current element
-                verts.append(deepcopy(coords))
+                # get vertices - take care to create new array so as not to change vals
+                coords = np.array(np.transpose(element.coords))
 
                 # add displacements
                 if ux is not None:
@@ -470,7 +484,7 @@ class Mesh:
                 if uy is not None:
                     coords[:, 1] += uy[element.node_idxs]
 
-                verts_u[idx].append(coords)
+                verts[idx].append(coords)
 
                 # add colors
                 colors[idx].append(element.material.color)
@@ -484,7 +498,7 @@ class Mesh:
                     fcs = (1.0, 1.0, 1.0, 0.0)
 
                 col = collections.PolyCollection(
-                    verts_u[idx],
+                    verts[idx],
                     edgecolors=(0.0, 0.0, 0.0, alpha),
                     facecolors=fcs,
                     linewidth=0.5,
@@ -494,11 +508,18 @@ class Mesh:
 
             # if deformed shape, plot the original mesh
             if ux is not None or uy is not None:
+                verts_orig = []
+
+                for element in self.elements:
+                    # add vertices
+                    verts_orig.append(np.transpose(element.coords))
+
                 col = collections.PolyCollection(
-                    verts,
-                    edgecolors=(0.0, 0.0, 0.0, 0.2),
+                    verts_orig,
+                    edgecolors=(1.0, 0.0, 0.0, 0.1),
                     facecolors=(1.0, 1.0, 1.0, 0.0),
                     linewidth=0.5,
+                    linestyle="dashed",
                 )
                 ax.add_collection(collection=col)
 

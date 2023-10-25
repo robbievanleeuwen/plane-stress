@@ -236,6 +236,14 @@ class FiniteElement:
             sigs=sigs,
         )
 
+    def get_triangulation(self) -> list[tuple[int, int, int]]:
+        """Returns a list of triangle indices for the finite element.
+
+        Raises:
+            NotImplementedError: If this method hasn't been implemented for an element.
+        """
+        raise NotImplementedError
+
 
 class TriangularElement(FiniteElement):
     """Abstract base class for a triangular plane-stress finite element."""
@@ -465,6 +473,14 @@ class Tri3(TriangularElement):
                 [0.0, 0.0, 1.0],  # node 3
             ]
         )
+
+    def get_triangulation(self) -> list[tuple[int, int, int]]:
+        """Returns a list of triangle indices for a Tri3 element.
+
+        Returns:
+            List of triangle indices.
+        """
+        return [(self.node_idxs[0], self.node_idxs[1], self.node_idxs[2])]
 
 
 class Tri6(TriangularElement):

@@ -367,31 +367,31 @@ class LineSpring(LineBoundaryCondition):
         """
         super().__init__(point1=point1, point2=point2, direction=direction, value=value)
 
-    # def apply_bc(
-    #     self,
-    #     k: npt.NDArray[np.float64],
-    #     f: npt.NDArray[np.float64],
-    #     dofs: list[int],
-    # ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
-    #     """Applies the boundary condition.
+    def apply_bc(
+        self,
+        k: npt.NDArray[np.float64],
+        f: npt.NDArray[np.float64],
+    ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+        """Applies the boundary condition.
 
-    #     Args:
-    #         k: Stiffness matrix.
-    #         f: Load vector.
-    #         dofs: Degrees of freedom.
+        Args:
+            k: Stiffness matrix.
+            f: Load vector.
 
-    #     Returns:
-    #         Modified stiffness matrix and load vector (``k``, ``f``).
-    #     """
-    # # get relevant dofs
-    # dof_list = dofs[0::2] if self.direction == "x" else dofs[1::2]
+        Returns:
+            Modified stiffness matrix and load vector (``k``, ``f``).
+        """
+        # get degrees of freedom for node indexes
+        dofs = dof_map(node_idxs=self.get_unique_nodes())
 
-    # # apply bc - TODO - confirm this theory!
-    # for dof in dof_list:
-    #     k[dof, dof] += self.value
+        # get relevant dofs
+        dof_list = dofs[0::2] if self.direction == "x" else dofs[1::2]
 
-    # return k, f
-    # TODO - calculate equivalent spring stiffness + Tri6
+        # apply bc - TODO - confirm this theory!
+        for dof in dof_list:
+            k[dof, dof] += self.value
+
+        return k, f
 
 
 class LineLoad(LineBoundaryCondition):
