@@ -689,6 +689,16 @@ class LineElement:
         self,
         iso_coord: list[float],
     ) -> tuple[npt.NDArray[np.float64], float]:
+        """Evaluates the shape functions and length of the element.
+
+        TODO - change this to jacobian.
+
+        Args:
+            iso_coord: Location of the point in isoparametric coordinates.
+
+        Raises:
+            NotImplementedError: If this method hasn't been implemented for an element.
+        """
         raise NotImplementedError
 
     def element_load_vector(
@@ -770,6 +780,16 @@ class LinearLine(LineElement):
         self,
         iso_coord: list[float],
     ) -> tuple[npt.NDArray[np.float64], float]:
+        """Evaluates the shape functions and length of the element.
+
+        TODO - change this to jacobian.
+
+        Args:
+            iso_coord: Location of the point in isoparametric coordinates.
+
+        Returns:
+            Length of the element.
+        """
         eta = iso_coord[0]
         n = np.array([0.5 - 0.5 * eta, 0.5 + 0.5 * eta])
         length = np.sqrt(

@@ -500,7 +500,15 @@ class LineLoad(LineBoundaryCondition):
         k: npt.NDArray[np.float64],
         f: npt.NDArray[np.float64],
     ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
-        """Applies the boundary condition."""
+        """Applies the boundary condition.
+
+        Args:
+            k: Stiffness matrix.
+            f: Load vector.
+
+        Returns:
+            Modified stiffness matrix and load vector (``k``, ``f``).
+        """
         # loop through all line elements
         for element in self.mesh_tag.elements:
             # get element load vector
