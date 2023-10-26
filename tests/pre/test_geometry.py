@@ -1,5 +1,6 @@
 """Tests for the Geometry class."""
 
+import numpy as np
 import pytest
 import pytest_check as check
 from shapely import MultiPolygon, Polygon
@@ -21,6 +22,10 @@ def test_geometry_simple():
 
     check.almost_equal(geom_poly.calculate_area(), geom_mp.calculate_area())
     check.almost_equal(geom_poly.calculate_area(), 1.0)
+    check.almost_equal(geom_poly.calculate_centroid()[0], 0.5)
+    check.almost_equal(geom_mp.calculate_centroid()[0], 0.5)
+    check.almost_equal(geom_poly.calculate_centroid()[1], 0.5)
+    check.almost_equal(geom_mp.calculate_centroid()[1], 0.5)
 
 
 def test_geometry_single_hole():
@@ -122,3 +127,115 @@ def test_geometry_material_length():
     # this should fail
     with pytest.raises(ValueError, match="must equal number of polygons:"):
         Geometry(MultiPolygon([poly_left, poly_right]), [mat1])
+
+
+def test_zero_length_facet():
+    """Tests that zero length facets correctly get removed."""
+    poly = Polygon([[0, 0], [1, 0], [1, 0], [1, 1], [0, 1], [0, 0]])
+    geom = Geometry(poly)
+
+    assert len(geom.facets) == 4
+
+
+def test_remove_duplicate_facets():
+    """Tests that duplicate facets are not added to list and curve loop is correct."""
+    poly1 = Polygon([[0, 0], [1, 0], [1, 1], [0, 1]])
+    poly2 = Polygon([[1, 0], [2, 0], [2, 1], [1, 1]])
+    mp = MultiPolygon([poly1, poly2])
+    geom = Geometry(mp)
+
+    # total number of facets should equal 8 - 1 (shared)
+    assert len(geom.facets) == 7
+
+    # check facet idx 2 is in both curve loops
+    for c in geom.curve_loops:
+        for f in c.facets:
+            if f.idx == 2:
+                break
+        else:
+            pytest.fail("Facet is not shared by curve loop.")
+
+
+def test_overlapping_facets():
+    """Tests for overlapping facets."""
+    pass
+
+
+def test_calculate_extents():
+    """Tests the calculate extents method."""
+    pts = np.array([[0, 1], [8, 1], [5, 7], [-3, -0.5]])
+    poly = Polygon(pts.tolist())
+    geom = Geometry(poly)
+    extents = geom.calculate_extents()
+
+    check.almost_equal(pts[:, 0].min(), extents[0])
+    check.almost_equal(pts[:, 0].max(), extents[1])
+    check.almost_equal(pts[:, 1].min(), extents[2])
+    check.almost_equal(pts[:, 1].max(), extents[3])
+
+
+def test_align_to():
+    """Tests the align_to() method."""
+    # two unit boxes next to each other
+    poly1 = Polygon([[0, 0], [1, 0], [1, 1], [0, 1]])
+    geom1 = Geometry(poly1)
+    geom2 = geom1 + geom1.align_to(geom1, "right")
+
+    check.almost_equal(geom2.calculate_area(), 2.0)
+    check.almost_equal(geom2.calculate_extents()[0], 0.0)
+    check.almost_equal(geom2.calculate_extents()[1], 2.0)
+    check.almost_equal(geom2.calculate_extents()[2], 0.0)
+    check.almost_equal(geom2.calculate_extents()[3], 1.0)
+    check.almost_equal(geom2.calculate_centroid()[0], 1.0)
+    check.almost_equal(geom2.calculate_centroid()[1], 0.5)
+
+    # test align inner
+    poly2 = Polygon([[0.25, 0.25], [0.75, 0.25], [0.75, 0.75], [0.25, 0.75]])
+    geom3 = Geometry(poly2).align_to(geom1, "right", True)
+    geom4 = geom1 - geom3
+
+    check.almost_equal(geom4.calculate_area(), 1.0 - 0.5**2)
+    check.almost_equal(
+        geom4.calculate_centroid()[0],
+        (0.5 * 1 * 0.25 + 2 * (0.25 * 0.5) * 0.75) / (1.0 - 0.5**2),
+    )
+    check.almost_equal(geom4.calculate_centroid()[1], 0.5)
+
+    # test align to point
+    geom5 = geom1 + geom1.align_to((0, 1), "top")
+
+    check.almost_equal(geom5.calculate_area(), 2.0)
+    check.almost_equal(geom5.calculate_extents()[0], 0.0)
+    check.almost_equal(geom5.calculate_extents()[1], 1.0)
+    check.almost_equal(geom5.calculate_extents()[2], 0.0)
+    check.almost_equal(geom5.calculate_extents()[3], 2.0)
+    check.almost_equal(geom5.calculate_centroid()[0], 0.5)
+    check.almost_equal(geom5.calculate_centroid()[1], 1.0)
+
+
+def test_align_center():
+    """Tests the align_center() method."""
+    # align to center of other
+    poly1 = Polygon([[0, 0], [1, 0], [1, 1], [0, 1]])
+    poly2 = Polygon([[0.25, 0.25], [0.75, 0.25], [0.75, 0.75], [0.25, 0.75]])
+    geom1 = Geometry(poly1)
+    geom2 = Geometry(poly2).align_center(geom1)
+    geom = geom1 - geom2
+
+    check.almost_equal(geom.calculate_area(), 1.0 - 0.5**2)
+    check.almost_equal(geom.calculate_centroid()[0], 0.5)
+    check.almost_equal(geom.calculate_centroid()[1], 0.5)
+
+    # align center of point
+    geom2 = Geometry(poly2).align_center((0.5, 0.5))
+    geom = geom1 - geom2
+
+    check.almost_equal(geom.calculate_area(), 1.0 - 0.5**2)
+    check.almost_equal(geom.calculate_centroid()[0], 0.5)
+    check.almost_equal(geom.calculate_centroid()[1], 0.5)
+
+    # align center self
+    geom = geom1.align_center()
+    check.almost_equal(geom.calculate_area(), 1.0)
+    check.almost_equal(geom.calculate_centroid()[0], 0.0)
+    check.almost_equal(geom.calculate_centroid()[1], 0.0)

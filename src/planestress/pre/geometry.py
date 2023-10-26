@@ -87,6 +87,8 @@ class Geometry:
         # compile the geometry into points, facets and holes
         self.compile_geometry()
 
+        # TODO - test for overlapping facets
+
         # allocate mesh
         self.mesh: Mesh = Mesh()
 
@@ -388,7 +390,7 @@ class Geometry:
 
         return self.shift_section(**kwargs)
 
-    def align_centre(
+    def align_center(
         self,
         align_to: Geometry | tuple[float, float] | None = None,
     ) -> Geometry:
@@ -470,7 +472,7 @@ class Geometry:
             angle: Angle by which to rotate the section. A positive angle leads to a
                 counter-clockwise rotation.
             rot_point: Point (``x``, ``y``) about which to rotate the section. May also
-                be ``"center"`` (rotates about centre of bounding box) or "centroid"
+                be ``"center"`` (rotates about center of bounding box) or "centroid"
                 (rotates about centroid). Defaults to ``"center"``.
             use_radians: If True, ``angle`` is in radians, if ``False`` angle is in
                 degrees. Defaults to ``False``.
@@ -502,7 +504,7 @@ class Geometry:
         Args:
             axis: Mirror axis, may be ``"x"`` or ``"y"``. Defaults to ``"x"``.
             mirror_point: Point (``x``, ``y``) about which to mirror the section. May
-                also be ``"center"`` (mirrors about centre of bounding box) or
+                also be ``"center"`` (mirrors about center of bounding box) or
                 "centroid" (mirrors about centroid). Defaults to ``"center"``.
 
         Raises:

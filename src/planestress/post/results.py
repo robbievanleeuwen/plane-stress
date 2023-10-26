@@ -164,7 +164,7 @@ class Results:
                 detail. Defaults to ``"coolwarm"``.
             normalize (bool): If set to ``True``, ``CenteredNorm`` is used to scale the
                 colormap, if set to False, the default linear scaling is used.
-                ``CenteredNorm`` effectively places the centre of the colormap at zero
+                ``CenteredNorm`` effectively places the center of the colormap at zero
                 displacement. Defaults to ``True``.
             colorbar_format (str):  Number formatting string for displacements, see
                 https://docs.python.org/3/library/string.html. Defaults to
@@ -333,7 +333,7 @@ class Results:
                 white. Defaults to ``None``.
             normalize (bool): If set to ``True``, ``CenteredNorm`` is used to scale the
                 colormap, if set to False, the default linear scaling is used.
-                ``CenteredNorm`` effectively places the centre of the colormap at zero
+                ``CenteredNorm`` effectively places the center of the colormap at zero
                 displacement. Defaults to ``True``.
             colorbar_format (str):  Number formatting string for stresses, see
                 https://docs.python.org/3/library/string.html. Defaults to

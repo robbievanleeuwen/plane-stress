@@ -44,7 +44,7 @@ def circle(
     material: Material = DEFAULT_MATERIAL,
     tol: int = 12,
 ) -> Geometry:
-    """Creates a circular geometry with the centre at the origin.
+    """Creates a circular geometry with the center at the origin.
 
     Args:
         d: Diameter of the circle.
