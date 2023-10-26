@@ -6,6 +6,7 @@ import copy
 from typing import TYPE_CHECKING
 
 import numpy as np
+import numpy.typing as npt
 
 import planestress.analysis.solver as solver
 import planestress.pre.boundary_condition as bc
@@ -88,6 +89,7 @@ class PlaneStress:
         # allocate stiffness matrix and load vector
         k = np.zeros((num_dofs, num_dofs))
         f = np.zeros(num_dofs)
+        f_app: npt.NDArray[np.float64] | None = None
 
         # allocate results
         results: list[Results] = []
@@ -112,7 +114,7 @@ class PlaneStress:
             # assemble load vector
             for el in self.mesh.elements:
                 # get element load vector
-                f_el = el.element_load_vector()
+                f_el = el.element_load_vector(acceleration_field=lc.acceleration_field)
 
                 # get element degrees of freedom
                 el_dofs = dof_map(node_idxs=el.node_idxs)
@@ -121,9 +123,18 @@ class PlaneStress:
                 f[el_dofs] += f_el
 
             # apply boundary conditions
+            # note these are sorted (load -> spring -> support)
             for boundary_condition in lc.boundary_conditions:
+                # check to see if we have finished applying external loads
+                if boundary_condition.priority > 0 and f_app is None:
+                    f_app = copy.deepcopy(f)
+
                 # apply boundary condition
                 k_mod, f = boundary_condition.apply_bc(k=k_mod, f=f)
+
+            # ensure f_app has been generated
+            if f_app is None:
+                f_app = f
 
             # solve system
             u = solver.solve_direct(k=k_mod, f=f)
@@ -131,6 +142,7 @@ class PlaneStress:
             # post-processing
             res = Results(plane_stress=self, u=u)
             res.calculate_node_forces(k=k)
+            res.calculate_reactions(f=f_app)
             res.calculate_element_results(elements=self.mesh.elements)
 
             # add to results list

@@ -8,7 +8,7 @@ import numpy as np
 import numpy.typing as npt
 
 
-@dataclass(eq=True)
+@dataclass(eq=True, frozen=True)
 class Material:
     """Class for a plane-stress material.
 

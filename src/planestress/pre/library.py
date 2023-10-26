@@ -159,7 +159,7 @@ def steel_material(
         "mpa": {
             "name": "MPa",
             "elastic_modulus": 200e3,  # MPa = N/mm^2
-            "density": 7.85e-6,  # kg/mm^3
+            "density": 7.85e-9,  # T/mm^3
         },
         "si": {
             "name": "SI",
@@ -173,6 +173,70 @@ def steel_material(
             name=f"Steel [{unit_props[units]['name']}]",
             elastic_modulus=float(unit_props[units]["elastic_modulus"]),
             poissons_ratio=0.3,
+            thickness=thickness,
+            density=float(unit_props[units]["density"]),
+            color=color,
+        )
+    except KeyError as exc:
+        raise ValueError(f"{units} is not a valid input for 'units'.") from exc
+
+
+def concrete_material(
+    elastic_modulus: float,
+    thickness: float,
+    units: str = "MPa",
+    color: str = "lightgrey",
+) -> Material:
+    r"""Creates a concrete material object with consistent units.
+
+    Args:
+        elastic_modulus: Elastic modulus of the concrete.
+        thickness: Thickness of the concrete.
+        units: Units system to use. See below for options. Defaults to ``"MPa"``.
+        color: Material color for rendering. Defaults to ``"lightgrey"``.
+
+    Raises:
+        ValueError: If the value of ``units`` is not in the list below.
+
+    Returns:
+        Concrete material object.
+
+    .. admonition:: Units
+
+        The value for ``units`` may be one of the following:
+
+        - ``"MPa"``: Newtons :math:`[\textrm{N}]` and millimetres :math:`[\textrm{mm}]`.
+
+          - Poisson's ratio: :math:`0.2`
+          - Density: :math:`2.4 \times 10^{-6} \textrm{ kg/mm}`^3`
+
+        - ``"SI"``: Newtons :math:`[\textrm{N}]` and metres :math:`[\textrm{m}]`.
+
+          - Poisson's ratio: :math:`0.2`
+          - Density: :math:`2.4 \times 10^3 \textrm{ kg/m}`^3`
+
+    Example:
+        TODO.
+    """
+    # convert units to lower case
+    units = units.lower()
+
+    unit_props: dict[str, dict[str, str | float]] = {
+        "mpa": {
+            "name": "MPa",
+            "density": 2.4e-9,  # T/mm^3
+        },
+        "si": {
+            "name": "SI",
+            "density": 2.4e3,  # kg/m^3
+        },
+    }
+
+    try:
+        return Material(
+            name=f"Concrete [{unit_props[units]['name']}]",
+            elastic_modulus=elastic_modulus,
+            poissons_ratio=0.2,
             thickness=thickness,
             density=float(unit_props[units]["density"]),
             color=color,

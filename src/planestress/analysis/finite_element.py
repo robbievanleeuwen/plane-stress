@@ -171,18 +171,42 @@ class FiniteElement:
 
         return k_el
 
-    def element_load_vector(self) -> npt.NDArray[np.float64]:
+    def element_load_vector(
+        self,
+        acceleration_field: tuple[float, float],
+    ) -> npt.NDArray[np.float64]:
         """Assembles the load vector for the element.
+
+        Args:
+            acceleration_field: Acceleration field (``a_x``, ``a_y``).
 
         Returns:
             Element load vector.
         """
         # allocate element load vector
-        k_el = np.zeros(2 * self.num_nodes)
+        f_el = np.zeros(2 * self.num_nodes)
 
-        # TODO - implement!
+        # calculate body force field
+        b = np.array(acceleration_field) * self.material.density
 
-        return k_el
+        # get Gauss points
+        gauss_points = self.gauss_points(n_points=self.int_points)
+
+        # loop through each gauss point
+        for gauss_point in gauss_points:
+            # get shape functions and jacobian
+            n = self.shape_functions(iso_coords=gauss_point[1:])
+            _, j = self.b_matrix_jacobian(iso_coords=gauss_point[1:])
+
+            # form shape function matrix
+            n_mat = np.zeros((len(n) * 2, 2))
+            n_mat[::2, 0] = n
+            n_mat[1::2, 1] = n
+
+            # calculate load vector for current integration point
+            f_el += n_mat @ b * gauss_point[0] * j * self.material.thickness
+
+        return f_el
 
     def get_element_results(
         self,
@@ -333,7 +357,7 @@ class TriangularElement(FiniteElement):
             )
 
         raise ValueError(
-            f"'n_points' must be 1, 3, 4 or 6 for a {self.__class__.__name__}. element."
+            f"'n_points' must be 1, 3, 4 or 6 for a {self.__class__.__name__} element."
         )
 
     def b_matrix_jacobian(
@@ -413,7 +437,7 @@ class Tri3(TriangularElement):
             node_idxs=node_idxs,
             material=material,
             num_nodes=3,
-            int_points=3,  # TODO - confirm
+            int_points=1,  # TODO - confirm
         )
 
     @staticmethod
@@ -596,6 +620,8 @@ class LineElement:
         line_tag: int,
         coords: npt.NDArray[np.float64],
         node_idxs: list[int],
+        num_nodes: int,
+        int_points: int,
     ) -> None:
         """Inits the LineElement class.
 
@@ -606,11 +632,15 @@ class LineElement:
                 ``[[x1, x2], [y1, y2]]``.
             node_idxs: List of node indexes defining the element, e.g.
                 ``[idx1, idx2]``.
+            num_nodes: Number of nodes in the line element.
+            int_points: Number of integration points used for the finite element.
         """
         self.line_idx = line_idx
         self.line_tag = line_tag
         self.coords = coords
         self.node_idxs = node_idxs
+        self.num_nodes = num_nodes
+        self.int_points = int_points
 
     def __repr__(self) -> str:
         """Override __repr__ method.
@@ -622,6 +652,89 @@ class LineElement:
             f"{self.__class__.__name__} - id: {self.line_idx}, "
             f"tag: {self.line_tag}."
         )
+
+    def gauss_points(
+        self,
+        n_points: int,
+    ) -> npt.NDArray[np.float64]:
+        """Gaussian weights and locations for ``n_point`` Gaussian integration.
+
+        Args:
+            n_points: Number of gauss points.
+
+        Raises:
+            ValueError: If ``n_points`` is not 1 or 2.
+
+        Returns:
+            Gaussian weights and location. For each gauss point - ``[weight, eta]``.
+        """
+        # one point gaussian integration
+        if n_points == 1:
+            return np.array([[2.0, 0.0]])
+
+        # two point gaussian integration
+        if n_points == 2:
+            return np.array(
+                [
+                    [1.0, -1 / np.sqrt(3)],
+                    [1.0, 1 / np.sqrt(3)],
+                ]
+            )
+
+        raise ValueError(
+            f"'n_points' must be 1, or 2 for a {self.__class__.__name__} element."
+        )
+
+    def shape_functions_length(
+        self,
+        iso_coord: list[float],
+    ) -> tuple[npt.NDArray[np.float64], float]:
+        raise NotImplementedError
+
+    def element_load_vector(
+        self,
+        direction: str,
+        value: float,
+    ) -> npt.NDArray[np.float64]:
+        """Assembles the load vector for the line element.
+
+        Args:
+            direction: Direction of the line load, ``"x"``, ``"y"`` or ``"xy"``.
+            value: Value of the line load.
+
+        Returns:
+            Line element load vector.
+        """
+        # allocate element load vector
+        f_el = np.zeros(2 * self.num_nodes)
+
+        # create applied force vector
+        if direction == "x":
+            b = np.array([1, 0])
+        elif direction == "y":
+            b = np.array([0, 1])
+        else:
+            b = np.array([1, 1])
+
+        b *= value
+
+        # get Gauss points
+        gauss_points = self.gauss_points(n_points=self.int_points)
+
+        # loop through each gauss point
+        for gauss_point in gauss_points:
+            # get shape functions and length
+            n, l = self.shape_functions_length(iso_coord=gauss_point[1:])
+
+            # form shape function matrix
+            n_mat = np.zeros((len(n) * 2, 2))
+            n_mat[::2, 0] = n
+            n_mat[1::2, 1] = n
+
+            # calculate load vector for current integration point
+            f_el += n_mat @ b * gauss_point[0] * 0.5 * l
+
+        return f_el
 
 
 class LinearLine(LineElement):
@@ -649,7 +762,21 @@ class LinearLine(LineElement):
             line_tag=line_tag,
             coords=coords,
             node_idxs=node_idxs,
+            num_nodes=2,
+            int_points=1,
         )
+
+    def shape_functions_length(
+        self,
+        iso_coord: list[float],
+    ) -> tuple[npt.NDArray[np.float64], float]:
+        eta = iso_coord[0]
+        n = np.array([0.5 - 0.5 * eta, 0.5 + 0.5 * eta])
+        length = np.sqrt(
+            (self.coords[0, 1] - self.coords[0, 0]) ** 2
+            + (self.coords[1, 1] - self.coords[1, 0]) ** 2
+        )
+        return n, length
 
 
 class ElementResults(FiniteElement):

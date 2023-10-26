@@ -531,17 +531,18 @@ class Mesh:
         with plotting_context(title=title, **kwargs) as (_, ax):
             assert ax
 
-            # get number of materials
-            num_materials = len(self.materials)
+            # get number of unique materials
+            unique_materials = list(set(self.materials))
+            num_materials = len(unique_materials)
 
-            # generate an array of polygon vertices and colors for each material
+            # generate an array of polygon vertices and colors for each unique material
             verts: list[list[npt.NDArray[np.float64]]] = [
                 [] for _ in range(num_materials)
             ]
             colors: list[list[str | float]] = [[] for _ in range(num_materials)]
 
             for element in self.elements:
-                idx = self.materials.index(element.material)  # get material index
+                idx = unique_materials.index(element.material)  # get material index
 
                 # get vertices - take care to create new array so as not to change vals
                 coords = np.array(np.transpose(element.coords))

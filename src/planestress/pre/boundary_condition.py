@@ -1,4 +1,10 @@
-"""Classes describing a planestress boundary conditions."""
+"""Classes describing a planestress boundary conditions.
+
+Boundary condition application priorities:
+0 - Loads
+1 - Springs
+2 - Supports
+"""
 
 from __future__ import annotations
 
@@ -21,8 +27,24 @@ class BoundaryCondition:
         mesh_tag: Tagged entity object.
     """
 
-    def __init__(self) -> None:
-        """Inits the BoundaryCondition class."""
+    def __init__(
+        self,
+        direction: str,
+        value: float,
+        priority: int,
+    ) -> None:
+        """Inits the BoundaryCondition class.
+
+        Args:
+            direction: Direction of the boundary condition, ``"x"``, ``"y"`` or
+                ``"xy"``.
+            value: Value of the boundary condition.
+            priority: Integer denoting the order in which the boundary condition gets
+                applied.
+        """
+        self.direction = direction  # TODO - verify input
+        self.value = value
+        self.priority = priority
         self.mesh_tag: TaggedEntity
 
     def apply_bc(
@@ -41,6 +63,28 @@ class BoundaryCondition:
         """
         raise NotImplementedError
 
+    def get_dofs_given_direction(
+        self,
+        dofs: list[int],
+    ) -> list[int]:
+        """Gets the degrees of freedom based on the BC direction.
+
+        Args:
+            dofs: Degrees of freedom.
+
+        Returns:
+            Degrees of freeom in BC direction.
+        """
+        # get relevant dofs
+        if self.direction == "x":
+            dofs = dofs[0::2]
+        elif self.direction == "y":
+            dofs = dofs[1::2]
+        else:
+            dofs = dofs
+
+        return dofs
+
 
 class NodeBoundaryCondition(BoundaryCondition):
     """Abstract base class for a boundary condition at a node.
@@ -54,17 +98,20 @@ class NodeBoundaryCondition(BoundaryCondition):
         point: tuple[float, float],
         direction: str,
         value: float,
+        priority: int,
     ) -> None:
         """Inits the NodeBoundaryCondition class.
 
         Args:
             point: Point tuple (``x``, ``y``) describing the node location.
-            direction: Direction of the boundary condition, ``"x"`` or ``"y"``.
+            direction: Direction of the boundary condition, ``"x"``, ``"y"`` or
+                ``"xy"``.
             value: Value of the boundary condition.
+            priority: Integer denoting the order in which the boundary condition gets
+                applied.
         """
+        super().__init__(direction=direction, value=value, priority=priority)
         self.point = point
-        self.direction = direction  # TODO - verify input
-        self.value = value
         self.mesh_tag: TaggedNode
 
     def __repr__(self) -> str:
@@ -73,10 +120,14 @@ class NodeBoundaryCondition(BoundaryCondition):
         Returns:
             String representation of the object.
         """
+        try:
+            tag = self.mesh_tag
+        except AttributeError:
+            tag = None
+
         return (
             f"BC Type: {self.__class__.__name__}, dir: {self.direction}, val: "
-            f"{self.value}\n"
-            f"Mesh Tag: {self.mesh_tag}"
+            f"{self.value}, mesh tag: {tag}"
         )
 
     def get_node_dofs(self) -> list[int]:
@@ -105,10 +156,11 @@ class NodeSupport(NodeBoundaryCondition):
 
         Args:
             point: Point tuple (``x``, ``y``) describing the node location.
-            direction: Direction of the boundary condition, ``"x"`` or ``"y"``.
+            direction: Direction of the boundary condition, ``"x"``, ``"y"`` or
+                ``"xy"``.
             value: Value of the boundary condition.
         """
-        super().__init__(point=point, direction=direction, value=value)
+        super().__init__(point=point, direction=direction, value=value, priority=2)
 
     def apply_bc(
         self,
@@ -127,13 +179,14 @@ class NodeSupport(NodeBoundaryCondition):
         # get nodal dofs
         dofs = self.get_node_dofs()
 
-        # get relevant dof
-        dof = dofs[0] if self.direction == "x" else dofs[1]
+        # get relevant dofs
+        dofs = self.get_dofs_given_direction(dofs=dofs)
 
-        # apply bc - TODO - confirm this theory!
-        k[dof, :] = 0
-        k[dof, dof] = 1
-        f[dof] = self.value
+        for dof in dofs:
+            # apply bc - TODO - confirm this theory!
+            k[dof, :] = 0
+            k[dof, dof] = 1
+            f[dof] = self.value
 
         return k, f
 
@@ -155,10 +208,11 @@ class NodeSpring(NodeBoundaryCondition):
 
         Args:
             point: Point tuple (``x``, ``y``) describing the node location.
-            direction: Direction of the boundary condition, ``"x"`` or ``"y"``.
+            direction: Direction of the boundary condition, ``"x"``, ``"y"`` or
+                ``"xy"``.
             value: Value of the boundary condition.
         """
-        super().__init__(point=point, direction=direction, value=value)
+        super().__init__(point=point, direction=direction, value=value, priority=1)
 
     def apply_bc(
         self,
@@ -177,11 +231,12 @@ class NodeSpring(NodeBoundaryCondition):
         # get nodal dofs
         dofs = self.get_node_dofs()
 
-        # get relevant dof
-        dof = dofs[0] if self.direction == "x" else dofs[1]
+        # get relevant dofs
+        dofs = self.get_dofs_given_direction(dofs=dofs)
 
-        # apply bc - TODO - confirm this theory!
-        k[dof, dof] += self.value
+        for dof in dofs:
+            # apply bc - TODO - confirm this theory!
+            k[dof, dof] += self.value
 
         return k, f
 
@@ -203,10 +258,11 @@ class NodeLoad(NodeBoundaryCondition):
 
         Args:
             point: Point tuple (``x``, ``y``) describing the node location.
-            direction: Direction of the boundary condition, ``"x"`` or ``"y"``.
+            direction: Direction of the boundary condition, ``"x"``, ``"y"`` or
+                ``"xy"``.
             value: Value of the boundary condition.
         """
-        super().__init__(point=point, direction=direction, value=value)
+        super().__init__(point=point, direction=direction, value=value, priority=0)
 
     def apply_bc(
         self,
@@ -225,11 +281,12 @@ class NodeLoad(NodeBoundaryCondition):
         # get nodal dofs
         dofs = self.get_node_dofs()
 
-        # get relevant dof
-        dof = dofs[0] if self.direction == "x" else dofs[1]
+        # get relevant dofs
+        dofs = self.get_dofs_given_direction(dofs=dofs)
 
-        # apply bc
-        f[dof] += self.value
+        for dof in dofs:
+            # apply bc
+            f[dof] += self.value
 
         return k, f
 
@@ -247,19 +304,22 @@ class LineBoundaryCondition(BoundaryCondition):
         point2: tuple[float, float],
         direction: str,
         value: float,
+        priority: int,
     ) -> None:
         """Inits the LineBoundaryCondition class.
 
         Args:
             point1: Point location (``x``, ``y``) of the start of the line.
             point2: Point location (``x``, ``y``) of the end of the line.
-            direction: Direction of the boundary condition, ``"x"`` or ``"y"``.
+            direction: Direction of the boundary condition, ``"x"``, ``"y"`` or
+                ``"xy"``.
             value: Value of the boundary condition.
+            priority: Integer denoting the order in which the boundary condition gets
+                applied.
         """
+        super().__init__(direction=direction, value=value, priority=priority)
         self.point1 = point1
         self.point2 = point2
-        self.direction = direction  # TODO - verify input
-        self.value = value
         self.mesh_tag: TaggedLine
 
     def __repr__(self) -> str:
@@ -268,10 +328,14 @@ class LineBoundaryCondition(BoundaryCondition):
         Returns:
             String representation of the object.
         """
+        try:
+            tag = self.mesh_tag
+        except AttributeError:
+            tag = None
+
         return (
             f"BC Type: {self.__class__.__name__}, dir: {self.direction}, val: "
-            f"{self.value}\n"
-            f"Mesh Tag: {self.mesh_tag}"
+            f"{self.value}, mesh tag: {tag}"
         )
 
     def get_unique_nodes(self) -> list[int]:
@@ -313,10 +377,13 @@ class LineSupport(LineBoundaryCondition):
         Args:
             point1: Point location (``x``, ``y``) of the start of the line.
             point2: Point location (``x``, ``y``) of the end of the line.
-            direction: Direction of the boundary condition, ``"x"`` or ``"y"``.
+            direction: Direction of the boundary condition, ``"x"``, ``"y"`` or
+                ``"xy"``.
             value: Value of the boundary condition.
         """
-        super().__init__(point1=point1, point2=point2, direction=direction, value=value)
+        super().__init__(
+            point1=point1, point2=point2, direction=direction, value=value, priority=2
+        )
 
     def apply_bc(
         self,
@@ -336,10 +403,10 @@ class LineSupport(LineBoundaryCondition):
         dofs = dof_map(node_idxs=self.get_unique_nodes())
 
         # get relevant dofs
-        dof_list = dofs[0::2] if self.direction == "x" else dofs[1::2]
+        dofs = self.get_dofs_given_direction(dofs=dofs)
 
         # apply bc - TODO - confirm this theory!
-        for dof in dof_list:
+        for dof in dofs:
             k[dof, :] = 0
             k[dof, dof] = 1
             f[dof] = self.value
@@ -366,10 +433,13 @@ class LineSpring(LineBoundaryCondition):
         Args:
             point1: Point location (``x``, ``y``) of the start of the line.
             point2: Point location (``x``, ``y``) of the end of the line.
-            direction: Direction of the boundary condition, ``"x"`` or ``"y"``.
+            direction: Direction of the boundary condition, ``"x"``, ``"y"`` or
+                ``"xy"``.
             value: Value of the boundary condition.
         """
-        super().__init__(point1=point1, point2=point2, direction=direction, value=value)
+        super().__init__(
+            point1=point1, point2=point2, direction=direction, value=value, priority=1
+        )
 
     def apply_bc(
         self,
@@ -389,10 +459,10 @@ class LineSpring(LineBoundaryCondition):
         dofs = dof_map(node_idxs=self.get_unique_nodes())
 
         # get relevant dofs
-        dof_list = dofs[0::2] if self.direction == "x" else dofs[1::2]
+        dofs = self.get_dofs_given_direction(dofs=dofs)
 
         # apply bc - TODO - confirm this theory!
-        for dof in dof_list:
+        for dof in dofs:
             k[dof, dof] += self.value
 
         return k, f
@@ -417,25 +487,31 @@ class LineLoad(LineBoundaryCondition):
         Args:
             point1: Point location (``x``, ``y``) of the start of the line.
             point2: Point location (``x``, ``y``) of the end of the line.
-            direction: Direction of the boundary condition, ``"x"`` or ``"y"``.
+            direction: Direction of the boundary condition, ``"x"``, ``"y"`` or
+                ``"xy"``.
             value: Value of the boundary condition.
         """
-        super().__init__(point1=point1, point2=point2, direction=direction, value=value)
+        super().__init__(
+            point1=point1, point2=point2, direction=direction, value=value, priority=0
+        )
 
-    # def apply_bc(
-    #     self,
-    #     k: npt.NDArray[np.float64],
-    #     f: npt.NDArray[np.float64],
-    #     dofs: list[int],
-    # ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
-    #     """Applies the boundary condition."""
-    # get relevant dof
-    # dof = dofs[0] if self.direction == "x" else dofs[1]
+    def apply_bc(
+        self,
+        k: npt.NDArray[np.float64],
+        f: npt.NDArray[np.float64],
+    ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+        """Applies the boundary condition."""
+        # loop through all line elements
+        for element in self.mesh_tag.elements:
+            # get element load vector
+            f_el = element.element_load_vector(
+                direction=self.direction, value=self.value
+            )
 
-    # # apply bc - TODO - confirm this theory!
-    # k[dof, :] = 0
-    # k[dof, dof] = 1
-    # f[dof] = self.value
+            # get element degrees of freedom
+            el_dofs = dof_map(node_idxs=element.node_idxs)
 
-    # return k, f
-    # TODO - calculate equivalent loads + Tri6
+            # add element load vector to global load vector
+            f[el_dofs] += f_el
+
+        return k, f
