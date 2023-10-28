@@ -16,10 +16,6 @@ def unit_square() -> Callable:
 
     The default material is used and the base of the square is fixed.
 
-    Args:
-        lc: Characterisic mesh length.
-        element_type: Element type, can be ``"Tri3"``. TODO - add more.
-
     Returns:
         Generator function, returning a ``PlaneStress`` object.
     """
@@ -28,6 +24,15 @@ def unit_square() -> Callable:
         lc: int,
         element_type: str,
     ) -> PlaneStress:
+        """Generates the unit square.
+
+        Args:
+            lc: Characterisic mesh length.
+            element_type: Element type, can be ``"Tri3"``. TODO - add more.
+
+        Returns:
+            Plane stress object.
+        """
         geom = rectangle(1, 1)
         lhs = geom.add_node_support((0, 0), "x")
         bot = geom.add_line_support((0, 0), (1, 0), "y")

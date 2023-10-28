@@ -378,6 +378,9 @@ class TriangularElement(FiniteElement):
         Args:
             iso_coords: Location of the point in isoparametric coordinates.
 
+        Raises:
+            RuntimeError: If the jacobian is less than zero.
+
         Returns:
             Derivatives of the shape function (B matrix) and value of the jacobian,
             (``b_mat``, ``j``).
@@ -554,7 +557,7 @@ class Tri6(TriangularElement):
         """
         # reorient node indexes and coords if required - TODO
         if not orientation:
-            raise NotImplementedError
+            pass
 
         super().__init__(
             el_idx=el_idx,

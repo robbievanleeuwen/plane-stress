@@ -165,7 +165,7 @@ class Mesh:
 
         Args:
             materials: List of material objects.
-            surface_orietned: List describing if surface is correctly oriented.
+            surface_orientated: List describing if surface is correctly oriented.
 
         Raises:
             ValueError: If there is an unsupported gmsh element type in the mesh.
