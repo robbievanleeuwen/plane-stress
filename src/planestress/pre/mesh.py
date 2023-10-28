@@ -123,6 +123,19 @@ class Mesh:
         # synchronize gmsh CAD entities
         gmsh.model.geo.synchronize()
 
+        # check surface orientation:
+        # list describing if surface is correctly oriented
+        surface_orientated: list[bool] = []
+
+        for _, tag in gmsh.model.get_entities(dim=2):
+            normal = gmsh.model.get_normal(tag, (0, 0))
+
+            # if surface is incorrectly oriented, re-orient
+            if normal[2] < 0:
+                surface_orientated.append(False)
+            else:
+                surface_orientated.append(True)
+
         # TODO - ADD MESHING OPTIONS!
         # linear/quadratic
         # tri/quad
@@ -135,7 +148,7 @@ class Mesh:
         # gmsh.fltk.run()
 
         # save mesh to self
-        self.save_mesh(materials=materials)
+        self.save_mesh(materials=materials, surface_orientated=surface_orientated)
 
         # clean-up
         gmsh.finalize()
@@ -146,11 +159,13 @@ class Mesh:
     def save_mesh(
         self,
         materials: list[Material],
+        surface_orientated: list[bool],
     ) -> None:
         """Saves the generated gmsh to the ``Mesh`` object.
 
         Args:
             materials: List of material objects.
+            surface_orientated: List describing if surface is correctly oriented.
 
         Raises:
             ValueError: If there is an unsupported gmsh element type in the mesh.
@@ -178,15 +193,15 @@ class Mesh:
         el_obj: type
 
         # loop through all surface entities
-        for _, tag in gmsh.model.get_entities(dim=2):
-            mat = materials[int(tag) - 1]  # get material for current entity
+        for _, surf_tag in gmsh.model.get_entities(dim=2):
+            mat = materials[int(surf_tag) - 1]  # get material for current surface
 
-            # get elements for current entity
+            # get elements for current surface
             (
                 el_types,
                 el_tags_by_type,
                 el_node_tags_by_type,
-            ) = gmsh.model.mesh.get_elements(dim=2, tag=tag)
+            ) = gmsh.model.mesh.get_elements(dim=2, tag=surf_tag)
 
             # for each element type
             for el_type, el_tags, el_node_tags_list in zip(
@@ -218,6 +233,11 @@ class Mesh:
                 for el_tag, el_node_tags in zip(el_tags, el_node_tags_list):
                     # convert gmsh tag to node index
                     node_idxs = np.array(el_node_tags - 1, dtype=np.int32)
+
+                    # reverse node indexes if surface not oriented
+                    surface_idx = int(surf_tag) - 1
+                    orientation = surface_orientated[surface_idx]
+
                     coords = self.nodes[node_idxs, :].transpose()
 
                     # add element to list of elements
@@ -228,6 +248,7 @@ class Mesh:
                             coords=coords,
                             node_idxs=node_idxs.tolist(),
                             material=mat,
+                            orientation=orientation,
                         )
                     )
                     el_idx += 1
@@ -531,17 +552,18 @@ class Mesh:
         with plotting_context(title=title, **kwargs) as (_, ax):
             assert ax
 
-            # get number of materials
-            num_materials = len(self.materials)
+            # get number of unique materials
+            unique_materials = list(set(self.materials))
+            num_materials = len(unique_materials)
 
-            # generate an array of polygon vertices and colors for each material
+            # generate an array of polygon vertices and colors for each unique material
             verts: list[list[npt.NDArray[np.float64]]] = [
                 [] for _ in range(num_materials)
             ]
             colors: list[list[str | float]] = [[] for _ in range(num_materials)]
 
             for element in self.elements:
-                idx = self.materials.index(element.material)  # get material index
+                idx = unique_materials.index(element.material)  # get material index
 
                 # get vertices - take care to create new array so as not to change vals
                 coords = np.array(np.transpose(element.coords))

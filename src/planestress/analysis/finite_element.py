@@ -24,6 +24,7 @@ class FiniteElement:
         coords: npt.NDArray[np.float64],
         node_idxs: list[int],
         material: Material,
+        orientation: bool,
         num_nodes: int,
         int_points: int,
     ) -> None:
@@ -37,6 +38,8 @@ class FiniteElement:
             node_idxs: List of node indexes defining the element, e.g.
                 ``[idx1, idx2, idx3]``.
             material: Material of the element.
+            orientation: If ``True`` the element is oriented correctly, if ``False`` the
+                element's nodes will need reordering.
             num_nodes: Number of nodes in the finite element.
             int_points: Number of integration points used for the finite element.
         """
@@ -45,6 +48,7 @@ class FiniteElement:
         self.coords = coords
         self.node_idxs = node_idxs
         self.material = material
+        self.orientation = orientation
         self.num_nodes = num_nodes
         self.int_points = int_points
 
@@ -171,18 +175,42 @@ class FiniteElement:
 
         return k_el
 
-    def element_load_vector(self) -> npt.NDArray[np.float64]:
+    def element_load_vector(
+        self,
+        acceleration_field: tuple[float, float],
+    ) -> npt.NDArray[np.float64]:
         """Assembles the load vector for the element.
+
+        Args:
+            acceleration_field: Acceleration field (``a_x``, ``a_y``).
 
         Returns:
             Element load vector.
         """
         # allocate element load vector
-        k_el = np.zeros(2 * self.num_nodes)
+        f_el = np.zeros(2 * self.num_nodes)
 
-        # TODO - implement!
+        # calculate body force field
+        b = np.array(acceleration_field) * self.material.density
 
-        return k_el
+        # get Gauss points
+        gauss_points = self.gauss_points(n_points=self.int_points)
+
+        # loop through each gauss point
+        for gauss_point in gauss_points:
+            # get shape functions and jacobian
+            n = self.shape_functions(iso_coords=gauss_point[1:])
+            _, j = self.b_matrix_jacobian(iso_coords=gauss_point[1:])
+
+            # form shape function matrix
+            n_mat = np.zeros((len(n) * 2, 2))
+            n_mat[::2, 0] = n
+            n_mat[1::2, 1] = n
+
+            # calculate load vector for current integration point
+            f_el += n_mat @ b * gauss_point[0] * j * self.material.thickness
+
+        return f_el
 
     def get_element_results(
         self,
@@ -223,6 +251,7 @@ class FiniteElement:
             coords=self.coords,
             node_idxs=self.node_idxs,
             material=self.material,
+            orientation=self.orientation,
             num_nodes=self.num_nodes,
             int_points=self.int_points,
             sigs=sigs,
@@ -247,6 +276,7 @@ class TriangularElement(FiniteElement):
         coords: npt.NDArray[np.float64],
         node_idxs: list[int],
         material: Material,
+        orientation: bool,
         num_nodes: int,
         int_points: int,
     ) -> None:
@@ -260,6 +290,8 @@ class TriangularElement(FiniteElement):
             node_idxs: List of node indexes defining the element, e.g.
                 ``[idx1, idx2, idx3]``.
             material: Material of the element.
+            orientation: If ``True`` the element is oriented correctly, if ``False`` the
+                element's nodes will need reordering.
             num_nodes: Number of nodes in the finite element.
             int_points: Number of integration points used for the finite element.
         """
@@ -269,6 +301,7 @@ class TriangularElement(FiniteElement):
             coords=coords,
             node_idxs=node_idxs,
             material=material,
+            orientation=orientation,
             num_nodes=num_nodes,
             int_points=int_points,
         )
@@ -333,7 +366,7 @@ class TriangularElement(FiniteElement):
             )
 
         raise ValueError(
-            f"'n_points' must be 1, 3, 4 or 6 for a {self.__class__.__name__}. element."
+            f"'n_points' must be 1, 3, 4 or 6 for a {self.__class__.__name__} element."
         )
 
     def b_matrix_jacobian(
@@ -344,6 +377,9 @@ class TriangularElement(FiniteElement):
 
         Args:
             iso_coords: Location of the point in isoparametric coordinates.
+
+        Raises:
+            RuntimeError: If the jacobian is less than zero.
 
         Returns:
             Derivatives of the shape function (B matrix) and value of the jacobian,
@@ -365,6 +401,12 @@ class TriangularElement(FiniteElement):
             b_mat = TRI_ARRAY @ np.linalg.solve(j, b_iso)
         else:
             b_mat = np.zeros((2, self.num_nodes))  # empty b matrix
+
+        # check sign of jacobian
+        if jacobian < 0:
+            raise RuntimeError(
+                f"Jacobian of element {self.el_idx} is less than zero ({jacobian:.2f})."
+            )
 
         # form plane stress b matrix
         b_mat_ps = np.zeros((3, 2 * self.num_nodes))
@@ -394,6 +436,7 @@ class Tri3(TriangularElement):
         coords: npt.NDArray[np.float64],
         node_idxs: list[int],
         material: Material,
+        orientation: bool,
     ) -> None:
         """Inits the Tri3 class.
 
@@ -405,15 +448,23 @@ class Tri3(TriangularElement):
             node_idxs: A list of node indexes defining the element, i.e.
                 ``[idx1, idx2, idx3]``.
             material: Material of the element.
+            orientation: If ``True`` the element is oriented correctly, if ``False`` the
+                element's nodes will need reordering.
         """
+        # reorient node indexes and coords if required
+        if not orientation:
+            node_idxs[1], node_idxs[2] = node_idxs[2], node_idxs[1]
+            coords[:, [1, 2]] = coords[:, [2, 1]]
+
         super().__init__(
             el_idx=el_idx,
             el_tag=el_tag,
             coords=coords,
             node_idxs=node_idxs,
             material=material,
+            orientation=orientation,
             num_nodes=3,
-            int_points=3,  # TODO - confirm
+            int_points=1,
         )
 
     @staticmethod
@@ -489,6 +540,7 @@ class Tri6(TriangularElement):
         coords: npt.NDArray[np.float64],
         node_idxs: list[int],
         material: Material,
+        orientation: bool,
     ) -> None:
         """Inits the Tri6 class.
 
@@ -500,7 +552,13 @@ class Tri6(TriangularElement):
             node_idxs: A list of node indexes defining the element, i.e.
                 ``[idx1, ..., idx6]``.
             material: Material of the element.
+            orientation: If ``True`` the element is oriented correctly, if ``False`` the
+                element's nodes will need reordering.
         """
+        # reorient node indexes and coords if required - TODO
+        if not orientation:
+            pass
+
         super().__init__(
             el_idx=el_idx,
             el_tag=el_tag,
@@ -508,7 +566,8 @@ class Tri6(TriangularElement):
             node_idxs=node_idxs,
             material=material,
             num_nodes=6,
-            int_points=3,  # TODO - confirm
+            int_points=3,
+            orientation=orientation,
         )
 
     @staticmethod
@@ -596,6 +655,8 @@ class LineElement:
         line_tag: int,
         coords: npt.NDArray[np.float64],
         node_idxs: list[int],
+        num_nodes: int,
+        int_points: int,
     ) -> None:
         """Inits the LineElement class.
 
@@ -606,11 +667,15 @@ class LineElement:
                 ``[[x1, x2], [y1, y2]]``.
             node_idxs: List of node indexes defining the element, e.g.
                 ``[idx1, idx2]``.
+            num_nodes: Number of nodes in the line element.
+            int_points: Number of integration points used for the finite element.
         """
         self.line_idx = line_idx
         self.line_tag = line_tag
         self.coords = coords
         self.node_idxs = node_idxs
+        self.num_nodes = num_nodes
+        self.int_points = int_points
 
     def __repr__(self) -> str:
         """Override __repr__ method.
@@ -622,6 +687,99 @@ class LineElement:
             f"{self.__class__.__name__} - id: {self.line_idx}, "
             f"tag: {self.line_tag}."
         )
+
+    def gauss_points(
+        self,
+        n_points: int,
+    ) -> npt.NDArray[np.float64]:
+        """Gaussian weights and locations for ``n_point`` Gaussian integration.
+
+        Args:
+            n_points: Number of gauss points.
+
+        Raises:
+            ValueError: If ``n_points`` is not 1 or 2.
+
+        Returns:
+            Gaussian weights and location. For each gauss point - ``[weight, eta]``.
+        """
+        # one point gaussian integration
+        if n_points == 1:
+            return np.array([[2.0, 0.0]])
+
+        # two point gaussian integration
+        if n_points == 2:
+            return np.array(
+                [
+                    [1.0, -1 / np.sqrt(3)],
+                    [1.0, 1 / np.sqrt(3)],
+                ]
+            )
+
+        raise ValueError(
+            f"'n_points' must be 1, or 2 for a {self.__class__.__name__} element."
+        )
+
+    def shape_functions_length(
+        self,
+        iso_coord: list[float],
+    ) -> tuple[npt.NDArray[np.float64], float]:
+        """Evaluates the shape functions and length of the element.
+
+        TODO - change this to jacobian.
+
+        Args:
+            iso_coord: Location of the point in isoparametric coordinates.
+
+        Raises:
+            NotImplementedError: If this method hasn't been implemented for an element.
+        """
+        raise NotImplementedError
+
+    def element_load_vector(
+        self,
+        direction: str,
+        value: float,
+    ) -> npt.NDArray[np.float64]:
+        """Assembles the load vector for the line element.
+
+        Args:
+            direction: Direction of the line load, ``"x"``, ``"y"`` or ``"xy"``.
+            value: Value of the line load.
+
+        Returns:
+            Line element load vector.
+        """
+        # allocate element load vector
+        f_el = np.zeros(2 * self.num_nodes)
+
+        # create applied force vector
+        if direction == "x":
+            b = np.array([1, 0])
+        elif direction == "y":
+            b = np.array([0, 1])
+        else:
+            b = np.array([1, 1])
+
+        b *= value
+
+        # get Gauss points
+        gauss_points = self.gauss_points(n_points=self.int_points)
+
+        # loop through each gauss point
+        for gauss_point in gauss_points:
+            # get shape functions and length
+            n, l = self.shape_functions_length(iso_coord=gauss_point[1:])
+
+            # form shape function matrix
+            n_mat = np.zeros((len(n) * 2, 2))
+            n_mat[::2, 0] = n
+            n_mat[1::2, 1] = n
+
+            # calculate load vector for current integration point
+            f_el += n_mat @ b * gauss_point[0] * 0.5 * l
+
+        return f_el
 
 
 class LinearLine(LineElement):
@@ -649,7 +807,31 @@ class LinearLine(LineElement):
             line_tag=line_tag,
             coords=coords,
             node_idxs=node_idxs,
+            num_nodes=2,
+            int_points=1,
         )
+
+    def shape_functions_length(
+        self,
+        iso_coord: list[float],
+    ) -> tuple[npt.NDArray[np.float64], float]:
+        """Evaluates the shape functions and length of the element.
+
+        TODO - change this to jacobian.
+
+        Args:
+            iso_coord: Location of the point in isoparametric coordinates.
+
+        Returns:
+            Length of the element.
+        """
+        eta = iso_coord[0]
+        n = np.array([0.5 - 0.5 * eta, 0.5 + 0.5 * eta])
+        length = np.sqrt(
+            (self.coords[0, 1] - self.coords[0, 0]) ** 2
+            + (self.coords[1, 1] - self.coords[1, 0]) ** 2
+        )
+        return n, length
 
 
 class ElementResults(FiniteElement):
@@ -662,6 +844,7 @@ class ElementResults(FiniteElement):
         coords: npt.NDArray[np.float64],
         node_idxs: list[int],
         material: Material,
+        orientation: bool,
         num_nodes: int,
         int_points: int,
         sigs: npt.NDArray[np.float64],
@@ -676,6 +859,8 @@ class ElementResults(FiniteElement):
             node_idxs: List of node indexes defining the element, e.g.
                 ``[idx1, idx2, idx3]``.
             material: Material of the element.
+            orientation: If ``True`` the element is oriented correctly, if ``False`` the
+                element's nodes will need reordering.
             num_nodes: Number of nodes in the finite element.
             int_points: Number of integration points used for the finite element.
             sigs: Nodal stresses, e.g.
@@ -689,5 +874,6 @@ class ElementResults(FiniteElement):
             material=material,
             num_nodes=num_nodes,
             int_points=int_points,
+            orientation=orientation,
         )
         self.sigs = sigs

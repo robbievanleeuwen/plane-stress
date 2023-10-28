@@ -87,6 +87,8 @@ class Geometry:
         # compile the geometry into points, facets and holes
         self.compile_geometry()
 
+        # TODO - test for overlapping facets
+
         # allocate mesh
         self.mesh: Mesh = Mesh()
 
@@ -378,7 +380,7 @@ class Geometry:
         # calculate offset
         offset = align_to_coord - self_align_coord
 
-        # shift section
+        # shift geometry
         if on in ["top", "bottom"]:
             arg = "y"
         else:
@@ -386,9 +388,9 @@ class Geometry:
 
         kwargs = {arg: offset}
 
-        return self.shift_section(**kwargs)
+        return self.shift_geometry(**kwargs)
 
-    def align_centre(
+    def align_center(
         self,
         align_to: Geometry | tuple[float, float] | None = None,
     ) -> Geometry:
@@ -433,9 +435,9 @@ class Geometry:
                     f"coordinate, not {align_to}."
                 ) from exc
 
-        return self.shift_section(x=shift_x, y=shift_y)
+        return self.shift_geometry(x=shift_x, y=shift_y)
 
-    def shift_section(
+    def shift_geometry(
         self,
         x: float = 0.0,
         y: float = 0.0,
@@ -458,7 +460,7 @@ class Geometry:
             tol=self.tol,
         )
 
-    def rotate_section(
+    def rotate_geometry(
         self,
         angle: float,
         rot_point: tuple[float, float] | str = "center",
@@ -467,10 +469,10 @@ class Geometry:
         """Rotates the geometry by an ``angle`` about a ``rot_point``.
 
         Args:
-            angle: Angle by which to rotate the section. A positive angle leads to a
+            angle: Angle by which to rotate the geometry. A positive angle leads to a
                 counter-clockwise rotation.
-            rot_point: Point (``x``, ``y``) about which to rotate the section. May also
-                be ``"center"`` (rotates about centre of bounding box) or "centroid"
+            rot_point: Point (``x``, ``y``) about which to rotate the geometry. May also
+                be ``"center"`` (rotates about center of bounding box) or "centroid"
                 (rotates about centroid). Defaults to ``"center"``.
             use_radians: If True, ``angle`` is in radians, if ``False`` angle is in
                 degrees. Defaults to ``False``.
@@ -492,7 +494,7 @@ class Geometry:
             tol=self.tol,
         )
 
-    def mirror_section(
+    def mirror_geometry(
         self,
         axis: str = "x",
         mirror_point: tuple[float, float] | str = "center",
@@ -501,8 +503,8 @@ class Geometry:
 
         Args:
             axis: Mirror axis, may be ``"x"`` or ``"y"``. Defaults to ``"x"``.
-            mirror_point: Point (``x``, ``y``) about which to mirror the section. May
-                also be ``"center"`` (mirrors about centre of bounding box) or
+            mirror_point: Point (``x``, ``y``) about which to mirror the geometry. May
+                also be ``"center"`` (mirrors about center of bounding box) or
                 "centroid" (mirrors about centroid). Defaults to ``"center"``.
 
         Raises:
@@ -682,7 +684,7 @@ class Geometry:
 
         try:
             new_polygon = self.filter_non_polygons(
-                input_geom=self.polygons - other.polygons
+                input_geom=self.polygons & other.polygons
             )
 
             return Geometry(polygons=new_polygon, materials=self.materials[0], tol=tol)
@@ -1115,7 +1117,10 @@ class Point:
             ``True`` if ``Points`` objects are equal.
         """
         if isinstance(other, Point):
-            return self.x == other.x and self.y == other.y
+            tol = 10.0 ** (-self.tol + 1)
+            x_diff = abs(self.x - other.x)
+            y_diff = abs(self.y - other.y)
+            return x_diff <= tol and y_diff <= tol
         else:
             return False
 

@@ -36,6 +36,7 @@ class Results:
         uy: ``y`` component of the displacement vector.
         uxy: Resultant component of the displacement vector.
         f: Calculated nodal forces.
+        f_r: Calculated nodal reactions.
         element_results: List of ``ElementResults`` objects.
     """
 
@@ -45,6 +46,7 @@ class Results:
     uy: npt.NDArray[np.float64] = field(init=False)
     uxy: npt.NDArray[np.float64] = field(init=False)
     f: npt.NDArray[np.float64] = field(init=False)
+    f_r: npt.NDArray[np.float64] = field(init=False)
     element_results: list[ElementResults] = field(init=False)
 
     def __post_init__(self) -> None:
@@ -67,6 +69,17 @@ class Results:
             k: Original stiffness matrix (before modification).
         """
         self.f = k @ self.u
+
+    def calculate_reactions(
+        self,
+        f: npt.NDArray[np.float64],
+    ) -> None:
+        """Calculates and stores the nodal reactions.
+
+        Args:
+            f: Applied force vector.
+        """
+        self.f_r = self.f - f
 
     def calculate_element_results(self, elements: list[FiniteElement]) -> None:
         """Calculates and stores the element results in ``self.element_results``.
@@ -151,7 +164,7 @@ class Results:
                 detail. Defaults to ``"coolwarm"``.
             normalize (bool): If set to ``True``, ``CenteredNorm`` is used to scale the
                 colormap, if set to False, the default linear scaling is used.
-                ``CenteredNorm`` effectively places the centre of the colormap at zero
+                ``CenteredNorm`` effectively places the center of the colormap at zero
                 displacement. Defaults to ``True``.
             colorbar_format (str):  Number formatting string for displacements, see
                 https://docs.python.org/3/library/string.html. Defaults to
@@ -320,7 +333,7 @@ class Results:
                 white. Defaults to ``None``.
             normalize (bool): If set to ``True``, ``CenteredNorm`` is used to scale the
                 colormap, if set to False, the default linear scaling is used.
-                ``CenteredNorm`` effectively places the centre of the colormap at zero
+                ``CenteredNorm`` effectively places the center of the colormap at zero
                 displacement. Defaults to ``True``.
             colorbar_format (str):  Number formatting string for stresses, see
                 https://docs.python.org/3/library/string.html. Defaults to

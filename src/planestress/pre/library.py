@@ -32,22 +32,22 @@ def rectangle(
     Example:
         TODO.
     """
-    shell = [(0, 0), (b, 0), (b, d), (0, d)]
+    shell = [(0.0, 0.0), (float(b), 0.0), (float(b), float(d)), (0.0, float(d))]
     poly = Polygon(shell=shell)
 
     return Geometry(polygons=poly, materials=[material], tol=tol)
 
 
 def circle(
-    d: float,
+    r: float,
     n: int,
     material: Material = DEFAULT_MATERIAL,
     tol: int = 12,
 ) -> Geometry:
-    """Creates a circular geometry with the centre at the origin.
+    """Creates a circular geometry with the center at the origin.
 
     Args:
-        d: Diameter of the circle.
+        r: Radius of the circle.
         n: Number of points to discretise the circle.
         material: ```Material`` object to apply to the circle. Defaults to
             ``DEFAULT_MATERIAL``, i.e. a material with unit properties and a Poisson's
@@ -66,11 +66,11 @@ def circle(
     # loop through each point on the circle
     for idx in range(n):
         # determine polar angle
-        theta = idx * 2 * np.pi * 1.0 / n
+        theta = idx * 2.0 * np.pi * 1.0 / n
 
         # calculate location of the point
-        x = 0.5 * d * np.cos(theta)
-        y = 0.5 * d * np.sin(theta)
+        x = r * np.cos(theta)
+        y = r * np.sin(theta)
 
         # append the current point to the points list
         points.append((x, y))
@@ -159,7 +159,7 @@ def steel_material(
         "mpa": {
             "name": "MPa",
             "elastic_modulus": 200e3,  # MPa = N/mm^2
-            "density": 7.85e-6,  # kg/mm^3
+            "density": 7.85e-9,  # T/mm^3
         },
         "si": {
             "name": "SI",
@@ -173,6 +173,70 @@ def steel_material(
             name=f"Steel [{unit_props[units]['name']}]",
             elastic_modulus=float(unit_props[units]["elastic_modulus"]),
             poissons_ratio=0.3,
+            thickness=thickness,
+            density=float(unit_props[units]["density"]),
+            color=color,
+        )
+    except KeyError as exc:
+        raise ValueError(f"{units} is not a valid input for 'units'.") from exc
+
+
+def concrete_material(
+    elastic_modulus: float,
+    thickness: float,
+    units: str = "MPa",
+    color: str = "lightgrey",
+) -> Material:
+    r"""Creates a concrete material object with consistent units.
+
+    Args:
+        elastic_modulus: Elastic modulus of the concrete.
+        thickness: Thickness of the concrete.
+        units: Units system to use. See below for options. Defaults to ``"MPa"``.
+        color: Material color for rendering. Defaults to ``"lightgrey"``.
+
+    Raises:
+        ValueError: If the value of ``units`` is not in the list below.
+
+    Returns:
+        Concrete material object.
+
+    .. admonition:: Units
+
+        The value for ``units`` may be one of the following:
+
+        - ``"MPa"``: Newtons :math:`[\textrm{N}]` and millimetres :math:`[\textrm{mm}]`.
+
+          - Poisson's ratio: :math:`0.2`
+          - Density: :math:`2.4 \times 10^{-6} \textrm{ kg/mm}`^3`
+
+        - ``"SI"``: Newtons :math:`[\textrm{N}]` and metres :math:`[\textrm{m}]`.
+
+          - Poisson's ratio: :math:`0.2`
+          - Density: :math:`2.4 \times 10^3 \textrm{ kg/m}`^3`
+
+    Example:
+        TODO.
+    """
+    # convert units to lower case
+    units = units.lower()
+
+    unit_props: dict[str, dict[str, str | float]] = {
+        "mpa": {
+            "name": "MPa",
+            "density": 2.4e-9,  # T/mm^3
+        },
+        "si": {
+            "name": "SI",
+            "density": 2.4e3,  # kg/m^3
+        },
+    }
+
+    try:
+        return Material(
+            name=f"Concrete [{unit_props[units]['name']}]",
+            elastic_modulus=elastic_modulus,
+            poissons_ratio=0.2,
             thickness=thickness,
             density=float(unit_props[units]["density"]),
             color=color,
