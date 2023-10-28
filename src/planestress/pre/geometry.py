@@ -1117,7 +1117,7 @@ class Point:
             ``True`` if ``Points`` objects are equal.
         """
         if isinstance(other, Point):
-            tol = 1 * 10 ** (-self.tol + 1)
+            tol = 10.0 ** (-self.tol + 1)
             x_diff = abs(self.x - other.x)
             y_diff = abs(self.y - other.y)
             return x_diff <= tol and y_diff <= tol
