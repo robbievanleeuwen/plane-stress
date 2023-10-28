@@ -257,6 +257,14 @@ class FiniteElement:
             sigs=sigs,
         )
 
+    def get_polygon_coordinates(self) -> tuple[list[int], npt.NDArray[np.float64]]:
+        """Returns a list of coordinates and indexes that define the element exterior.
+
+        Raises:
+            NotImplementedError: If this method hasn't been implemented for an element.
+        """
+        raise NotImplementedError
+
     def get_triangulation(self) -> list[tuple[int, int, int]]:
         """Returns a list of triangle indices for the finite element.
 
@@ -425,6 +433,14 @@ class TriangularElement(FiniteElement):
 
         return b_mat_ps, jacobian
 
+    def get_polygon_coordinates(self) -> tuple[list[int], npt.NDArray[np.float64]]:
+        """Returns a list of coordinates and indexes that define the element exterior.
+
+        Returns:
+            List of node indexes and exterior coordinates
+        """
+        return self.node_idxs[0:3], self.coords[:, 0:3]
+
 
 class Tri3(TriangularElement):
     """Class for a three-noded linear triangular element."""
@@ -555,9 +571,11 @@ class Tri6(TriangularElement):
             orientation: If ``True`` the element is oriented correctly, if ``False`` the
                 element's nodes will need reordering.
         """
-        # reorient node indexes and coords if required - TODO
+        # reorient node indexes and coords if required
         if not orientation:
-            pass
+            node_idxs[1], node_idxs[2] = node_idxs[2], node_idxs[1]
+            node_idxs[3], node_idxs[5] = node_idxs[5], node_idxs[3]
+            coords[:, [1, 2, 3, 5]] = coords[:, [2, 1, 5, 3]]
 
         super().__init__(
             el_idx=el_idx,
@@ -639,6 +657,19 @@ class Tri6(TriangularElement):
             ]
         )
 
+    def get_triangulation(self) -> list[tuple[int, int, int]]:
+        """Returns a list of triangle indices for a Tri6 element.
+
+        Returns:
+            List of triangle indices.
+        """
+        return [
+            (self.node_idxs[0], self.node_idxs[3], self.node_idxs[5]),
+            (self.node_idxs[3], self.node_idxs[1], self.node_idxs[4]),
+            (self.node_idxs[3], self.node_idxs[4], self.node_idxs[5]),
+            (self.node_idxs[5], self.node_idxs[4], self.node_idxs[2]),
+        ]
+
 
 class RectangularElement:
     """Abstract base class for a rectangular plane-stress finite element."""
@@ -711,8 +742,8 @@ class LineElement:
         if n_points == 2:
             return np.array(
                 [
-                    [1.0, -1 / np.sqrt(3)],
-                    [1.0, 1 / np.sqrt(3)],
+                    [1.0, -1.0 / np.sqrt(3)],
+                    [1.0, 1.0 / np.sqrt(3)],
                 ]
             )
 
@@ -720,13 +751,11 @@ class LineElement:
             f"'n_points' must be 1, or 2 for a {self.__class__.__name__} element."
         )
 
-    def shape_functions_length(
+    def shape_functions_jacobian(
         self,
         iso_coord: list[float],
     ) -> tuple[npt.NDArray[np.float64], float]:
-        """Evaluates the shape functions and length of the element.
-
-        TODO - change this to jacobian.
+        """Evaluates the shape functions and jacobian of the element.
 
         Args:
             iso_coord: Location of the point in isoparametric coordinates.
@@ -769,7 +798,7 @@ class LineElement:
         # loop through each gauss point
         for gauss_point in gauss_points:
             # get shape functions and length
-            n, l = self.shape_functions_length(iso_coord=gauss_point[1:])
+            n, j = self.shape_functions_jacobian(iso_coord=gauss_point[1:])
 
             # form shape function matrix
             n_mat = np.zeros((len(n) * 2, 2))
@@ -777,7 +806,7 @@ class LineElement:
             n_mat[1::2, 1] = n
 
             # calculate load vector for current integration point
-            f_el += n_mat @ b * gauss_point[0] * 0.5 * l
+            f_el += n_mat @ b * gauss_point[0] * j
 
         return f_el
 
@@ -811,27 +840,81 @@ class LinearLine(LineElement):
             int_points=1,
         )
 
-    def shape_functions_length(
+    def shape_functions_jacobian(
         self,
         iso_coord: list[float],
     ) -> tuple[npt.NDArray[np.float64], float]:
-        """Evaluates the shape functions and length of the element.
-
-        TODO - change this to jacobian.
+        """Evaluates the shape functions and jacobian of the element.
 
         Args:
             iso_coord: Location of the point in isoparametric coordinates.
 
         Returns:
-            Length of the element.
+            Shape functions and jacobian.
         """
-        eta = iso_coord[0]
-        n = np.array([0.5 - 0.5 * eta, 0.5 + 0.5 * eta])
-        length = np.sqrt(
-            (self.coords[0, 1] - self.coords[0, 0]) ** 2
-            + (self.coords[1, 1] - self.coords[1, 0]) ** 2
+        eta = iso_coord[0]  # isoparametric coordinate
+        n = np.array([0.5 - 0.5 * eta, 0.5 + 0.5 * eta])  # shape functions
+        b_iso = np.array([-0.5, 0.5])  # derivative of shape functions
+        j = b_iso @ self.coords.transpose()
+        jacobian = np.sqrt(np.sum(j**2))
+
+        return n, jacobian
+
+
+class QuadraticLine(LineElement):
+    """Class for a three-noded quadratic line element."""
+
+    def __init__(
+        self,
+        line_idx: int,
+        line_tag: int,
+        coords: npt.NDArray[np.float64],
+        node_idxs: list[int],
+    ) -> None:
+        """Inits the QuadraticLine class.
+
+        ``idx1`` -- ``idx3`` -- ``idx2``
+
+        Args:
+            line_idx: Line element index.
+            line_tag: Mesh line element tag.
+            coords: A :class:`numpy.ndarray` of coordinates defining the element, e.g.
+                ``[[x1, x2, x3], [y1, y2,   y3]]``.
+            node_idxs: List of node indexes defining the element, e.g.
+                ``[idx1, idx2, idx3]``.
+        """
+        super().__init__(
+            line_idx=line_idx,
+            line_tag=line_tag,
+            coords=coords,
+            node_idxs=node_idxs,
+            num_nodes=3,
+            int_points=2,
         )
-        return n, length
+
+    def shape_functions_jacobian(
+        self,
+        iso_coord: list[float],
+    ) -> tuple[npt.NDArray[np.float64], float]:
+        """Evaluates the shape functions and jacobian of the element.
+
+        Args:
+            iso_coord: Location of the point in isoparametric coordinates.
+
+        Returns:
+            Shape functions and jacobian.
+        """
+        eta = iso_coord[0]  # isoparametric coordinate
+
+        # shape functions
+        n = np.array([-0.5 * eta * (1 - eta), 0.5 * eta * (1 + eta), 1 - eta**2])
+
+        # derivative of shape functions
+        b_iso = np.array([eta - 0.5, eta + 0.5, -2 * eta])
+        j = b_iso @ self.coords.transpose()
+        jacobian = np.sqrt(np.sum(j**2))
+
+        return n, jacobian
 
 
 class ElementResults(FiniteElement):

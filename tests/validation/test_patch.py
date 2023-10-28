@@ -38,17 +38,22 @@ def unit_square() -> Callable:
         bot = geom.add_line_support((0, 0), (1, 0), "y")
         load = geom.add_line_load((0, 1), (1, 1), "y", 1)
         load_case = LoadCase([lhs, bot, load])
-        geom.create_mesh(mesh_sizes=lc)
+
+        if element_type == "Tri3":
+            geom.create_mesh(mesh_sizes=lc, mesh_order=1)
+        elif element_type == "Tri6":
+            geom.create_mesh(mesh_sizes=lc, mesh_order=2)
 
         return PlaneStress(geom, [load_case])
 
     return _generate
 
 
+@pytest.mark.parametrize("el_type", ["Tri3", "Tri6"])
 @pytest.mark.parametrize("lc", [1, 0.5, 0.1, 0.05])
-def test_unit_square_tensile(unit_square, lc):
+def test_unit_square_tensile(unit_square, lc, el_type):
     """A patch test with a unit square under a unit tensile load."""
-    ps = unit_square(lc, "Tri3")
+    ps = unit_square(lc, el_type)
     res = ps.solve()[0]
 
     # results are all equal to 1 unit!

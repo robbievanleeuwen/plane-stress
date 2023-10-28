@@ -64,6 +64,7 @@ class Mesh:
         surfaces: list[Surface],
         mesh_sizes: list[float],
         materials: list[Material],
+        mesh_order: int,
         verbosity: int = 0,
     ) -> None:
         """Creates a mesh from geometry using gmsh.
@@ -76,6 +77,7 @@ class Mesh:
             mesh_sizes: A list of the characteristic mesh lengths for each region in the
                 mesh.
             materials: A list of ``Material`` objects for each region in the mesh.
+            mesh_order: Order of the mesh, ``1`` - linear or ``2`` - quadratic.
             verbosity: Gmsh verbosity level, see
                 https://gmsh.info/doc/texinfo/gmsh.html#index-General_002eVerbosity.
                 Defaults to ``0``.
@@ -137,12 +139,14 @@ class Mesh:
                 surface_orientated.append(True)
 
         # TODO - ADD MESHING OPTIONS!
-        # linear/quadratic
         # tri/quad
         # mesh refinement options
 
         # generate 2D mesh
         gmsh.model.mesh.generate(2)
+
+        # set mesh order
+        gmsh.model.mesh.set_order(order=mesh_order)
 
         # view model - for debugging
         # gmsh.fltk.run()
@@ -212,6 +216,7 @@ class Mesh:
                     # reshape node tags list
                     num_elements = int(len(el_tags))
                     el_node_tags_list = np.reshape(el_node_tags_list, (num_elements, 3))
+
                     # assign element object
                     el_obj = fe.Tri3
                 # quad4 elements
@@ -219,7 +224,12 @@ class Mesh:
                     raise NotImplementedError
                 # tri6 elements
                 elif el_type == 9:
-                    raise NotImplementedError
+                    # reshape node tags list
+                    num_elements = int(len(el_tags))
+                    el_node_tags_list = np.reshape(el_node_tags_list, (num_elements, 6))
+
+                    # assign element object
+                    el_obj = fe.Tri6
                 # quad9 elements
                 elif el_type == 10:
                     raise NotImplementedError
@@ -271,11 +281,17 @@ class Mesh:
                 # reshape node tags list
                 num_lines = int(len(line_tags))
                 line_node_tags_list = np.reshape(line_node_tags_list, (num_lines, 2))
+
                 # assign element object
                 line_obj = fe.LinearLine
             # quadratic line elements
             elif line_type == 8:
-                raise NotImplementedError
+                # reshape node tags list
+                num_lines = int(len(line_tags))
+                line_node_tags_list = np.reshape(line_node_tags_list, (num_lines, 3))
+
+                # assign element object
+                line_obj = fe.QuadraticLine
             else:
                 raise ValueError(f"Unsupported gmsh line type: type {line_type}.")
 
@@ -566,14 +582,15 @@ class Mesh:
                 idx = unique_materials.index(element.material)  # get material index
 
                 # get vertices - take care to create new array so as not to change vals
-                coords = np.array(np.transpose(element.coords))
+                idxs, coords = element.get_polygon_coordinates()
+                coords = np.array(coords).transpose()
 
                 # add displacements
                 if ux is not None:
-                    coords[:, 0] += ux[element.node_idxs]
+                    coords[:, 0] += ux[idxs]
 
                 if uy is not None:
-                    coords[:, 1] += uy[element.node_idxs]
+                    coords[:, 1] += uy[idxs]
 
                 verts[idx].append(coords)
 
@@ -603,7 +620,8 @@ class Mesh:
 
                 for element in self.elements:
                     # add vertices
-                    verts_orig.append(np.transpose(element.coords))
+                    _, coords = element.get_polygon_coordinates()
+                    verts_orig.append(np.array(coords).transpose())
 
                 col = collections.PolyCollection(
                     verts_orig,

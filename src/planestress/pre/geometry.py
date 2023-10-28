@@ -850,8 +850,6 @@ class Geometry:
         The spring stiffness is specified per unit length and equivalent nodal springs
         applied to nodes along this line.
 
-        TODO - look into elastic foundation?
-
         Args:
             point1: Point location (``x``, ``y``) of the start of the line spring.
             point2: Point location (``x``, ``y``) of the end of the line spring.
@@ -902,7 +900,7 @@ class Geometry:
     def create_mesh(
         self,
         mesh_sizes: float | list[float] = 0.0,
-        linear: bool = True,
+        mesh_order: int = 1,
     ) -> None:
         """Creates and stores a triangular mesh of the geometry.
 
@@ -911,9 +909,7 @@ class Geometry:
                 in the ``Geometry`` object. If a list of length 1 or a ``float`` i
                 passed, then this one size will be applied to all ``polygons``. A value
                 of ``0`` removes the area constraint. Defaults to ``0.0``.
-            linear: Order of the triangular mesh, if ``True`` generates linear ``Tri3``
-                elements, if ``False`` generates quadratic ``Tri6`` elements. Defaults
-                to ``True``.
+            mesh_order: Order of the mesh, ``1`` - linear or ``2`` - quadratic.
 
         Raises:
             ValueError: If the length of ``mesh_sizes`` does not equal the number of
@@ -939,6 +935,7 @@ class Geometry:
             surfaces=self.surfaces,
             mesh_sizes=mesh_sizes,
             materials=self.materials,
+            mesh_order=mesh_order,
         )
 
     def plot_geometry(
