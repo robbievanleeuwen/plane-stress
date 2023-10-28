@@ -86,10 +86,8 @@ class PlaneStress:
         # get number of degrees of freedom
         num_dofs = self.mesh.num_nodes() * 2
 
-        # allocate stiffness matrix and load vector
+        # allocate stiffness matrix
         k = np.zeros((num_dofs, num_dofs))
-        f = np.zeros(num_dofs)
-        f_app: npt.NDArray[np.float64] | None = None
 
         # allocate results
         results: list[Results] = []
@@ -110,6 +108,10 @@ class PlaneStress:
         for lc in self.load_cases:
             # initialise modified stiffness matrix
             k_mod = copy.deepcopy(k)
+
+            # initialise load vector
+            f = np.zeros(num_dofs)
+            f_app: npt.NDArray[np.float64] | None = None
 
             # assemble load vector
             for el in self.mesh.elements:

@@ -32,14 +32,14 @@ def rectangle(
     Example:
         TODO.
     """
-    shell = [(0, 0), (b, 0), (b, d), (0, d)]
+    shell = [(0.0, 0.0), (float(b), 0.0), (float(b), float(d)), (0.0, float(d))]
     poly = Polygon(shell=shell)
 
     return Geometry(polygons=poly, materials=[material], tol=tol)
 
 
 def circle(
-    d: float,
+    r: float,
     n: int,
     material: Material = DEFAULT_MATERIAL,
     tol: int = 12,
@@ -47,7 +47,7 @@ def circle(
     """Creates a circular geometry with the center at the origin.
 
     Args:
-        d: Diameter of the circle.
+        r: Radius of the circle.
         n: Number of points to discretise the circle.
         material: ```Material`` object to apply to the circle. Defaults to
             ``DEFAULT_MATERIAL``, i.e. a material with unit properties and a Poisson's
@@ -66,11 +66,11 @@ def circle(
     # loop through each point on the circle
     for idx in range(n):
         # determine polar angle
-        theta = idx * 2 * np.pi * 1.0 / n
+        theta = idx * 2.0 * np.pi * 1.0 / n
 
         # calculate location of the point
-        x = 0.5 * d * np.cos(theta)
-        y = 0.5 * d * np.sin(theta)
+        x = r * np.cos(theta)
+        y = r * np.sin(theta)
 
         # append the current point to the points list
         points.append((x, y))

@@ -239,3 +239,181 @@ def test_align_center():
     check.almost_equal(geom.calculate_area(), 1.0)
     check.almost_equal(geom.calculate_centroid()[0], 0.0)
     check.almost_equal(geom.calculate_centroid()[1], 0.0)
+
+    # test value error
+    with pytest.raises(ValueError, match="align_to must be either a Geometry object"):
+        geom = geom1.align_center(5)
+
+
+def test_shift_geometry():
+    """Tests the shift_geometry() method."""
+    poly1 = Polygon([[0, 0], [1, 0], [1, 1], [0, 1]])
+    geom1 = Geometry(poly1)
+    geom2 = geom1.shift_geometry(1.0, 1.0)
+
+    check.almost_equal(geom2.calculate_area(), 1.0)
+    check.almost_equal(geom2.calculate_extents()[0], 1.0)
+    check.almost_equal(geom2.calculate_extents()[1], 2.0)
+    check.almost_equal(geom2.calculate_extents()[2], 1.0)
+    check.almost_equal(geom2.calculate_extents()[3], 2.0)
+    check.almost_equal(geom2.calculate_centroid()[0], 1.5)
+    check.almost_equal(geom2.calculate_centroid()[1], 1.5)
+
+
+def test_rotate_geometry():
+    """Tests the rotate_geometry() method."""
+    poly1 = Polygon([[0, 0], [1, 0], [1, 1], [0, 1]])
+    geom1 = Geometry(poly1)
+
+    # rotate about origin
+    geom2 = geom1.rotate_geometry(45, (0.0, 0.0))
+
+    check.almost_equal(geom2.calculate_area(), 1.0)
+    check.almost_equal(geom2.calculate_extents()[0], -np.sqrt(2.0) / 2.0)
+    check.almost_equal(geom2.calculate_extents()[1], np.sqrt(2.0) / 2.0)
+    check.almost_equal(geom2.calculate_extents()[2], 0.0)
+    check.almost_equal(geom2.calculate_extents()[3], np.sqrt(2.0))
+    check.almost_equal(geom2.calculate_centroid()[0], 0.0)
+    check.almost_equal(geom2.calculate_centroid()[1], np.sqrt(2.0) / 2.0)
+
+    # rotate about origin with radians
+    geom2 = geom1.rotate_geometry(np.pi / 4, (0.0, 0.0), True)
+
+    check.almost_equal(geom2.calculate_area(), 1.0)
+    check.almost_equal(geom2.calculate_extents()[0], -np.sqrt(2.0) / 2.0)
+    check.almost_equal(geom2.calculate_extents()[1], np.sqrt(2.0) / 2.0)
+    check.almost_equal(geom2.calculate_extents()[2], 0.0)
+    check.almost_equal(geom2.calculate_extents()[3], np.sqrt(2.0))
+    check.almost_equal(geom2.calculate_centroid()[0], 0.0)
+    check.almost_equal(geom2.calculate_centroid()[1], np.sqrt(2.0) / 2.0)
+
+    # rotate about center
+    geom2 = geom1.rotate_geometry(45)
+
+    check.almost_equal(geom2.calculate_area(), 1.0)
+    check.almost_equal(geom2.calculate_extents()[0], 0.5 - np.sqrt(2.0) / 2.0)
+    check.almost_equal(geom2.calculate_extents()[1], 0.5 + np.sqrt(2.0) / 2.0)
+    check.almost_equal(geom2.calculate_extents()[2], 0.5 - np.sqrt(2.0) / 2.0)
+    check.almost_equal(geom2.calculate_extents()[3], 0.5 + np.sqrt(2.0) / 2.0)
+    check.almost_equal(geom2.calculate_centroid()[0], 0.5)
+    check.almost_equal(geom2.calculate_centroid()[1], 0.5)
+
+
+def test_mirror_geometry():
+    """Tests the mirror_geometry() method."""
+    poly1 = Polygon([[0, 0], [1, 0], [1, 1], [0, 1]])
+    geom1 = Geometry(poly1)
+
+    # mirror x
+    geom2 = geom1.mirror_geometry("x", (0.0, 0.0))
+
+    check.almost_equal(geom2.calculate_area(), 1.0)
+    check.almost_equal(geom2.calculate_extents()[0], 0.0)
+    check.almost_equal(geom2.calculate_extents()[1], 1.0)
+    check.almost_equal(geom2.calculate_extents()[2], -1.0)
+    check.almost_equal(geom2.calculate_extents()[3], 0.0)
+    check.almost_equal(geom2.calculate_centroid()[0], 0.5)
+    check.almost_equal(geom2.calculate_centroid()[1], -0.5)
+
+    # mirror y
+    geom2 = geom1.mirror_geometry("y", (0.0, 0.0))
+
+    check.almost_equal(geom2.calculate_area(), 1.0)
+    check.almost_equal(geom2.calculate_extents()[0], -1.0)
+    check.almost_equal(geom2.calculate_extents()[1], 0.0)
+    check.almost_equal(geom2.calculate_extents()[2], 0.0)
+    check.almost_equal(geom2.calculate_extents()[3], 1.0)
+    check.almost_equal(geom2.calculate_centroid()[0], -0.5)
+    check.almost_equal(geom2.calculate_centroid()[1], 0.5)
+
+    # value error
+    with pytest.raises(ValueError, match="axis must be 'x' or 'y'"):
+        geom1.mirror_geometry("a")
+
+
+def test_union():
+    """Tests the __or__ method."""
+    poly1 = Polygon([[0, 0], [1, 0], [1, 1], [0, 1]])
+    poly2 = Polygon([[0.5, 0.5], [1.5, 0.5], [1.5, 1.5], [0.5, 1.5]])
+    geom1 = Geometry(poly1)
+    geom2 = Geometry(poly2)
+    geom = geom1 | geom2
+
+    check.almost_equal(geom.calculate_area(), 2.0 - 0.5 * 0.5)
+    check.almost_equal(geom.calculate_extents()[0], 0.0)
+    check.almost_equal(geom.calculate_extents()[1], 1.5)
+    check.almost_equal(geom.calculate_extents()[2], 0.0)
+    check.almost_equal(geom.calculate_extents()[3], 1.5)
+    check.almost_equal(geom.calculate_centroid()[0], 0.75)
+    check.almost_equal(geom.calculate_centroid()[1], 0.75)
+
+
+def test_sub():
+    """Tests the __sub__ method."""
+    poly1 = Polygon([[0, 0], [1, 0], [1, 1], [0, 1]])
+    poly2 = Polygon([[0.25, 0.25], [0.75, 0.25], [0.75, 0.75], [0.25, 0.75]])
+    geom1 = Geometry(poly1)
+    geom2 = Geometry(poly2)
+    geom = geom1 - geom2
+
+    check.almost_equal(geom.calculate_area(), 1.0 - 0.5 * 0.5)
+    check.almost_equal(geom.calculate_extents()[0], 0.0)
+    check.almost_equal(geom.calculate_extents()[1], 1.0)
+    check.almost_equal(geom.calculate_extents()[2], 0.0)
+    check.almost_equal(geom.calculate_extents()[3], 1.0)
+    check.almost_equal(geom.calculate_centroid()[0], 0.5)
+    check.almost_equal(geom.calculate_centroid()[1], 0.5)
+
+    # test value error
+    geom2 = Geometry(poly1)
+
+    with pytest.raises(ValueError, match="Cannot perform difference on these"):
+        geom = geom1 - geom2
+
+
+def test_add():
+    """Tests the __add__ method."""
+    poly1 = Polygon([[0, 0], [1, 0], [1, 1], [0, 1]])
+    poly2 = Polygon([[1, 0], [2, 0], [2, 1], [1, 1]])
+    geom1 = Geometry(poly1)
+    geom2 = Geometry(poly2)
+    geom = geom1 + geom2
+
+    check.almost_equal(geom.calculate_area(), 2)
+    check.almost_equal(geom.calculate_extents()[0], 0.0)
+    check.almost_equal(geom.calculate_extents()[1], 2.0)
+    check.almost_equal(geom.calculate_extents()[2], 0.0)
+    check.almost_equal(geom.calculate_extents()[3], 1.0)
+    check.almost_equal(geom.calculate_centroid()[0], 1.0)
+    check.almost_equal(geom.calculate_centroid()[1], 0.5)
+
+    # overlapping
+    poly2 = Polygon([[0.5, 0], [1.5, 0], [1.5, 1], [0.5, 1]])
+    geom2 = Geometry(poly2)
+    geom = geom1 + geom2
+
+    check.almost_equal(geom.calculate_area(), 2)
+    check.almost_equal(geom.calculate_extents()[0], 0.0)
+    check.almost_equal(geom.calculate_extents()[1], 1.5)
+    check.almost_equal(geom.calculate_extents()[2], 0.0)
+    check.almost_equal(geom.calculate_extents()[3], 1.0)
+    check.almost_equal(geom.calculate_centroid()[0], 0.75)
+    check.almost_equal(geom.calculate_centroid()[1], 0.5)
+
+
+def test_and():
+    """Tests the __and__ method."""
+    poly1 = Polygon([[0, 0], [1, 0], [1, 1], [0, 1]])
+    poly2 = Polygon([[0.5, 0], [1.5, 0], [1.5, 1], [0.5, 1]])
+    geom1 = Geometry(poly1)
+    geom2 = Geometry(poly2)
+
+    # overlapping example from __add__
+    geom = geom1 & geom2
+    check.almost_equal(geom.calculate_area(), 0.5)
+    check.almost_equal(geom.calculate_extents()[0], 0.5)
+    check.almost_equal(geom.calculate_extents()[1], 1.0)
+    check.almost_equal(geom.calculate_extents()[2], 0.0)
+    check.almost_equal(geom.calculate_extents()[3], 1.0)
+    check.almost_equal(geom.calculate_centroid()[0], 0.75)
+    check.almost_equal(geom.calculate_centroid()[1], 0.5)

@@ -24,6 +24,7 @@ class FiniteElement:
         coords: npt.NDArray[np.float64],
         node_idxs: list[int],
         material: Material,
+        orientation: bool,
         num_nodes: int,
         int_points: int,
     ) -> None:
@@ -37,6 +38,8 @@ class FiniteElement:
             node_idxs: List of node indexes defining the element, e.g.
                 ``[idx1, idx2, idx3]``.
             material: Material of the element.
+            orientation: If ``True`` the element is oriented correctly, if ``False`` the
+                element's nodes will need reordering.
             num_nodes: Number of nodes in the finite element.
             int_points: Number of integration points used for the finite element.
         """
@@ -45,6 +48,7 @@ class FiniteElement:
         self.coords = coords
         self.node_idxs = node_idxs
         self.material = material
+        self.orientation = orientation
         self.num_nodes = num_nodes
         self.int_points = int_points
 
@@ -247,6 +251,7 @@ class FiniteElement:
             coords=self.coords,
             node_idxs=self.node_idxs,
             material=self.material,
+            orientation=self.orientation,
             num_nodes=self.num_nodes,
             int_points=self.int_points,
             sigs=sigs,
@@ -271,6 +276,7 @@ class TriangularElement(FiniteElement):
         coords: npt.NDArray[np.float64],
         node_idxs: list[int],
         material: Material,
+        orientation: bool,
         num_nodes: int,
         int_points: int,
     ) -> None:
@@ -284,6 +290,8 @@ class TriangularElement(FiniteElement):
             node_idxs: List of node indexes defining the element, e.g.
                 ``[idx1, idx2, idx3]``.
             material: Material of the element.
+            orientation: If ``True`` the element is oriented correctly, if ``False`` the
+                element's nodes will need reordering.
             num_nodes: Number of nodes in the finite element.
             int_points: Number of integration points used for the finite element.
         """
@@ -293,6 +301,7 @@ class TriangularElement(FiniteElement):
             coords=coords,
             node_idxs=node_idxs,
             material=material,
+            orientation=orientation,
             num_nodes=num_nodes,
             int_points=int_points,
         )
@@ -390,6 +399,12 @@ class TriangularElement(FiniteElement):
         else:
             b_mat = np.zeros((2, self.num_nodes))  # empty b matrix
 
+        # check sign of jacobian
+        if jacobian < 0:
+            raise RuntimeError(
+                f"Jacobian of element {self.el_idx} is less than zero ({jacobian:.2f})."
+            )
+
         # form plane stress b matrix
         b_mat_ps = np.zeros((3, 2 * self.num_nodes))
 
@@ -418,6 +433,7 @@ class Tri3(TriangularElement):
         coords: npt.NDArray[np.float64],
         node_idxs: list[int],
         material: Material,
+        orientation: bool,
     ) -> None:
         """Inits the Tri3 class.
 
@@ -429,15 +445,23 @@ class Tri3(TriangularElement):
             node_idxs: A list of node indexes defining the element, i.e.
                 ``[idx1, idx2, idx3]``.
             material: Material of the element.
+            orientation: If ``True`` the element is oriented correctly, if ``False`` the
+                element's nodes will need reordering.
         """
+        # reorient node indexes and coords if required
+        if not orientation:
+            node_idxs[1], node_idxs[2] = node_idxs[2], node_idxs[1]
+            coords[:, [1, 2]] = coords[:, [2, 1]]
+
         super().__init__(
             el_idx=el_idx,
             el_tag=el_tag,
             coords=coords,
             node_idxs=node_idxs,
             material=material,
+            orientation=orientation,
             num_nodes=3,
-            int_points=1,  # TODO - confirm
+            int_points=1,
         )
 
     @staticmethod
@@ -513,6 +537,7 @@ class Tri6(TriangularElement):
         coords: npt.NDArray[np.float64],
         node_idxs: list[int],
         material: Material,
+        orientation: bool,
     ) -> None:
         """Inits the Tri6 class.
 
@@ -524,7 +549,13 @@ class Tri6(TriangularElement):
             node_idxs: A list of node indexes defining the element, i.e.
                 ``[idx1, ..., idx6]``.
             material: Material of the element.
+            orientation: If ``True`` the element is oriented correctly, if ``False`` the
+                element's nodes will need reordering.
         """
+        # reorient node indexes and coords if required - TODO
+        if not orientation:
+            raise NotImplementedError
+
         super().__init__(
             el_idx=el_idx,
             el_tag=el_tag,
@@ -532,7 +563,8 @@ class Tri6(TriangularElement):
             node_idxs=node_idxs,
             material=material,
             num_nodes=6,
-            int_points=3,  # TODO - confirm
+            int_points=3,
+            orientation=orientation,
         )
 
     @staticmethod
@@ -809,6 +841,7 @@ class ElementResults(FiniteElement):
         coords: npt.NDArray[np.float64],
         node_idxs: list[int],
         material: Material,
+        orientation: bool,
         num_nodes: int,
         int_points: int,
         sigs: npt.NDArray[np.float64],
@@ -823,6 +856,8 @@ class ElementResults(FiniteElement):
             node_idxs: List of node indexes defining the element, e.g.
                 ``[idx1, idx2, idx3]``.
             material: Material of the element.
+            orientation: If ``True`` the element is oriented correctly, if ``False`` the
+                element's nodes will need reordering.
             num_nodes: Number of nodes in the finite element.
             int_points: Number of integration points used for the finite element.
             sigs: Nodal stresses, e.g.
@@ -836,5 +871,6 @@ class ElementResults(FiniteElement):
             material=material,
             num_nodes=num_nodes,
             int_points=int_points,
+            orientation=orientation,
         )
         self.sigs = sigs
