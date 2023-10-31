@@ -9,7 +9,6 @@ import numpy as np
 import numpy.typing as npt
 
 import planestress.analysis.solver as solver
-import planestress.pre.boundary_condition as bc
 from planestress.analysis.utils import dof_map
 from planestress.post.results import Results
 
@@ -42,7 +41,6 @@ class PlaneStress:
 
         Raises:
             RuntimeError: If there is no mesh in the ``Geometry`` object.
-            ValueError: If there is an invalid boundary condition in a load case.
         """
         self.geometry = geometry
         self.load_cases = load_cases
@@ -56,25 +54,13 @@ class PlaneStress:
 
         self.mesh: Mesh = self.geometry.mesh
 
-        # assign tagged items to boundary conditions
+        # reset boundary conditions mesh tags
         for load_case in self.load_cases:
-            for b in load_case.boundary_conditions:
-                # if a mesh tag hasn't been assigned yet
-                if not hasattr(b, "mesh_tag"):
-                    # if the boundary condition relates to a node
-                    if isinstance(b, bc.NodeBoundaryCondition):
-                        b.mesh_tag = self.mesh.get_tagged_node_by_coordinates(
-                            x=b.point[0],
-                            y=b.point[1],
-                        )
-                    # if the boundary condition relates to a line
-                    elif isinstance(b, bc.LineBoundaryCondition):
-                        b.mesh_tag = self.mesh.get_tagged_line_by_coordinates(
-                            point1=b.point1,
-                            point2=b.point2,
-                        )
-                    else:
-                        raise ValueError(f"{b} is not a valid boundary condition.")
+            load_case.reset_mesh_tags()
+
+        # assign mesh tags to boundary conditions
+        for load_case in self.load_cases:
+            load_case.assign_mesh_tags(mesh=self.mesh)
 
     def solve(self) -> list[Results]:
         """Solves each load case.
@@ -145,7 +131,7 @@ class PlaneStress:
             res = Results(plane_stress=self, u=u)
             res.calculate_node_forces(k=k)
             res.calculate_reactions(f=f_app)
-            res.calculate_element_results(elements=self.mesh.elements)
+            res.calculate_stresses(elements=self.mesh.elements)
 
             # add to results list
             results.append(res)
