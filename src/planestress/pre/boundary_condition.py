@@ -45,7 +45,7 @@ class BoundaryCondition:
         self.direction = direction  # TODO - verify input
         self.value = value
         self.priority = priority
-        self.mesh_tag: TaggedEntity
+        self.mesh_tag: TaggedEntity | None = None
 
     def apply_bc(
         self,
@@ -112,7 +112,7 @@ class NodeBoundaryCondition(BoundaryCondition):
         """
         super().__init__(direction=direction, value=value, priority=priority)
         self.point = point
-        self.mesh_tag: TaggedNode
+        self.mesh_tag: TaggedNode | None
 
     def __repr__(self) -> str:
         """Override __repr__ method.
@@ -120,22 +120,23 @@ class NodeBoundaryCondition(BoundaryCondition):
         Returns:
             String representation of the object.
         """
-        try:
-            tag = self.mesh_tag
-        except AttributeError:
-            tag = None
-
         return (
             f"BC Type: {self.__class__.__name__}, dir: {self.direction}, val: "
-            f"{self.value}, mesh tag: {tag}"
+            f"{self.value}, mesh tag: {self.mesh_tag}"
         )
 
     def get_node_dofs(self) -> list[int]:
         """Get the degrees of freedom of the node.
 
+        Raises:
+            RuntimeError: If a mesh tag has not been assigned.
+
         Returns:
             List (length 2) of degrees of freedom.
         """
+        if self.mesh_tag is None:
+            raise RuntimeError("Mesh tag is not assigned.")
+
         return dof_map(node_idxs=[self.mesh_tag.node_idx])
 
 
@@ -320,7 +321,7 @@ class LineBoundaryCondition(BoundaryCondition):
         super().__init__(direction=direction, value=value, priority=priority)
         self.point1 = point1
         self.point2 = point2
-        self.mesh_tag: TaggedLine
+        self.mesh_tag: TaggedLine | None = None
 
     def __repr__(self) -> str:
         """Override __repr__ method.
@@ -328,22 +329,23 @@ class LineBoundaryCondition(BoundaryCondition):
         Returns:
             String representation of the object.
         """
-        try:
-            tag = self.mesh_tag
-        except AttributeError:
-            tag = None
-
         return (
             f"BC Type: {self.__class__.__name__}, dir: {self.direction}, val: "
-            f"{self.value}, mesh tag: {tag}"
+            f"{self.value}, mesh tag: {self.mesh_tag}"
         )
 
     def get_unique_nodes(self) -> list[int]:
         """Returns a list of unique node indexes along the line BC.
 
+        Raises:
+            RuntimeError: If a mesh tag has not been assigned.
+
         Returns:
             List of unique node indexes along the line.
         """
+        if self.mesh_tag is None:
+            raise RuntimeError("Mesh tag is not assigned.")
+
         # get list of node indexes along line BC
         node_idxs = []
 
@@ -506,9 +508,15 @@ class LineLoad(LineBoundaryCondition):
             k: Stiffness matrix.
             f: Load vector.
 
+        Raises:
+            RuntimeError: If a mesh tag has not been assigned.
+
         Returns:
             Modified stiffness matrix and load vector (``k``, ``f``).
         """
+        if self.mesh_tag is None:
+            raise RuntimeError("Mesh tag is not assigned.")
+
         # loop through all line elements
         for element in self.mesh_tag.elements:
             # get element load vector
