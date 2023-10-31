@@ -3,6 +3,14 @@
 Insert reference here...
 """
 
+import numpy as np
+import pytest
+import pytest_check as check
+
+from planestress.analysis.plane_stress import PlaneStress
+from planestress.pre.library import circle, rectangle, steel_material
+from planestress.pre.load_case import LoadCase
+
 
 def test_vls1():
     """VLS1: Elliptic Membrane.
@@ -43,7 +51,8 @@ def test_vls8():
     pass
 
 
-def test_vls9():
+@pytest.mark.parametrize("el_type", ["Tri6"])
+def test_vls9(el_type):
     """VLS9: Circular Membrane - Point Load.
 
     A ring under concentrated forces is analysed. (10000 kN at 4 x 45 deg).
@@ -57,4 +66,42 @@ def test_vls9():
 
     Target value - tangential stress at (x=10, y=0) of -53.2 MPa.
     """
-    pass
+    # define materials - use N & mm
+    steel = steel_material(thickness=1000.0)
+
+    # define geometry
+    circle_outer = circle(r=11e3, n=128, material=steel)
+    circle_inner = circle(r=10e3, n=128)
+    bbox = rectangle(d=12e3, b=12e3)  # bounding box
+    geom = (circle_outer - circle_inner) & bbox
+
+    # create supports
+    lhs_support = geom.add_line_support(
+        point1=(0.0, 10e3), point2=(0.0, 11e3), direction="x"
+    )
+    rhs_support = geom.add_line_support(
+        point1=(10e3, 0.0), point2=(11e3, 0.0), direction="y"
+    )
+
+    # create loads
+    pt = (11e3 / np.sqrt(2), 11e3 / np.sqrt(2))
+    force = 10e6 / np.sqrt(2)  # force component in x and y directions
+    load_x = geom.add_node_load(point=pt, direction="x", value=-force)
+    load_y = geom.add_node_load(point=pt, direction="y", value=-force)
+    lc = LoadCase([lhs_support, rhs_support, load_x, load_y])
+
+    # create mesh
+    if el_type == "Tri6":
+        geom.create_mesh(mesh_sizes=900.0, mesh_order=2)
+
+    # solve
+    ps = PlaneStress(geom, [lc])
+    results_list = ps.solve()
+    res = results_list[0]
+
+    # get stress at (x=10, y=0)
+    node_idx = ps.mesh.get_node_idx_by_coordinates(10e3, 0.0)
+    sig_yy = res.get_nodal_stresses()[node_idx][1]
+    target_stress = -53.2
+
+    check.almost_equal(target_stress, sig_yy, rel=0.01)
