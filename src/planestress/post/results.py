@@ -81,8 +81,8 @@ class Results:
         """
         self.f_r = self.f - f
 
-    def calculate_element_results(self, elements: list[FiniteElement]) -> None:
-        """Calculates and stores the element results in ``self.element_results``.
+    def calculate_stresses(self, elements: list[FiniteElement]) -> None:
+        """Calculates and stores the element stresses in ``self.element_results``.
 
         Args:
             elements: List of ``FiniteElement`` objects used during the analysis.
@@ -95,7 +95,7 @@ class Results:
             el_dofs = dof_map(node_idxs=el.node_idxs)
 
             # get ElementResults object and store
-            el_res = el.get_element_results(u=self.u[el_dofs])
+            el_res = el.calculate_element_stresses(u=self.u[el_dofs])
             self.element_results.append(el_res)
 
     def get_nodal_stresses(
@@ -125,8 +125,8 @@ class Results:
         for el in self.element_results:
             # get nodal stresses for element
             # add each nodal result to list
-            for node_idx in el.node_idxs:
-                sigs_res[node_idx].append(el.sigs[0])
+            for idx, node_idx in enumerate(el.node_idxs):
+                sigs_res[node_idx].append(el.sigs[idx])
 
         # apply aggregation function
         for idx, node_res in enumerate(sigs_res):
@@ -166,6 +166,7 @@ class Results:
                 colormap, if set to False, the default linear scaling is used.
                 ``CenteredNorm`` effectively places the center of the colormap at zero
                 displacement. Defaults to ``True``.
+            num_levels (int): Number of contour levels. Defaults to ``11``.
             colorbar_format (str):  Number formatting string for displacements, see
                 https://docs.python.org/3/library/string.html. Defaults to
                 ``"{x:.4e}"``, i.e. exponential format with 4 decimal places.
@@ -189,6 +190,7 @@ class Results:
         contours: bool = kwargs.pop("contours", False)
         colormap: str = kwargs.pop("colormap", "coolwarm")
         normalize: bool = kwargs.pop("normalize", True)
+        num_levels: int = kwargs.pop("num_levels", 11)
         colorbar_format: str = kwargs.pop("colorbar_format", "{x:.4e}")
         colorbar_label: str = kwargs.pop("colorbar_label", "Displacement")
         alpha: float = kwargs.pop("alpha", 0.2)
@@ -221,10 +223,10 @@ class Results:
             u_min = min(u) - 1e-12
             u_max = max(u) + 1e-12
 
-            v = np.linspace(start=u_min, stop=u_max, num=15, endpoint=True)
+            v = np.linspace(start=u_min, stop=u_max, num=num_levels, endpoint=True)
 
             if np.isclose(v[0], v[-1], atol=1e-12):
-                v = 15
+                v = num_levels
                 ticks = None
             else:
                 ticks = v
@@ -335,6 +337,7 @@ class Results:
                 colormap, if set to False, the default linear scaling is used.
                 ``CenteredNorm`` effectively places the center of the colormap at zero
                 displacement. Defaults to ``True``.
+            num_levels (int): Number of contour levels. Defaults to ``11``.
             colorbar_format (str):  Number formatting string for stresses, see
                 https://docs.python.org/3/library/string.html. Defaults to
                 ``"{x:.4e}"``, i.e. exponential format with 4 decimal places.
@@ -391,6 +394,7 @@ class Results:
         colormap: str = kwargs.pop("colormap", "coolwarm")
         stress_limits: tuple[float, float] | None = kwargs.pop("stress_limits", None)
         normalize: bool = kwargs.pop("normalize", True)
+        num_levels: int = kwargs.pop("num_levels", 11)
         colorbar_format: str = kwargs.pop("colorbar_format", "{x:.4e}")
         colorbar_label: str = kwargs.pop("colorbar_label", "Stress")
         alpha: float = kwargs.pop("alpha", 0.2)
@@ -430,10 +434,10 @@ class Results:
                 sig_min = stress_limits[0]
                 sig_max = stress_limits[1]
 
-            v = np.linspace(start=sig_min, stop=sig_max, num=15, endpoint=True)
+            v = np.linspace(start=sig_min, stop=sig_max, num=num_levels, endpoint=True)
 
             if np.isclose(v[0], v[-1], atol=1e-12):
-                v = 15
+                v = num_levels
                 ticks = None
             else:
                 ticks = v
