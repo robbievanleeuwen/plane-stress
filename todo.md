@@ -4,17 +4,17 @@
 
 - Plot BCs
 - Meshing options
-- Testing overlapping facets
+  - Serendipity "Mesh.SecondOrderIncomplete"
+  - Fields
+  - Add option to force nodes and lines into the mesh see
+    https://deltares.github.io/pandamesh/api/gmsh.html
+- Testing overlapping facets, other testing? (see deltares pandamesh)
 - Persistent load case
 - Node(?) & line load normal to curves
 
 ## Analysis
 
-- Evaluate stress at GPs & nodal extrapolation
 - Add elements
-  - Quadratic Line
-  - Tri6
-  - Quad4
   - Quad8
   - Quad9
 - Improve solver method

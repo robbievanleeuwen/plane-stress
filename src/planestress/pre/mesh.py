@@ -62,9 +62,12 @@ class Mesh:
         facets: list[Facet],
         curve_loops: list[CurveLoop],
         surfaces: list[Surface],
-        mesh_sizes: list[float],
         materials: list[Material],
+        mesh_sizes: list[float],
+        quad_mesh: bool,
         mesh_order: int,
+        mesh_algorithm: int,
+        subdivision_algorithm: int,
         verbosity: int = 0,
     ) -> None:
         """Creates a mesh from geometry using gmsh.
@@ -74,10 +77,16 @@ class Mesh:
             facets: List of ``Facet`` objects.
             curve_loops: List of ``CurveLoop`` objects.
             surfaces: List of ``Surface`` objects.
+            materials: A list of ``Material`` objects for each region in the mesh.
             mesh_sizes: A list of the characteristic mesh lengths for each region in the
                 mesh.
-            materials: A list of ``Material`` objects for each region in the mesh.
+            quad_mesh: If set to ``True``, recombines the triangular mesh to create
+                quadrilaterals.
             mesh_order: Order of the mesh, ``1`` - linear or ``2`` - quadratic.
+            mesh_algorithm: Gmsh mesh algorithm, see
+                https://gmsh.info/doc/texinfo/gmsh.html#index-Mesh_002eAlgorithm
+            subdivision_algorithm: Gmsh subdivision algorithm, see
+                https://gmsh.info/doc/texinfo/gmsh.html#index-Mesh_002eSubdivisionAlgorithm
             verbosity: Gmsh verbosity level, see
                 https://gmsh.info/doc/texinfo/gmsh.html#index-General_002eVerbosity.
                 Defaults to ``0``.
@@ -93,6 +102,18 @@ class Mesh:
 
         # init model
         gmsh.model.add("plane-stress")
+
+        # set mesh algorithm
+        gmsh.option.set_number("Mesh.Algorithm", mesh_algorithm)
+
+        # set mesh recombine
+        if quad_mesh:
+            gmsh.option.set_number("Mesh.RecombineAll", 1)
+        else:
+            gmsh.option.set_number("Mesh.RecombineAll", 0)
+
+        # set subdivision algorithm
+        gmsh.option.set_number("Mesh.SubdivisionAlgorithm", subdivision_algorithm)
 
         # build gmsh geometry
         # add points to gmsh geometry
@@ -137,10 +158,6 @@ class Mesh:
                 surface_orientated.append(False)
             else:
                 surface_orientated.append(True)
-
-        # TODO - ADD MESHING OPTIONS!
-        # tri/quad
-        # mesh refinement options
 
         # generate 2D mesh
         gmsh.model.mesh.generate(2)
@@ -211,25 +228,24 @@ class Mesh:
             for el_type, el_tags, el_node_tags_list in zip(
                 el_types, el_tags_by_type, el_node_tags_by_type
             ):
+                # get number of elements
+                num_elements = int(len(el_tags))
+
                 # tri3 elements
                 if el_type == 2:
-                    # reshape node tags list
-                    num_elements = int(len(el_tags))
-                    el_node_tags_list = np.reshape(el_node_tags_list, (num_elements, 3))
-
                     # assign element object
                     el_obj = fe.Tri3
+                    num_nodes = 3
                 # quad4 elements
                 elif el_type == 3:
-                    raise NotImplementedError
+                    # assign element object
+                    el_obj = fe.Quad4
+                    num_nodes = 4
                 # tri6 elements
                 elif el_type == 9:
-                    # reshape node tags list
-                    num_elements = int(len(el_tags))
-                    el_node_tags_list = np.reshape(el_node_tags_list, (num_elements, 6))
-
                     # assign element object
                     el_obj = fe.Tri6
+                    num_nodes = 6
                 # quad9 elements
                 elif el_type == 10:
                     raise NotImplementedError
@@ -238,6 +254,11 @@ class Mesh:
                     raise NotImplementedError
                 else:
                     raise ValueError(f"Unsupported gmsh element type: type {el_type}.")
+
+                # reshape node tags list
+                el_node_tags_list = np.reshape(
+                    el_node_tags_list, (num_elements, num_nodes)
+                )
 
                 # loop through each element
                 for el_tag, el_node_tags in zip(el_tags, el_node_tags_list):

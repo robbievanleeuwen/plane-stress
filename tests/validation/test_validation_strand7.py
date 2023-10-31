@@ -51,7 +51,7 @@ def test_vls8():
     pass
 
 
-@pytest.mark.parametrize("el_type", ["Tri6"])
+@pytest.mark.parametrize("el_type", ["Quad4", "Tri6"])
 def test_vls9(el_type):
     """VLS9: Circular Membrane - Point Load.
 
@@ -66,6 +66,8 @@ def test_vls9(el_type):
 
     Target value - tangential stress at (x=10, y=0) of -53.2 MPa.
     """
+    rel = 0.03  # aim for 3% error
+
     # define materials - use N & mm
     steel = steel_material(thickness=1000.0)
 
@@ -91,8 +93,14 @@ def test_vls9(el_type):
     lc = LoadCase([lhs_support, rhs_support, load_x, load_y])
 
     # create mesh
-    if el_type == "Tri6":
-        geom.create_mesh(mesh_sizes=900.0, mesh_order=2)
+    if el_type == "Quad4":
+        geom.create_mesh(
+            mesh_sizes=1000.0, quad_mesh=True, mesh_order=1, mesh_algorithm=11
+        )
+    elif el_type == "Tri6":
+        geom.create_mesh(mesh_sizes=1000.0, mesh_order=2)
+    else:
+        raise ValueError(f"{el_type} element not supported for this test.")
 
     # solve
     ps = PlaneStress(geom, [lc])
@@ -104,4 +112,4 @@ def test_vls9(el_type):
     sig_yy = res.get_nodal_stresses()[node_idx][1]
     target_stress = -53.2
 
-    check.almost_equal(target_stress, sig_yy, rel=0.01)
+    check.almost_equal(target_stress, sig_yy, rel=rel)

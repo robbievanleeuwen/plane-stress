@@ -900,7 +900,10 @@ class Geometry:
     def create_mesh(
         self,
         mesh_sizes: float | list[float] = 0.0,
+        quad_mesh: bool = False,
         mesh_order: int = 1,
+        mesh_algorithm: int = 6,
+        subdivision_algorithm: int = 0,
     ) -> None:
         """Creates and stores a triangular mesh of the geometry.
 
@@ -909,11 +912,26 @@ class Geometry:
                 in the ``Geometry`` object. If a list of length 1 or a ``float`` i
                 passed, then this one size will be applied to all ``polygons``. A value
                 of ``0`` removes the area constraint. Defaults to ``0.0``.
-            mesh_order: Order of the mesh, ``1`` - linear or ``2`` - quadratic.
+            quad_mesh: If set to ``True``, recombines the triangular mesh to create
+                quadrilaterals. Defaults to ``False``.
+            mesh_order: Order of the mesh, ``1`` - linear or ``2`` - quadratic. Defaults
+                to ``1``.
+            mesh_algorithm: Gmsh meshing algorithm, see below for more details. Defaults
+                to ``6``.
+            subdivision_algorithm: Gmsh subdivision algorithm, see below for more
+                details. Defaults to ``0``.
 
         Raises:
             ValueError: If the length of ``mesh_sizes`` does not equal the number of
                 polygons, or is not a float/list of length 1.
+
+        .. admonition: ``mesh_algorithm``
+
+            TODO - information about meshing algorithm.
+
+        .. admonition: ``subdivision_algorithm``
+
+            TODO - information about subdivision algorithm.
         """
         # convert mesh_size to an appropriately sized list
         if isinstance(mesh_sizes, (float, int)):
@@ -933,9 +951,12 @@ class Geometry:
             facets=self.facets,
             curve_loops=self.curve_loops,
             surfaces=self.surfaces,
-            mesh_sizes=mesh_sizes,
             materials=self.materials,
+            mesh_sizes=mesh_sizes,
+            quad_mesh=quad_mesh,
             mesh_order=mesh_order,
+            mesh_algorithm=mesh_algorithm,
+            subdivision_algorithm=subdivision_algorithm,
         )
 
     def plot_geometry(

@@ -238,10 +238,10 @@ class FiniteElement:
             points = self.nodal_isoparametric_coordinates()
         else:
             # initialise gauss points stress results
-            sigs_points = np.zeros((self.int_points, 3))
+            sigs_points = np.zeros((self.int_points**2, 3))
 
             # get locations of gauss points in isoparametric coordinates
-            points = utils.gauss_points_quad(n_points=self.int_points)[1:]
+            points = utils.gauss_points_quad(n_points=self.int_points)[:, 1:]
 
         # loop through each point to calculate the stress
         for idx, iso_coords in enumerate(points):
