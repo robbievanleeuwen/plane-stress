@@ -67,7 +67,7 @@ class FiniteElement:
 
     @staticmethod
     def shape_functions(
-        iso_coords: tuple[float, float] | tuple[float, float, float],
+        iso_coords: tuple[float, float, float],
     ) -> npt.NDArray[np.float64]:
         """Returns the shape functions at a point.
 
@@ -81,7 +81,7 @@ class FiniteElement:
 
     @staticmethod
     def shape_functions_derivatives(
-        iso_coords: tuple[float, float] | tuple[float, float, float],
+        iso_coords: tuple[float, float, float],
     ) -> npt.NDArray[np.float64]:
         """Returns the derivatives of the shape functions at a point.
 
@@ -104,7 +104,7 @@ class FiniteElement:
 
     def b_matrix_jacobian(
         self,
-        iso_coords: tuple[float, float] | tuple[float, float, float],
+        iso_coords: tuple[float, float, float],
     ) -> tuple[npt.NDArray[np.float64], float]:
         """Calculates the B matrix and jacobian at an isoparametric point.
 
@@ -664,12 +664,13 @@ class QuadrilateralElement(FiniteElement):
 
     def b_matrix_jacobian(
         self,
-        iso_coords: tuple[float, float],
+        iso_coords: tuple[float, float, float],
     ) -> tuple[npt.NDArray[np.float64], float]:
         """Calculates the B matrix and jacobian at an isoparametric point (Quad).
 
         Args:
-            iso_coords: Location of the point in isoparametric coordinates.
+            iso_coords: Location of the point in isoparametric coordinates (note last
+            value is ignored).
 
         Raises:
             RuntimeError: If the jacobian is less than zero.
@@ -767,17 +768,20 @@ class Quad4(QuadrilateralElement):
         )
 
     @staticmethod
-    def shape_functions(iso_coords: tuple[float, float]) -> npt.NDArray[np.float64]:
+    def shape_functions(
+        iso_coords: tuple[float, float, float]
+    ) -> npt.NDArray[np.float64]:
         """Returns the shape functions at a point for a Quad4 element.
 
         Args:
-            iso_coords: Location of the point in isoparametric coordinates.
+            iso_coords: Location of the point in isoparametric coordinates (note last
+            value is ignored).
 
         Returns:
             The values of the shape functions ``[N1, N2, N3, N4]``.
         """
         # location of isoparametric coordinates
-        xi, eta = iso_coords
+        xi, eta, _ = iso_coords
 
         # for a Tri3, the shape functions are the isoparametric coordinates
         return np.array(
@@ -791,18 +795,19 @@ class Quad4(QuadrilateralElement):
 
     @staticmethod
     def shape_functions_derivatives(
-        iso_coords: tuple[float, float]
+        iso_coords: tuple[float, float, float]
     ) -> npt.NDArray[np.float64]:
         """Returns the derivatives of the shape functions at a pt for a Quad4 element.
 
         Args:
-            iso_coords: Location of the point in isoparametric coordinates.
+            iso_coords: Location of the point in isoparametric coordinates (note last
+            value is ignored).
 
         Returns:
             The partial derivatives of the shape functions.
         """
         # location of isoparametric coordinates
-        xi, eta = iso_coords
+        xi, eta, _ = iso_coords
 
         # derivatives of the shape functions wrt the isoparametric coordinates
         return np.array(

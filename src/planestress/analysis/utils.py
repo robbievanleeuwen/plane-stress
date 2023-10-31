@@ -94,6 +94,8 @@ def gauss_points_triangle(n_points: int) -> npt.NDArray[np.float64]:
 def gauss_points_quad(n_points: int) -> npt.NDArray[np.float64]:
     """Gaussian weights and locations for 2D quadrangle Gaussian integration.
 
+    Note last value in each row is ignored (placeholder).
+
     Args:
         n_points: Number of gauss points in each direction.
 
@@ -101,20 +103,21 @@ def gauss_points_quad(n_points: int) -> npt.NDArray[np.float64]:
         ValueError: If ``n_points`` is not 1, 2 or 3.
 
     Returns:
-        Gaussian weights and location. For each gauss point - ``[weight, xi, eta]``.
+        Gaussian weights and location. For each gauss point -
+        ``[weight, xi, eta, 0.0]``.
     """
     # one point gaussian integration
     if n_points == 1:
-        return np.array([[4.0, 0.0, 0.0]])
+        return np.array([[4.0, 0.0, 0.0, 0.0]])
 
     # two point gaussian integration
     if n_points == 2:
         return np.array(
             [
-                [1.0, -1.0 / np.sqrt(3), -1.0 / np.sqrt(3)],
-                [1.0, -1.0 / np.sqrt(3), 1.0 / np.sqrt(3)],
-                [1.0, 1.0 / np.sqrt(3), -1.0 / np.sqrt(3)],
-                [1.0, 1.0 / np.sqrt(3), 1.0 / np.sqrt(3)],
+                [1.0, -1.0 / np.sqrt(3), -1.0 / np.sqrt(3), 0.0],
+                [1.0, -1.0 / np.sqrt(3), 1.0 / np.sqrt(3), 0.0],
+                [1.0, 1.0 / np.sqrt(3), -1.0 / np.sqrt(3), 0.0],
+                [1.0, 1.0 / np.sqrt(3), 1.0 / np.sqrt(3), 0.0],
             ]
         )
 
@@ -122,15 +125,15 @@ def gauss_points_quad(n_points: int) -> npt.NDArray[np.float64]:
     if n_points == 3:
         return np.array(
             [
-                [25.0 / 81.0, -np.sqrt(3.0 / 5.0), -np.sqrt(3.0 / 5.0)],
-                [40.0 / 81.0, -np.sqrt(3.0 / 5.0), 0.0],
-                [25.0 / 81.0, -np.sqrt(3.0 / 5.0), np.sqrt(3.0 / 5.0)],
-                [40.0 / 81.0, 0.0, -np.sqrt(3.0 / 5.0)],
-                [64.0 / 81.0, 0.0, 0.0],
-                [40.0 / 81.0, 0.0, np.sqrt(3.0 / 5.0)],
-                [25.0 / 81.0, np.sqrt(3.0 / 5.0), -np.sqrt(3.0 / 5.0)],
-                [40.0 / 81.0, np.sqrt(3.0 / 5.0), 0.0],
-                [25.0 / 81.0, np.sqrt(3.0 / 5.0), np.sqrt(3.0 / 5.0)],
+                [25.0 / 81.0, -np.sqrt(3.0 / 5.0), -np.sqrt(3.0 / 5.0), 0.0],
+                [40.0 / 81.0, -np.sqrt(3.0 / 5.0), 0.0, 0.0],
+                [25.0 / 81.0, -np.sqrt(3.0 / 5.0), np.sqrt(3.0 / 5.0), 0.0],
+                [40.0 / 81.0, 0.0, -np.sqrt(3.0 / 5.0), 0.0],
+                [64.0 / 81.0, 0.0, 0.0, 0.0],
+                [40.0 / 81.0, 0.0, np.sqrt(3.0 / 5.0), 0.0],
+                [25.0 / 81.0, np.sqrt(3.0 / 5.0), -np.sqrt(3.0 / 5.0), 0.0],
+                [40.0 / 81.0, np.sqrt(3.0 / 5.0), 0.0, 0.0],
+                [25.0 / 81.0, np.sqrt(3.0 / 5.0), np.sqrt(3.0 / 5.0), 0.0],
             ]
         )
 
