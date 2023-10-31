@@ -7,6 +7,8 @@ from typing import TYPE_CHECKING
 import numpy as np
 import numpy.typing as npt
 
+import planestress.analysis.utils as utils
+
 
 if TYPE_CHECKING:
     from planestress.pre.material import Material
@@ -63,23 +65,9 @@ class FiniteElement:
             f"material: {self.material.name}."
         )
 
-    def gauss_points(
-        self,
-        n_points: int,
-    ) -> npt.NDArray[np.float64]:
-        """Gaussian weights and locations for ``n_point`` Gaussian integration.
-
-        Args:
-            n_points: Number of gauss points.
-
-        Raises:
-            NotImplementedError: If this method hasn't been implemented for an element.
-        """
-        raise NotImplementedError
-
     @staticmethod
     def shape_functions(
-        iso_coords: tuple[float, float, float]
+        iso_coords: tuple[float, float] | tuple[float, float, float],
     ) -> npt.NDArray[np.float64]:
         """Returns the shape functions at a point.
 
@@ -93,7 +81,7 @@ class FiniteElement:
 
     @staticmethod
     def shape_functions_derivatives(
-        iso_coords: tuple[float, float, float]
+        iso_coords: tuple[float, float] | tuple[float, float, float],
     ) -> npt.NDArray[np.float64]:
         """Returns the derivatives of the shape functions at a point.
 
@@ -104,22 +92,6 @@ class FiniteElement:
             NotImplementedError: If this method hasn't been implemented for an element.
         """
         raise NotImplementedError
-
-    def iso_to_global(
-        self,
-        iso_coords: tuple[float, float, float],
-    ) -> tuple[float, float]:
-        """Converts a point in isoparametric coordinates to global coordinates.
-
-        Args:
-            iso_coords: Location of the point in isoparametric coordinates.
-
-        Returns:
-            Location of the point in global coordinates (``x``, ``y``).
-        """
-        x, y = self.coords @ self.shape_functions(iso_coords=iso_coords)
-
-        return x, y
 
     @staticmethod
     def nodal_isoparametric_coordinates() -> npt.NDArray[np.float64]:
@@ -132,12 +104,21 @@ class FiniteElement:
 
     def b_matrix_jacobian(
         self,
-        iso_coords: tuple[float, float, float],
+        iso_coords: tuple[float, float] | tuple[float, float, float],
     ) -> tuple[npt.NDArray[np.float64], float]:
         """Calculates the B matrix and jacobian at an isoparametric point.
 
         Args:
             iso_coords: Location of the point in isoparametric coordinates.
+
+        Raises:
+            NotImplementedError: If this method hasn't been implemented for an element.
+        """
+        raise NotImplementedError
+
+    @staticmethod
+    def extrapolate_gauss_points_to_nodes() -> npt.NDArray[np.float64]:
+        """Returns the extrapolation matrix for the element.
 
         Raises:
             NotImplementedError: If this method hasn't been implemented for an element.
@@ -156,21 +137,26 @@ class FiniteElement:
         # get d_matrix
         d_mat = self.material.get_d_matrix()
 
-        # get Gauss points
-        gauss_points = self.gauss_points(n_points=self.int_points)
+        # get gauss points
+        if isinstance(self, TriangularElement):
+            gp_func = utils.gauss_points_triangle
+        else:
+            gp_func = utils.gauss_points_quad
+
+        gauss_points = gp_func(n_points=self.int_points)
 
         # loop through each gauss point
         for gauss_point in gauss_points:
-            b_mat, j = self.b_matrix_jacobian(iso_coords=gauss_point[1:])
+            # extract weight and isoparametric coordinates
+            weight = gauss_point[0]
+            iso_coords = gauss_point[1:]
+
+            # get b matrix and jacobian
+            b_mat, j = self.b_matrix_jacobian(iso_coords=iso_coords)
 
             # calculate stiffness matrix for current integration point
             k_el += (
-                b_mat.transpose()
-                @ d_mat
-                @ b_mat
-                * gauss_point[0]
-                * j
-                * self.material.thickness
+                b_mat.transpose() @ d_mat @ b_mat * weight * j * self.material.thickness
             )
 
         return k_el
@@ -193,14 +179,23 @@ class FiniteElement:
         # calculate body force field
         b = np.array(acceleration_field) * self.material.density
 
-        # get Gauss points
-        gauss_points = self.gauss_points(n_points=self.int_points)
+        # get gauss points
+        if isinstance(self, TriangularElement):
+            gp_func = utils.gauss_points_triangle
+        else:
+            gp_func = utils.gauss_points_quad
+
+        gauss_points = gp_func(n_points=self.int_points)
 
         # loop through each gauss point
         for gauss_point in gauss_points:
+            # extract weight and isoparametric coordinates
+            weight = gauss_point[0]
+            iso_coords = gauss_point[1:]
+
             # get shape functions and jacobian
-            n = self.shape_functions(iso_coords=gauss_point[1:])
-            _, j = self.b_matrix_jacobian(iso_coords=gauss_point[1:])
+            n = self.shape_functions(iso_coords=iso_coords)
+            _, j = self.b_matrix_jacobian(iso_coords=iso_coords)
 
             # form shape function matrix
             n_mat = np.zeros((len(n) * 2, 2))
@@ -208,19 +203,19 @@ class FiniteElement:
             n_mat[1::2, 1] = n
 
             # calculate load vector for current integration point
-            f_el += n_mat @ b * gauss_point[0] * j * self.material.thickness
+            f_el += n_mat @ b * weight * j * self.material.thickness
 
         return f_el
 
-    def get_element_results(
+    def calculate_element_stresses(
         self,
         u: npt.NDArray[np.float64],
     ) -> ElementResults:
-        """Calculates various results for the finite element given nodal displacements.
+        r"""Calculates various results for the finite element given nodal displacements.
 
         Calculates the following:
 
-        - Stresses at nodes
+        - Stress components at the nodes ($\sigma_{xx}$, $\sigma_{yy}$, $\sigma_{xy}$).
         - TODO
 
         Args:
@@ -229,21 +224,38 @@ class FiniteElement:
         Returns:
             ``ElementResults`` object.
         """
-        # initialise stress results
-        sigs = np.zeros((self.num_nodes, 3))
-
         # get d_matrix
         d_mat = self.material.get_d_matrix()
 
-        # get isoparametric coordinates at nodes
-        iso_coords = self.nodal_isoparametric_coordinates()
+        # for triangular elements, calculate stresses directly at the nodes
+        # for quadrilateral elements, calculate stresses at gauss points, then
+        # extrapolate to nodes
+        if isinstance(self, TriangularElement):
+            # initialise nodal points stress results
+            sigs_points = np.zeros((self.num_nodes, 3))
 
-        # loop through each node
-        for idx, coords in enumerate(iso_coords):
-            b_mat, _ = self.b_matrix_jacobian(iso_coords=coords)
+            # get locations of nodes in isoparametric coordinates
+            points = self.nodal_isoparametric_coordinates()
+        else:
+            # initialise gauss points stress results
+            sigs_points = np.zeros((self.int_points, 3))
 
-            # calculate stress at node
-            sigs[idx, :] = d_mat @ b_mat @ u
+            # get locations of gauss points in isoparametric coordinates
+            points = utils.gauss_points_quad(n_points=self.int_points)[1:]
+
+        # loop through each point to calculate the stress
+        for idx, iso_coords in enumerate(points):
+            # get b matrix
+            b_mat, _ = self.b_matrix_jacobian(iso_coords=iso_coords)
+
+            # calculate stress
+            sigs_points[idx, :] = d_mat @ b_mat @ u
+
+        # if quadrilaterals, extrapolate to nodes
+        if isinstance(self, QuadrilateralElement):
+            sigs = self.extrapolate_gauss_points_to_nodes() @ sigs_points
+        else:
+            sigs = sigs_points
 
         return ElementResults(
             el_idx=self.el_idx,
@@ -288,7 +300,7 @@ class TriangularElement(FiniteElement):
         num_nodes: int,
         int_points: int,
     ) -> None:
-        """Inits the FiniteElement class.
+        """Inits the TriangularElement class.
 
         Args:
             el_idx: Element index.
@@ -314,74 +326,11 @@ class TriangularElement(FiniteElement):
             int_points=int_points,
         )
 
-    def gauss_points(
-        self,
-        n_points: int,
-    ) -> npt.NDArray[np.float64]:
-        """Gaussian weights and locations for ``n_point`` Gaussian integration.
-
-        Args:
-            n_points: Number of gauss points.
-
-        Raises:
-            ValueError: If ``n_points`` is not 1, 3, 4 or 6.
-
-        Returns:
-            Gaussian weights and locations. For each gauss point -
-            ``[weight, eta, xi, zeta]``.
-        """
-        # one point gaussian integration
-        if n_points == 1:
-            return np.array([[1.0, 1.0 / 3, 1.0 / 3, 1.0 / 3]])
-
-        # three point gaussian integration
-        if n_points == 3:
-            return np.array(
-                [
-                    [1.0 / 3, 2.0 / 3, 1.0 / 6, 1.0 / 6],
-                    [1.0 / 3, 1.0 / 6, 2.0 / 3, 1.0 / 6],
-                    [1.0 / 3, 1.0 / 6, 1.0 / 6, 2.0 / 3],
-                ]
-            )
-
-        # four-point integration
-        if n_points == 4:
-            return np.array(
-                [
-                    [-27.0 / 48.0, 1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0],
-                    [25.0 / 48.0, 0.6, 0.2, 0.2],
-                    [25.0 / 48.0, 0.2, 0.6, 0.2],
-                    [25.0 / 48.0, 0.2, 0.2, 0.6],
-                ]
-            )
-
-        # six point gaussian integration
-        if n_points == 6:
-            g1 = 1.0 / 18 * (8 - np.sqrt(10) + np.sqrt(38 - 44 * np.sqrt(2.0 / 5)))
-            g2 = 1.0 / 18 * (8 - np.sqrt(10) - np.sqrt(38 - 44 * np.sqrt(2.0 / 5)))
-            w1 = (620 + np.sqrt(213125 - 53320 * np.sqrt(10))) / 3720
-            w2 = (620 - np.sqrt(213125 - 53320 * np.sqrt(10))) / 3720
-
-            return np.array(
-                [
-                    [w2, 1 - 2 * g2, g2, g2],
-                    [w2, g2, 1 - 2 * g2, g2],
-                    [w2, g2, g2, 1 - 2 * g2],
-                    [w1, g1, g1, 1 - 2 * g1],
-                    [w1, 1 - 2 * g1, g1, g1],
-                    [w1, g1, 1 - 2 * g1, g1],
-                ]
-            )
-
-        raise ValueError(
-            f"'n_points' must be 1, 3, 4 or 6 for a {self.__class__.__name__} element."
-        )
-
     def b_matrix_jacobian(
         self,
         iso_coords: tuple[float, float, float],
     ) -> tuple[npt.NDArray[np.float64], float]:
-        """Calculates the B matrix and jacobian at an isoparametric point.
+        """Calculates the B matrix and jacobian at an isoparametric point (Tri).
 
         Args:
             iso_coords: Location of the point in isoparametric coordinates.
@@ -393,7 +342,6 @@ class TriangularElement(FiniteElement):
             Derivatives of the shape function (B matrix) and value of the jacobian,
             (``b_mat``, ``j``).
         """
-        # TODO - is this general for rectangular as well? probably not... iso_coords
         # get the b matrix wrt. the isoparametric coordinates
         b_iso = self.shape_functions_derivatives(iso_coords=iso_coords)
 
@@ -496,10 +444,10 @@ class Tri3(TriangularElement):
             The values of the shape functions ``[N1, N2, N3]``.
         """
         # location of isoparametric coordinates
-        eta, xi, zeta = iso_coords
+        zeta1, zeta2, zeta3 = iso_coords
 
         # for a Tri3, the shape functions are the isoparametric coordinates
-        return np.array([eta, xi, zeta])
+        return np.array([zeta1, zeta2, zeta3])
 
     @staticmethod
     def shape_functions_derivatives(
@@ -516,9 +464,9 @@ class Tri3(TriangularElement):
         # derivatives of the shape functions wrt the isoparametric coordinates
         return np.array(
             [
-                [1.0, 0.0, 0.0],  # d/d(eta)
-                [0.0, 1.0, 0.0],  # d/d(xi)
-                [0.0, 0.0, 1.0],  # d/d(zeta)
+                [1.0, 0.0, 0.0],  # d/d(zeta1)
+                [0.0, 1.0, 0.0],  # d/d(zeta2)
+                [0.0, 0.0, 1.0],  # d/d(zeta3)
             ]
         )
 
@@ -601,17 +549,17 @@ class Tri6(TriangularElement):
             The values of the shape functions ``[N1, N2, N3, N4, N5, N6]``.
         """
         # location of isoparametric cooordinates
-        eta, xi, zeta = iso_coords
+        zeta1, zeta2, zeta3 = iso_coords
 
         # generate the shape functions for a Tri6 element
         return np.array(
             [
-                eta * (2.0 * eta - 1.0),
-                xi * (2.0 * xi - 1.0),
-                zeta * (2.0 * zeta - 1.0),
-                4.0 * eta * xi,
-                4.0 * xi * zeta,
-                4.0 * eta * zeta,
+                zeta1 * (2.0 * zeta1 - 1.0),
+                zeta2 * (2.0 * zeta2 - 1.0),
+                zeta3 * (2.0 * zeta3 - 1.0),
+                4.0 * zeta1 * zeta2,
+                4.0 * zeta2 * zeta3,
+                4.0 * zeta1 * zeta3,
             ],
         )
 
@@ -628,14 +576,17 @@ class Tri6(TriangularElement):
             The partial derivatives of the shape functions.
         """
         # location of isoparametric coordinates
-        eta, xi, zeta = iso_coords
+        zeta1, zeta2, zeta3 = iso_coords
 
         # derivatives of the shape functions wrt the isoparametric cooordinates
         return np.array(
             [
-                [4.0 * eta - 1.0, 0.0, 0.0, 4.0 * xi, 0.0, 4.0 * zeta],  # d/d(eta)
-                [0.0, 4.0 * xi - 1.0, 0.0, 4.0 * eta, 4.0 * zeta, 0.0],  # d/d(xi)
-                [0.0, 0.0, 4.0 * zeta - 1.0, 0.0, 4.0 * xi, 4.0 * eta],  # d/d(zeta)
+                # d/d(zeta1)
+                [4.0 * zeta1 - 1.0, 0.0, 0.0, 4.0 * zeta2, 0.0, 4.0 * zeta3],
+                # d/d(zeta2)
+                [0.0, 4.0 * zeta2 - 1.0, 0.0, 4.0 * zeta1, 4.0 * zeta3, 0.0],
+                # d/d(zeta3)
+                [0.0, 0.0, 4.0 * zeta3 - 1.0, 0.0, 4.0 * zeta2, 4.0 * zeta1],
             ],
         )
 
@@ -671,10 +622,250 @@ class Tri6(TriangularElement):
         ]
 
 
-class RectangularElement:
-    """Abstract base class for a rectangular plane-stress finite element."""
+class QuadrilateralElement(FiniteElement):
+    """Abstract base class for a quadrilateral plane-stress finite element."""
 
-    pass
+    def __init__(
+        self,
+        el_idx: int,
+        el_tag: int,
+        coords: npt.NDArray[np.float64],
+        node_idxs: list[int],
+        material: Material,
+        orientation: bool,
+        num_nodes: int,
+        int_points: int,
+    ) -> None:
+        """Inits the QuadrilateralElement class.
+
+        Args:
+            el_idx: Element index.
+            el_tag: Element mesh tag.
+            coords: A :class:`numpy.ndarray` of coordinates defining the element, e.g.
+                ``[[x1, x2, x3, x4], [y1, y2, y3, y4]]``.
+            node_idxs: List of node indexes defining the element, e.g.
+                ``[idx1, idx2, idx3, idx4]``.
+            material: Material of the element.
+            orientation: If ``True`` the element is oriented correctly, if ``False`` the
+                element's nodes will need reordering.
+            num_nodes: Number of nodes in the finite element.
+            int_points: Number of integration points used for the finite element.
+        """
+        super().__init__(
+            el_idx=el_idx,
+            el_tag=el_tag,
+            coords=coords,
+            node_idxs=node_idxs,
+            material=material,
+            orientation=orientation,
+            num_nodes=num_nodes,
+            int_points=int_points,
+        )
+
+    def b_matrix_jacobian(
+        self,
+        iso_coords: tuple[float, float],
+    ) -> tuple[npt.NDArray[np.float64], float]:
+        """Calculates the B matrix and jacobian at an isoparametric point (Quad).
+
+        Args:
+            iso_coords: Location of the point in isoparametric coordinates.
+
+        Raises:
+            RuntimeError: If the jacobian is less than zero.
+
+        Returns:
+            Derivatives of the shape function (B matrix) and value of the jacobian,
+            (``b_mat``, ``j``).
+        """
+        # get the b matrix wrt. the isoparametric coordinates
+        b_iso = self.shape_functions_derivatives(iso_coords=iso_coords)
+
+        # form Jacobian matrix
+        j = b_iso @ self.coords.transpose()
+
+        # calculate the jacobian
+        jacobian = np.linalg.det(j)
+
+        # if the area of the element is not zero
+        if jacobian != 0:
+            b_mat = np.linalg.solve(j, b_iso)
+        else:
+            b_mat = np.zeros((2, self.num_nodes))  # empty b matrix
+
+        # check sign of jacobian
+        if jacobian < 0:
+            raise RuntimeError(
+                f"Jacobian of element {self.el_idx} is less than zero ({jacobian:.2f})."
+            )
+
+        # form plane stress b matrix
+        b_mat_ps = np.zeros((3, 2 * self.num_nodes))
+
+        # fill first two rows with first two rows of b matrix
+        # first row - every second entry starting with first
+        # second row - every second entry starting with second
+        for i in range(2):
+            b_mat_ps[i, i::2] = b_mat[i, :]
+
+        # last row:
+        # fill every second entry (starting with the first) from second row of b matrix
+        b_mat_ps[2, ::2] = b_mat[1, :]
+        # fill every second entry (starting with the second) from first row of b matrix
+        b_mat_ps[2, 1::2] = b_mat[0, :]
+
+        return b_mat_ps, jacobian
+
+    def get_polygon_coordinates(self) -> tuple[list[int], npt.NDArray[np.float64]]:
+        """Returns a list of coordinates and indexes that define the element exterior.
+
+        Returns:
+            List of node indexes and exterior coordinates
+        """
+        return self.node_idxs[0:4], self.coords[:, 0:4]
+
+
+class Quad4(QuadrilateralElement):
+    """Class for a four-noded linear quadrilateral element."""
+
+    def __init__(
+        self,
+        el_idx: int,
+        el_tag: int,
+        coords: npt.NDArray[np.float64],
+        node_idxs: list[int],
+        material: Material,
+        orientation: bool,
+    ) -> None:
+        """Inits the Quad4 class.
+
+        Args:
+            el_idx: Element index.
+            el_tag: Element mesh tag.
+            coords: A ``2 x 4`` :class:`numpy.ndarray` of coordinates defining the
+                element, i.e. ``[[x1, x2, x3, x4], [y1, y2, y3, y4]]``.
+            node_idxs: A list of node indexes defining the element, i.e.
+                ``[idx1, idx2, idx3, idx4]``.
+            material: Material of the element.
+            orientation: If ``True`` the element is oriented correctly, if ``False`` the
+                element's nodes will need reordering.
+        """
+        # reorient node indexes and coords if required
+        if not orientation:
+            node_idxs[1], node_idxs[3] = node_idxs[3], node_idxs[1]
+            coords[:, [1, 3]] = coords[:, [3, 1]]
+
+        super().__init__(
+            el_idx=el_idx,
+            el_tag=el_tag,
+            coords=coords,
+            node_idxs=node_idxs,
+            material=material,
+            orientation=orientation,
+            num_nodes=4,
+            int_points=2,
+        )
+
+    @staticmethod
+    def shape_functions(iso_coords: tuple[float, float]) -> npt.NDArray[np.float64]:
+        """Returns the shape functions at a point for a Quad4 element.
+
+        Args:
+            iso_coords: Location of the point in isoparametric coordinates.
+
+        Returns:
+            The values of the shape functions ``[N1, N2, N3, N4]``.
+        """
+        # location of isoparametric coordinates
+        xi, eta = iso_coords
+
+        # for a Tri3, the shape functions are the isoparametric coordinates
+        return np.array(
+            [
+                0.25 * (1 - xi) * (1 - eta),
+                0.25 * (1 + xi) * (1 - eta),
+                0.25 * (1 + xi) * (1 + eta),
+                0.25 * (1 - xi) * (1 + eta),
+            ]
+        )
+
+    @staticmethod
+    def shape_functions_derivatives(
+        iso_coords: tuple[float, float]
+    ) -> npt.NDArray[np.float64]:
+        """Returns the derivatives of the shape functions at a pt for a Quad4 element.
+
+        Args:
+            iso_coords: Location of the point in isoparametric coordinates.
+
+        Returns:
+            The partial derivatives of the shape functions.
+        """
+        # location of isoparametric coordinates
+        xi, eta = iso_coords
+
+        # derivatives of the shape functions wrt the isoparametric coordinates
+        return np.array(
+            [
+                # d/d(xi)
+                [
+                    0.25 * (eta - 1),
+                    0.25 * (1 - eta),
+                    0.25 * (1 + eta),
+                    -0.25 * (1 + eta),
+                ],
+                # d/d(eta)
+                [
+                    0.25 * (xi - 1),
+                    -0.25 * (1 + xi),
+                    0.25 * (1 + xi),
+                    0.25 * (1 - xi),
+                ],
+            ]
+        )
+
+    @staticmethod
+    def nodal_isoparametric_coordinates() -> npt.NDArray[np.float64]:
+        """Returns the values of the isoparametric coordinates at the nodes.
+
+        Returns:
+            Values of the isoparametric coordinates at the nodes.
+        """
+        return np.array(
+            [
+                [-1.0, -1.0],  # node 1
+                [1.0, -1.0],  # node 2
+                [1.0, 1.0],  # node 3
+                [-1.0, 1.0],  # node 4
+            ]
+        )
+
+    @staticmethod
+    def extrapolate_gauss_points_to_nodes() -> npt.NDArray[np.float64]:
+        """Returns the extrapolation matrix for a Quad4 element.
+
+        Returns:
+            Extrapolation matrix.
+        """
+        return np.array(
+            [
+                [1 + 0.5 * np.sqrt(3), -0.5, 1 - 0.5 * np.sqrt(3), -0.5],
+                [-0.5, 1 + 0.5 * np.sqrt(3), -0.5, 1 - 0.5 * np.sqrt(3)],
+                [1 - 0.5 * np.sqrt(3), -0.5, 1 + 0.5 * np.sqrt(3), -0.5],
+                [-0.5, 1 - 0.5 * np.sqrt(3), -0.5, 1 + 0.5 * np.sqrt(3)],
+            ]
+        )
+
+    def get_triangulation(self) -> list[tuple[int, int, int]]:
+        """Returns a list of triangle indices for a Quad4 element.
+
+        Returns:
+            List of triangle indices.
+        """
+        return [
+            (self.node_idxs[0], self.node_idxs[1], self.node_idxs[2]),
+            (self.node_idxs[0], self.node_idxs[2], self.node_idxs[3]),
+        ]
 
 
 class LineElement:
@@ -719,38 +910,6 @@ class LineElement:
             f"tag: {self.line_tag}."
         )
 
-    def gauss_points(
-        self,
-        n_points: int,
-    ) -> npt.NDArray[np.float64]:
-        """Gaussian weights and locations for ``n_point`` Gaussian integration.
-
-        Args:
-            n_points: Number of gauss points.
-
-        Raises:
-            ValueError: If ``n_points`` is not 1 or 2.
-
-        Returns:
-            Gaussian weights and location. For each gauss point - ``[weight, eta]``.
-        """
-        # one point gaussian integration
-        if n_points == 1:
-            return np.array([[2.0, 0.0]])
-
-        # two point gaussian integration
-        if n_points == 2:
-            return np.array(
-                [
-                    [1.0, -1.0 / np.sqrt(3)],
-                    [1.0, 1.0 / np.sqrt(3)],
-                ]
-            )
-
-        raise ValueError(
-            f"'n_points' must be 1, or 2 for a {self.__class__.__name__} element."
-        )
-
     def shape_functions_jacobian(
         self,
         iso_coord: list[float],
@@ -784,16 +943,16 @@ class LineElement:
 
         # create applied force vector
         if direction == "x":
-            b = np.array([1, 0])
+            b = np.array([1.0, 0.0])
         elif direction == "y":
-            b = np.array([0, 1])
+            b = np.array([0.0, 1.0])
         else:
-            b = np.array([1, 1])
+            b = np.array([1.0, 1.0])
 
         b *= value
 
-        # get Gauss points
-        gauss_points = self.gauss_points(n_points=self.int_points)
+        # get gauss points
+        gauss_points = utils.gauss_points_line(n_points=self.int_points)
 
         # loop through each gauss point
         for gauss_point in gauss_points:
@@ -852,8 +1011,8 @@ class LinearLine(LineElement):
         Returns:
             Shape functions and jacobian.
         """
-        eta = iso_coord[0]  # isoparametric coordinate
-        n = np.array([0.5 - 0.5 * eta, 0.5 + 0.5 * eta])  # shape functions
+        xi = iso_coord[0]  # isoparametric coordinate
+        n = np.array([0.5 - 0.5 * xi, 0.5 + 0.5 * xi])  # shape functions
         b_iso = np.array([-0.5, 0.5])  # derivative of shape functions
         j = b_iso @ self.coords.transpose()
         jacobian = np.sqrt(np.sum(j**2))
@@ -904,13 +1063,13 @@ class QuadraticLine(LineElement):
         Returns:
             Shape functions and jacobian.
         """
-        eta = iso_coord[0]  # isoparametric coordinate
+        xi = iso_coord[0]  # isoparametric coordinate
 
         # shape functions
-        n = np.array([-0.5 * eta * (1 - eta), 0.5 * eta * (1 + eta), 1 - eta**2])
+        n = np.array([-0.5 * xi * (1 - xi), 0.5 * xi * (1 + xi), 1 - xi**2])
 
         # derivative of shape functions
-        b_iso = np.array([eta - 0.5, eta + 0.5, -2 * eta])
+        b_iso = np.array([xi - 0.5, xi + 0.5, -2 * xi])
         j = b_iso @ self.coords.transpose()
         jacobian = np.sqrt(np.sum(j**2))
 
