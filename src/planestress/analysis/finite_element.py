@@ -116,8 +116,7 @@ class FiniteElement:
         """
         raise NotImplementedError
 
-    @staticmethod
-    def extrapolate_gauss_points_to_nodes() -> npt.NDArray[np.float64]:
+    def extrapolate_gauss_points_to_nodes(self) -> npt.NDArray[np.float64]:
         """Returns the extrapolation matrix for the element.
 
         Raises:
@@ -783,13 +782,13 @@ class Quad4(QuadrilateralElement):
         # location of isoparametric coordinates
         xi, eta, _ = iso_coords
 
-        # for a Tri3, the shape functions are the isoparametric coordinates
+        # generate the shape functions for a Quad4 element
         return np.array(
             [
-                0.25 * (1 - xi) * (1 - eta),
-                0.25 * (1 + xi) * (1 - eta),
-                0.25 * (1 + xi) * (1 + eta),
-                0.25 * (1 - xi) * (1 + eta),
+                0.25 * (1.0 - xi) * (1.0 - eta),
+                0.25 * (1.0 + xi) * (1.0 - eta),
+                0.25 * (1.0 + xi) * (1.0 + eta),
+                0.25 * (1.0 - xi) * (1.0 + eta),
             ]
         )
 
@@ -814,17 +813,17 @@ class Quad4(QuadrilateralElement):
             [
                 # d/d(xi)
                 [
-                    0.25 * (eta - 1),
-                    0.25 * (1 - eta),
-                    0.25 * (1 + eta),
-                    -0.25 * (1 + eta),
+                    0.25 * (eta - 1.0),
+                    0.25 * (1.0 - eta),
+                    0.25 * (1.0 + eta),
+                    -0.25 * (1.0 + eta),
                 ],
                 # d/d(eta)
                 [
-                    0.25 * (xi - 1),
-                    -0.25 * (1 + xi),
-                    0.25 * (1 + xi),
-                    0.25 * (1 - xi),
+                    0.25 * (xi - 1.0),
+                    -0.25 * (1.0 + xi),
+                    0.25 * (1.0 + xi),
+                    0.25 * (1.0 - xi),
                 ],
             ]
         )
@@ -845,8 +844,7 @@ class Quad4(QuadrilateralElement):
             ]
         )
 
-    @staticmethod
-    def extrapolate_gauss_points_to_nodes() -> npt.NDArray[np.float64]:
+    def extrapolate_gauss_points_to_nodes(self) -> npt.NDArray[np.float64]:
         """Returns the extrapolation matrix for a Quad4 element.
 
         Returns:
@@ -854,10 +852,10 @@ class Quad4(QuadrilateralElement):
         """
         return np.array(
             [
-                [1 + 0.5 * np.sqrt(3), -0.5, 1 - 0.5 * np.sqrt(3), -0.5],
-                [-0.5, 1 + 0.5 * np.sqrt(3), -0.5, 1 - 0.5 * np.sqrt(3)],
-                [1 - 0.5 * np.sqrt(3), -0.5, 1 + 0.5 * np.sqrt(3), -0.5],
-                [-0.5, 1 - 0.5 * np.sqrt(3), -0.5, 1 + 0.5 * np.sqrt(3)],
+                [1.0 + 0.5 * np.sqrt(3), -0.5, 1.0 - 0.5 * np.sqrt(3), -0.5],
+                [-0.5, 1.0 + 0.5 * np.sqrt(3), -0.5, 1.0 - 0.5 * np.sqrt(3)],
+                [1.0 - 0.5 * np.sqrt(3), -0.5, 1.0 + 0.5 * np.sqrt(3), -0.5],
+                [-0.5, 1.0 - 0.5 * np.sqrt(3), -0.5, 1.0 + 0.5 * np.sqrt(3)],
             ]
         )
 
@@ -870,6 +868,365 @@ class Quad4(QuadrilateralElement):
         return [
             (self.node_idxs[0], self.node_idxs[1], self.node_idxs[2]),
             (self.node_idxs[0], self.node_idxs[2], self.node_idxs[3]),
+        ]
+
+
+class Quad8(QuadrilateralElement):
+    """Class for an eight-noded quadratic quadrilateral element."""
+
+    def __init__(
+        self,
+        el_idx: int,
+        el_tag: int,
+        coords: npt.NDArray[np.float64],
+        node_idxs: list[int],
+        material: Material,
+        orientation: bool,
+    ) -> None:
+        """Inits the Quad8 class.
+
+        Args:
+            el_idx: Element index.
+            el_tag: Element mesh tag.
+            coords: A ``2 x 9`` :class:`numpy.ndarray` of coordinates defining the
+                element, i.e. ``[[x1, x2, ..., x8], [y1, y2, ..., y8]]``.
+            node_idxs: A list of node indexes defining the element, i.e.
+                ``[idx1, idx2, ..., idx8]``.
+            material: Material of the element.
+            orientation: If ``True`` the element is oriented correctly, if ``False`` the
+                element's nodes will need reordering.
+        """
+        # reorient node indexes and coords if required
+        if not orientation:
+            node_idxs[1], node_idxs[3] = node_idxs[3], node_idxs[1]
+            node_idxs[4], node_idxs[7] = node_idxs[7], node_idxs[4]
+            node_idxs[5], node_idxs[6] = node_idxs[6], node_idxs[5]
+            coords[:, [1, 3, 4, 7, 5, 6]] = coords[:, [3, 1, 7, 4, 6, 5]]
+
+        super().__init__(
+            el_idx=el_idx,
+            el_tag=el_tag,
+            coords=coords,
+            node_idxs=node_idxs,
+            material=material,
+            orientation=orientation,
+            num_nodes=8,
+            int_points=3,
+        )
+
+    @staticmethod
+    def shape_functions(
+        iso_coords: tuple[float, float, float]
+    ) -> npt.NDArray[np.float64]:
+        """Returns the shape functions at a point for a Quad8 element.
+
+        Args:
+            iso_coords: Location of the point in isoparametric coordinates (note last
+                value is ignored).
+
+        Returns:
+            The values of the shape functions ``[N1, N2, ..., N8]``.
+        """
+        # location of isoparametric coordinates
+        xi, eta, _ = iso_coords
+
+        # generate the shape functions for a Quad8 element
+        return np.array(
+            [
+                -0.25 * (1.0 - xi) * (1.0 - eta) * (1.0 + xi + eta),
+                -0.25 * (1.0 + xi) * (1.0 - eta) * (1.0 - xi + eta),
+                -0.25 * (1.0 + xi) * (1.0 + eta) * (1.0 - xi - eta),
+                -0.25 * (1.0 - xi) * (1.0 + eta) * (1.0 + xi - eta),
+                0.5 * (1.0 - xi**2) * (1.0 - eta),
+                0.5 * (1.0 + xi) * (1.0 - eta**2),
+                0.5 * (1.0 - xi**2) * (1.0 + eta),
+                0.5 * (1.0 - xi) * (1.0 - eta**2),
+            ]
+        )
+
+    @staticmethod
+    def shape_functions_derivatives(
+        iso_coords: tuple[float, float, float]
+    ) -> npt.NDArray[np.float64]:
+        """Returns the derivatives of the shape functions at a pt for a Quad8 element.
+
+        Args:
+            iso_coords: Location of the point in isoparametric coordinates (note last
+                value is ignored).
+
+        Returns:
+            The partial derivatives of the shape functions.
+        """
+        # location of isoparametric coordinates
+        xi, eta, _ = iso_coords
+
+        # derivatives of the shape functions wrt the isoparametric coordinates
+        return np.array(
+            [
+                # d/d(xi)
+                [
+                    eta * (0.25 - 0.5 * xi) - 0.25 * eta**2 + 0.5 * xi,
+                    0.25 * eta**2 + eta * (-0.5 * xi - 0.25) + 0.5 * xi,
+                    0.25 * eta**2 + eta * (0.5 * xi + 0.25) + 0.5 * xi,
+                    -0.25 * eta**2 + eta * (0.5 * xi - 0.25) + 0.5 * xi,
+                    (eta - 1.0) * xi,
+                    0.5 - 0.5 * eta**2,
+                    -1.0 * (eta + 1.0) * xi,
+                    0.5 * eta**2 - 0.5,
+                ],
+                # d/d(eta)
+                [
+                    eta * (0.5 - 0.5 * xi) - 0.25 * xi**2 + 0.25 * xi,
+                    eta * (0.5 * xi + 0.5) - 0.25 * xi**2 - 0.25 * xi,
+                    eta * (0.5 * xi + 0.5) + 0.25 * xi**2 + 0.25 * xi,
+                    eta * (0.5 - 0.5 * xi) + 0.25 * xi**2 - 0.25 * xi,
+                    0.5 * xi**2 - 0.5,
+                    -eta * (xi + 1.0),
+                    0.5 - 0.5 * xi**2,
+                    eta * (xi - 1.0),
+                ],
+            ]
+        )
+
+    @staticmethod
+    def nodal_isoparametric_coordinates() -> npt.NDArray[np.float64]:
+        """Returns the values of the isoparametric coordinates at the nodes.
+
+        Returns:
+            Values of the isoparametric coordinates at the nodes.
+        """
+        return np.array(
+            [
+                [-1.0, -1.0],  # node 1
+                [1.0, -1.0],  # node 2
+                [1.0, 1.0],  # node 3
+                [-1.0, 1.0],  # node 4
+                [0.0, -1.0],  # node 5
+                [1.0, 0.0],  # node 6
+                [0.0, 1.0],  # node 7
+                [-1.0, 0.0],  # node 8
+            ]
+        )
+
+    def extrapolate_gauss_points_to_nodes(self) -> npt.NDArray[np.float64]:
+        """Returns the extrapolation matrix for a Quad8 element.
+
+        Returns:
+            Extrapolation matrix.
+        """
+        # get isoparametric coordinates of gauss element at acutal element nodes
+        gauss_iso_coords = (
+            np.array(self.nodal_isoparametric_coordinates()) * np.sqrt(15.0) / 3.0
+        )
+
+        # initialise extrapolation matrix
+        ex_mat = np.zeros((self.num_nodes, self.int_points**2))
+
+        # build extrapolation matrix
+        for idx, gic in enumerate(gauss_iso_coords):
+            iso_coords = gic[0], gic[1], 0.0  # create iso_coords tuple
+
+            # evaluate shape function at guassian element iso coords
+            # note shape functions of the gaussian element are for a Quad9 element
+            ex_mat[idx, :] = Quad9.shape_functions(iso_coords=iso_coords)
+
+        return ex_mat
+
+    def get_triangulation(self) -> list[tuple[int, int, int]]:
+        """Returns a list of triangle indices for a Quad8 element.
+
+        Returns:
+            List of triangle indices.
+        """
+        return [
+            (self.node_idxs[0], self.node_idxs[4], self.node_idxs[7]),
+            (self.node_idxs[4], self.node_idxs[1], self.node_idxs[5]),
+            (self.node_idxs[4], self.node_idxs[5], self.node_idxs[7]),
+            (self.node_idxs[5], self.node_idxs[2], self.node_idxs[6]),
+            (self.node_idxs[6], self.node_idxs[3], self.node_idxs[7]),
+            (self.node_idxs[7], self.node_idxs[5], self.node_idxs[6]),
+        ]
+
+
+class Quad9(QuadrilateralElement):
+    """Class for a nine-noded quadratic quadrilateral element."""
+
+    def __init__(
+        self,
+        el_idx: int,
+        el_tag: int,
+        coords: npt.NDArray[np.float64],
+        node_idxs: list[int],
+        material: Material,
+        orientation: bool,
+    ) -> None:
+        """Inits the Quad9 class.
+
+        Args:
+            el_idx: Element index.
+            el_tag: Element mesh tag.
+            coords: A ``2 x 9`` :class:`numpy.ndarray` of coordinates defining the
+                element, i.e. ``[[x1, x2, ..., x9], [y1, y2, ..., y9]]``.
+            node_idxs: A list of node indexes defining the element, i.e.
+                ``[idx1, idx2, ..., idx9]``.
+            material: Material of the element.
+            orientation: If ``True`` the element is oriented correctly, if ``False`` the
+                element's nodes will need reordering.
+        """
+        # reorient node indexes and coords if required
+        if not orientation:
+            node_idxs[1], node_idxs[3] = node_idxs[3], node_idxs[1]
+            node_idxs[4], node_idxs[7] = node_idxs[7], node_idxs[4]
+            node_idxs[5], node_idxs[6] = node_idxs[6], node_idxs[5]
+            coords[:, [1, 3, 4, 7, 5, 6]] = coords[:, [3, 1, 7, 4, 6, 5]]
+
+        super().__init__(
+            el_idx=el_idx,
+            el_tag=el_tag,
+            coords=coords,
+            node_idxs=node_idxs,
+            material=material,
+            orientation=orientation,
+            num_nodes=9,
+            int_points=3,
+        )
+
+    @staticmethod
+    def shape_functions(
+        iso_coords: tuple[float, float, float]
+    ) -> npt.NDArray[np.float64]:
+        """Returns the shape functions at a point for a Quad9 element.
+
+        Args:
+            iso_coords: Location of the point in isoparametric coordinates (note last
+                value is ignored).
+
+        Returns:
+            The values of the shape functions ``[N1, N2, ..., N9]``.
+        """
+        # location of isoparametric coordinates
+        xi, eta, _ = iso_coords
+
+        # generate the shape functions for a Quad9 element
+        return np.array(
+            [
+                0.25 * (1.0 - xi) * (1.0 - eta) * xi * eta,
+                -0.25 * (1.0 + xi) * (1.0 - eta) * xi * eta,
+                0.25 * (1.0 + xi) * (1.0 + eta) * xi * eta,
+                -0.25 * (1.0 - xi) * (1.0 + eta) * xi * eta,
+                -0.5 * (1.0 - xi**2) * (1.0 - eta) * eta,
+                0.5 * (1.0 + xi) * (1.0 - eta**2) * xi,
+                0.5 * (1.0 - xi**2) * (1.0 + eta) * eta,
+                -0.5 * (1.0 - xi) * (1.0 - eta**2) * xi,
+                (1.0 - xi**2) * (1.0 - eta**2),
+            ]
+        )
+
+    @staticmethod
+    def shape_functions_derivatives(
+        iso_coords: tuple[float, float, float]
+    ) -> npt.NDArray[np.float64]:
+        """Returns the derivatives of the shape functions at a pt for a Quad9 element.
+
+        Args:
+            iso_coords: Location of the point in isoparametric coordinates (note last
+                value is ignored).
+
+        Returns:
+            The partial derivatives of the shape functions.
+        """
+        # location of isoparametric coordinates
+        xi, eta, _ = iso_coords
+
+        # derivatives of the shape functions wrt the isoparametric coordinates
+        return np.array(
+            [
+                # d/d(xi)
+                [
+                    eta * (xi * (0.5 * eta - 0.5) - 0.25 * eta + 0.25),
+                    eta * (eta * (0.5 * xi + 0.25) - 0.5 * xi - 0.25),
+                    0.5 * eta * (eta + 1.0) * (xi + 0.5),
+                    0.5 * eta * (eta + 1.0) * (xi - 0.5),
+                    -1.0 * (eta - 1) * eta * xi,
+                    eta**2 * (-xi - 0.5) + xi + 0.5,
+                    -eta * (eta + 1.0) * xi,
+                    eta**2 * (0.5 - xi) + xi - 0.5,
+                    2.0 * (eta**2 - 1.0) * xi,
+                ],
+                # d/d(eta)
+                [
+                    xi * (eta * (0.5 * xi - 0.5) - 0.25 * xi + 0.25),
+                    0.5 * (eta - 0.5) * xi * (xi + 1.0),
+                    0.5 * (eta + 0.5) * xi * (xi + 1.0),
+                    xi * (eta * (0.5 * xi - 0.5) + 0.25 * xi - 0.25),
+                    eta * (1.0 - xi**2) + 0.5 * xi**2 - 0.5,
+                    -eta * xi * (xi + 1.0),
+                    eta * (1.0 - xi**2) - 0.5 * xi**2 + 0.5,
+                    -eta * (xi - 1.0) * xi,
+                    2.0 * eta * (xi**2 - 1.0),
+                ],
+            ]
+        )
+
+    @staticmethod
+    def nodal_isoparametric_coordinates() -> npt.NDArray[np.float64]:
+        """Returns the values of the isoparametric coordinates at the nodes.
+
+        Returns:
+            Values of the isoparametric coordinates at the nodes.
+        """
+        return np.array(
+            [
+                [-1.0, -1.0],  # node 1
+                [1.0, -1.0],  # node 2
+                [1.0, 1.0],  # node 3
+                [-1.0, 1.0],  # node 4
+                [0.0, -1.0],  # node 5
+                [1.0, 0.0],  # node 6
+                [0.0, 1.0],  # node 7
+                [-1.0, 0.0],  # node 8
+                [0.0, 0.0],  # node 9
+            ]
+        )
+
+    def extrapolate_gauss_points_to_nodes(self) -> npt.NDArray[np.float64]:
+        """Returns the extrapolation matrix for a Quad9 element.
+
+        Returns:
+            Extrapolation matrix.
+        """
+        # get isoparametric coordinates of gauss element at acutal element nodes
+        gauss_iso_coords = (
+            np.array(self.nodal_isoparametric_coordinates()) * np.sqrt(15.0) / 3.0
+        )
+
+        # initialise extrapolation matrix
+        ex_mat = np.zeros((self.num_nodes, self.num_nodes))
+
+        # build extrapolation matrix
+        for idx, gic in enumerate(gauss_iso_coords):
+            iso_coords = gic[0], gic[1], 0.0  # create iso_coords tuple
+
+            # evaluate shape function at guassian element iso coords
+            ex_mat[idx, :] = self.shape_functions(iso_coords=iso_coords)
+
+        return ex_mat
+
+    def get_triangulation(self) -> list[tuple[int, int, int]]:
+        """Returns a list of triangle indices for a Quad9 element.
+
+        Returns:
+            List of triangle indices.
+        """
+        return [
+            (self.node_idxs[0], self.node_idxs[4], self.node_idxs[8]),
+            (self.node_idxs[4], self.node_idxs[1], self.node_idxs[8]),
+            (self.node_idxs[1], self.node_idxs[5], self.node_idxs[8]),
+            (self.node_idxs[5], self.node_idxs[2], self.node_idxs[8]),
+            (self.node_idxs[2], self.node_idxs[6], self.node_idxs[8]),
+            (self.node_idxs[6], self.node_idxs[3], self.node_idxs[8]),
+            (self.node_idxs[3], self.node_idxs[7], self.node_idxs[8]),
+            (self.node_idxs[7], self.node_idxs[0], self.node_idxs[8]),
         ]
 
 

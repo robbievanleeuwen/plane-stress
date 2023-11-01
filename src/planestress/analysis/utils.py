@@ -121,19 +121,19 @@ def gauss_points_quad(n_points: int) -> npt.NDArray[np.float64]:
             ]
         )
 
-    # three point gaussian integration - TODO: ordering consistency!!
+    # three point gaussian integration
     if n_points == 3:
         return np.array(
             [
                 [25.0 / 81.0, -np.sqrt(3.0 / 5.0), -np.sqrt(3.0 / 5.0), 0.0],
-                [40.0 / 81.0, -np.sqrt(3.0 / 5.0), 0.0, 0.0],
+                [25.0 / 81.0, np.sqrt(3.0 / 5.0), -np.sqrt(3.0 / 5.0), 0.0],
+                [25.0 / 81.0, np.sqrt(3.0 / 5.0), np.sqrt(3.0 / 5.0), 0.0],
                 [25.0 / 81.0, -np.sqrt(3.0 / 5.0), np.sqrt(3.0 / 5.0), 0.0],
                 [40.0 / 81.0, 0.0, -np.sqrt(3.0 / 5.0), 0.0],
-                [64.0 / 81.0, 0.0, 0.0, 0.0],
-                [40.0 / 81.0, 0.0, np.sqrt(3.0 / 5.0), 0.0],
-                [25.0 / 81.0, np.sqrt(3.0 / 5.0), -np.sqrt(3.0 / 5.0), 0.0],
                 [40.0 / 81.0, np.sqrt(3.0 / 5.0), 0.0, 0.0],
-                [25.0 / 81.0, np.sqrt(3.0 / 5.0), np.sqrt(3.0 / 5.0), 0.0],
+                [40.0 / 81.0, 0.0, np.sqrt(3.0 / 5.0), 0.0],
+                [40.0 / 81.0, -np.sqrt(3.0 / 5.0), 0.0, 0.0],
+                [64.0 / 81.0, 0.0, 0.0, 0.0],
             ]
         )
 

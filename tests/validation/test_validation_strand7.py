@@ -51,7 +51,7 @@ def test_vls8():
     pass
 
 
-@pytest.mark.parametrize("el_type", ["Quad4", "Tri6"])
+@pytest.mark.parametrize("el_type", ["Quad4", "Tri6", "Quad8", "Quad9"])
 def test_vls9(el_type):
     """VLS9: Circular Membrane - Point Load.
 
@@ -99,6 +99,18 @@ def test_vls9(el_type):
         )
     elif el_type == "Tri6":
         geom.create_mesh(mesh_sizes=1000.0, mesh_order=2)
+    elif el_type == "Quad8":
+        geom.create_mesh(
+            mesh_sizes=1000.0,
+            quad_mesh=True,
+            mesh_order=2,
+            serendipity=True,
+            mesh_algorithm=11,
+        )
+    elif el_type == "Quad9":
+        geom.create_mesh(
+            mesh_sizes=1000.0, quad_mesh=True, mesh_order=2, mesh_algorithm=11
+        )
     else:
         raise ValueError(f"{el_type} element not supported for this test.")
 

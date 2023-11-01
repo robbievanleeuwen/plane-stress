@@ -902,6 +902,7 @@ class Geometry:
         mesh_sizes: float | list[float] = 0.0,
         quad_mesh: bool = False,
         mesh_order: int = 1,
+        serendipity: bool = False,
         mesh_algorithm: int = 6,
         subdivision_algorithm: int = 0,
     ) -> None:
@@ -916,6 +917,9 @@ class Geometry:
                 quadrilaterals. Defaults to ``False``.
             mesh_order: Order of the mesh, ``1`` - linear or ``2`` - quadratic. Defaults
                 to ``1``.
+            serendipity: If set to ``True``, creates serendipity elements for
+                quadrilateral meshes, i.e. creates ``"Quad8"`` elements instead of
+                ``"Quad9"`` elements. Defaults to ``False``.
             mesh_algorithm: Gmsh meshing algorithm, see below for more details. Defaults
                 to ``6``.
             subdivision_algorithm: Gmsh subdivision algorithm, see below for more
@@ -925,11 +929,11 @@ class Geometry:
             ValueError: If the length of ``mesh_sizes`` does not equal the number of
                 polygons, or is not a float/list of length 1.
 
-        .. admonition: ``mesh_algorithm``
+        .. admonition:: ``mesh_algorithm``
 
             TODO - information about meshing algorithm.
 
-        .. admonition: ``subdivision_algorithm``
+        .. admonition:: ``subdivision_algorithm``
 
             TODO - information about subdivision algorithm.
         """
@@ -955,6 +959,7 @@ class Geometry:
             mesh_sizes=mesh_sizes,
             quad_mesh=quad_mesh,
             mesh_order=mesh_order,
+            serendipity=serendipity,
             mesh_algorithm=mesh_algorithm,
             subdivision_algorithm=subdivision_algorithm,
         )

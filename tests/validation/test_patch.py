@@ -28,7 +28,8 @@ def unit_square() -> Callable:
 
         Args:
             lc: Characterisic mesh length.
-            element_type: Element type, can be ``"Tri3"``, ``"Tri6"`` or ``"Quad4"``.
+            element_type: Element type, can be ``"Tri3"``, ``"Tri6"``, ``"Quad4"``,
+                ``"Quad8"`` or ``"Quad9"``.
 
         Returns:
             Plane stress object.
@@ -47,13 +48,25 @@ def unit_square() -> Callable:
             geom.create_mesh(
                 mesh_sizes=lc, quad_mesh=True, mesh_order=1, mesh_algorithm=8
             )
+        elif element_type == "Quad8":
+            geom.create_mesh(
+                mesh_sizes=lc,
+                quad_mesh=True,
+                mesh_order=2,
+                serendipity=True,
+                mesh_algorithm=8,
+            )
+        elif element_type == "Quad9":
+            geom.create_mesh(
+                mesh_sizes=lc, quad_mesh=True, mesh_order=2, mesh_algorithm=8
+            )
 
         return PlaneStress(geom, [load_case])
 
     return _generate
 
 
-@pytest.mark.parametrize("el_type", ["Tri3", "Tri6", "Quad4"])
+@pytest.mark.parametrize("el_type", ["Tri3", "Tri6", "Quad4", "Quad8", "Quad9"])
 @pytest.mark.parametrize("lc", [1, 0.1, 0.05])
 def test_unit_square_tensile(unit_square, lc, el_type):
     """A patch test with a unit square under a unit tensile load."""

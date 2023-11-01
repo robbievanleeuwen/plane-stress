@@ -3,20 +3,19 @@
 ## Pre-processor
 
 - Plot BCs
+- Don't create BCs from Geometry object
+- Some kind of info if points/lines are not found for BCs?
 - Meshing options
-  - Serendipity "Mesh.SecondOrderIncomplete"
   - Fields
   - Add option to force nodes and lines into the mesh see
     https://deltares.github.io/pandamesh/api/gmsh.html
+  - Get mesh statistics
 - Testing overlapping facets, other testing? (see deltares pandamesh)
 - Persistent load case
 - Node(?) & line load normal to curves
 
 ## Analysis
 
-- Add elements
-  - Quad8
-  - Quad9
 - Improve solver method
 - All round performance improvements
 - Add validation tests
