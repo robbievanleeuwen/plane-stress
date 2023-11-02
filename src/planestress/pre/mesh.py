@@ -503,6 +503,10 @@ class Mesh:
         The acceptable tolerance is taken to be 1% of the minimum dimension of the
         bounding box.
 
+        Args:
+            point1: Location of point 1 (``x``, ``y``).
+            point2: Location of point 2 (``x``, ``y``).
+
         Returns:
             ``True`` if point 1 is relatively close to point 2.
         """
@@ -918,7 +922,7 @@ class DistanceField(Field):
             tag=field_tag, option="DistMax", value=self.max_distance
         )
 
-        return field_tag
+        return cast(int, field_tag)
 
 
 class BoxField(Field):
@@ -972,7 +976,7 @@ class BoxField(Field):
             tag=box_tag, option="Thickness", value=self.thickness
         )
 
-        return box_tag
+        return cast(int, box_tag)
 
 
 @dataclass
