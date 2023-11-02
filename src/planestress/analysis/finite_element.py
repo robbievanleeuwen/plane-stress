@@ -8,6 +8,7 @@ import numpy as np
 import numpy.typing as npt
 
 import planestress.analysis.utils as utils
+from planestress.post.results import ElementResults
 
 
 if TYPE_CHECKING:
@@ -214,7 +215,8 @@ class FiniteElement:
 
         Calculates the following:
 
-        - Stress components at the nodes ($\sigma_{xx}$, $\sigma_{yy}$, $\sigma_{xy}$).
+        - Stress components at the nodes (:math`\sigma_{xx}`, :math`\sigma_{yy}`,
+          :math`\sigma_{xy}`).
         - TODO
 
         Args:
@@ -258,13 +260,7 @@ class FiniteElement:
 
         return ElementResults(
             el_idx=self.el_idx,
-            el_tag=self.el_tag,
-            coords=self.coords,
             node_idxs=self.node_idxs,
-            material=self.material,
-            orientation=self.orientation,
-            num_nodes=self.num_nodes,
-            int_points=self.int_points,
             sigs=sigs,
         )
 
@@ -1436,48 +1432,3 @@ class QuadraticLine(LineElement):
         jacobian = np.sqrt(np.sum(j**2))
 
         return n, jacobian
-
-
-class ElementResults(FiniteElement):
-    """Class for storing the results of a finite element."""
-
-    def __init__(
-        self,
-        el_idx: int,
-        el_tag: int,
-        coords: npt.NDArray[np.float64],
-        node_idxs: list[int],
-        material: Material,
-        orientation: bool,
-        num_nodes: int,
-        int_points: int,
-        sigs: npt.NDArray[np.float64],
-    ) -> None:
-        """Inits the ElementResults class.
-
-        Args:
-            el_idx: Element index.
-            el_tag: Element mesh tag.
-            coords: A :class:`numpy.ndarray` of coordinates defining the element, e.g.
-                ``[[x1, x2, x3], [y1, y2, y3]]``.
-            node_idxs: List of node indexes defining the element, e.g.
-                ``[idx1, idx2, idx3]``.
-            material: Material of the element.
-            orientation: If ``True`` the element is oriented correctly, if ``False`` the
-                element's nodes will need reordering.
-            num_nodes: Number of nodes in the finite element.
-            int_points: Number of integration points used for the finite element.
-            sigs: Nodal stresses, e.g.
-                ``[[sigxx_1, sigyy_1, sigxy_1], ..., [sigxx_3, sigyy_3, sigxy_3]]``.
-        """
-        super().__init__(
-            el_idx=el_idx,
-            el_tag=el_tag,
-            coords=coords,
-            node_idxs=node_idxs,
-            material=material,
-            num_nodes=num_nodes,
-            int_points=int_points,
-            orientation=orientation,
-        )
-        self.sigs = sigs

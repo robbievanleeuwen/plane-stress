@@ -151,15 +151,19 @@ class NodeSupport(NodeBoundaryCondition):
         self,
         point: tuple[float, float],
         direction: str,
-        value: float,
+        value: float = 0.0,
     ) -> None:
         """Inits the NodeSupport class.
 
         Args:
-            point: Point tuple (``x``, ``y``) describing the node location.
-            direction: Direction of the boundary condition, ``"x"``, ``"y"`` or
-                ``"xy"``.
-            value: Value of the boundary condition.
+            point: Point location (``x``, ``y``) of the node support.
+            direction: Direction of the node support, either ``"x"`` or ``"y"``
+                (rollers), or ``"xy"`` (pin).
+            value: Imposed displacement to apply to the node support. Defaults to
+                ``0.0``, i.e. a node support with fixed zero displacement.
+
+        Example:
+            TODO.
         """
         super().__init__(point=point, direction=direction, value=value, priority=2)
 
@@ -208,10 +212,12 @@ class NodeSpring(NodeBoundaryCondition):
         """Inits the NodeSpring class.
 
         Args:
-            point: Point tuple (``x``, ``y``) describing the node location.
-            direction: Direction of the boundary condition, ``"x"``, ``"y"`` or
-                ``"xy"``.
-            value: Value of the boundary condition.
+            point: Point location (``x``, ``y``) of the node spring.
+            direction: Direction of the node spring, ``"x"``, ``"y"`` or ``"xy"``.
+            value: Spring stiffness.
+
+        Example:
+            TODO.
         """
         super().__init__(point=point, direction=direction, value=value, priority=1)
 
@@ -258,10 +264,13 @@ class NodeLoad(NodeBoundaryCondition):
         """Inits the NodeLoad class.
 
         Args:
-            point: Point tuple (``x``, ``y``) describing the node location.
-            direction: Direction of the boundary condition, ``"x"``, ``"y"`` or
-                ``"xy"``.
-            value: Value of the boundary condition.
+            point: Point location (``x``, ``y``) of the node load.
+            direction: Direction of the node load, ``"x"``, ``"y"`` or ``"xy"`` (two
+                point loads in both ``x`` and ``y`` directions).
+            value: Node load.
+
+        Example:
+            TODO.
         """
         super().__init__(point=point, direction=direction, value=value, priority=0)
 
@@ -372,16 +381,20 @@ class LineSupport(LineBoundaryCondition):
         point1: tuple[float, float],
         point2: tuple[float, float],
         direction: str,
-        value: float,
+        value: float = 0.0,
     ) -> None:
         """Inits the LineSupport class.
 
         Args:
-            point1: Point location (``x``, ``y``) of the start of the line.
-            point2: Point location (``x``, ``y``) of the end of the line.
-            direction: Direction of the boundary condition, ``"x"``, ``"y"`` or
-                ``"xy"``.
-            value: Value of the boundary condition.
+            point1: Point location (``x``, ``y``) of the start of the line support.
+            point2: Point location (``x``, ``y``) of the end of the line support.
+            direction: Direction of the line support, either ``"x"`` or ``"y"``
+                (rollers), or ``"xy"`` (pin).
+            value: Imposed displacement to apply to the line support. Defaults to
+                ``0.0``, i.e. a line support with fixed zero displacement.
+
+        Example:
+            TODO.
         """
         super().__init__(
             point1=point1, point2=point2, direction=direction, value=value, priority=2
@@ -433,11 +446,14 @@ class LineSpring(LineBoundaryCondition):
         """Inits the LineSpring class.
 
         Args:
-            point1: Point location (``x``, ``y``) of the start of the line.
-            point2: Point location (``x``, ``y``) of the end of the line.
-            direction: Direction of the boundary condition, ``"x"``, ``"y"`` or
+            point1: Point location (``x``, ``y``) of the start of the line spring.
+            point2: Point location (``x``, ``y``) of the end of the line spring.
+            direction: Direction of the line spring, either ``"x"``, ``"y"`` or
                 ``"xy"``.
-            value: Value of the boundary condition.
+            value: Spring stiffness per unit length.
+
+        Example:
+            TODO.
         """
         super().__init__(
             point1=point1, point2=point2, direction=direction, value=value, priority=1
@@ -487,11 +503,14 @@ class LineLoad(LineBoundaryCondition):
         """Inits the LineLoad class.
 
         Args:
-            point1: Point location (``x``, ``y``) of the start of the line.
-            point2: Point location (``x``, ``y``) of the end of the line.
-            direction: Direction of the boundary condition, ``"x"``, ``"y"`` or
-                ``"xy"``.
-            value: Value of the boundary condition.
+            point1: Point location (``x``, ``y``) of the start of the line load.
+            point2: Point location (``x``, ``y``) of the end of the line load.
+            direction: Direction of the line load, ``"x"``, ``"y"`` or ``"xy"`` (two
+                line loads in both ``x`` and ``y`` directions).
+            value: Line load per unit length.
+
+        Example:
+            TODO.
         """
         super().__init__(
             point1=point1, point2=point2, direction=direction, value=value, priority=0

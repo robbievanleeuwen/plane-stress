@@ -3,7 +3,6 @@
 ## Pre-processor
 
 - Plot BCs
-- Don't create BCs from Geometry object
 - Some kind of info if points/lines are not found for BCs?
 - Meshing options
   - Fields
@@ -24,10 +23,8 @@
 ## Post-processor
 
 - Stress
-  - Get stress at points
+  - Get stress at points/along line (plot this?)
   - Get max/min stress
-  - Principal stress & directions
-  - Quiver plot
-  - von Mises stress
-  - Tresca stress
   - Plot certain materials
+  - Stress histogram??
+- Animations

@@ -7,6 +7,7 @@ import numpy as np
 import pytest
 import pytest_check as check
 
+import planestress.pre.boundary_condition as bc
 from planestress.analysis.plane_stress import PlaneStress
 from planestress.pre.library import circle, rectangle, steel_material
 from planestress.pre.load_case import LoadCase
@@ -78,19 +79,14 @@ def test_vls9(el_type):
     geom = (circle_outer - circle_inner) & bbox
 
     # create supports
-    lhs_support = geom.add_line_support(
-        point1=(0.0, 10e3), point2=(0.0, 11e3), direction="x"
-    )
-    rhs_support = geom.add_line_support(
-        point1=(10e3, 0.0), point2=(11e3, 0.0), direction="y"
-    )
+    lhs_support = bc.LineSupport(point1=(0.0, 10e3), point2=(0.0, 11e3), direction="x")
+    rhs_support = bc.LineSupport(point1=(10e3, 0.0), point2=(11e3, 0.0), direction="y")
 
     # create loads
     pt = (11e3 / np.sqrt(2), 11e3 / np.sqrt(2))
     force = 10e6 / np.sqrt(2)  # force component in x and y directions
-    load_x = geom.add_node_load(point=pt, direction="x", value=-force)
-    load_y = geom.add_node_load(point=pt, direction="y", value=-force)
-    lc = LoadCase([lhs_support, rhs_support, load_x, load_y])
+    load = bc.NodeLoad(point=pt, direction="xy", value=-force)
+    lc = LoadCase([lhs_support, rhs_support, load])
 
     # create mesh
     if el_type == "Quad4":

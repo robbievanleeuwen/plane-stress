@@ -6,6 +6,7 @@ import pytest
 import pytest_check as check
 
 from planestress.analysis.plane_stress import PlaneStress
+from planestress.pre.boundary_condition import LineLoad, LineSupport, NodeSupport
 from planestress.pre.library import rectangle
 from planestress.pre.load_case import LoadCase
 
@@ -35,9 +36,9 @@ def unit_square() -> Callable:
             Plane stress object.
         """
         geom = rectangle(1, 1)
-        lhs = geom.add_node_support((0, 0), "x")
-        bot = geom.add_line_support((0, 0), (1, 0), "y")
-        load = geom.add_line_load((0, 1), (1, 1), "y", 1)
+        lhs = NodeSupport((0, 0), "x")
+        bot = LineSupport((0, 0), (1, 0), "y")
+        load = LineLoad((0, 1), (1, 1), "y", 1)
         load_case = LoadCase([lhs, bot, load])
 
         if element_type == "Tri3":
