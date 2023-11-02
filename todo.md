@@ -3,11 +3,8 @@
 ## Pre-processor
 
 - Plot BCs
-- Some kind of info if points/lines are not found for BCs?
 - Meshing options
   - Fields
-  - Add option to force nodes and lines into the mesh see
-    https://deltares.github.io/pandamesh/api/gmsh.html
   - Get mesh statistics
 - Testing overlapping facets, other testing? (see deltares pandamesh)
 - Persistent load case
@@ -28,3 +25,4 @@
   - Plot certain materials
   - Stress histogram??
 - Animations
+- Reactions
