@@ -12,6 +12,8 @@ from planestress.pre.material import DEFAULT_MATERIAL, Material
 def rectangle(
     d: float,
     b: float,
+    n_x: int = 1,
+    n_y: int = 1,
     material: Material = DEFAULT_MATERIAL,
     tol: int = 12,
 ) -> Geometry:
@@ -20,6 +22,8 @@ def rectangle(
     Args:
         d: Depth of the rectangle.
         b: Width of the rectangle.
+        n_x: Number of subdivisions in the ``x`` direction. Defaults to ``1``.
+        n_y: Number of subdivisions in the ``y`` direction. Defaults to ``1``.
         material: ``Material`` object to apply to the rectangle. Defaults to
             ``DEFAULT_MATERIAL``, i.e. a material with unit properties and a Poisson's
             ratio of zero.
@@ -32,7 +36,16 @@ def rectangle(
     Example:
         TODO.
     """
-    shell = [(0.0, 0.0), (float(b), 0.0), (float(b), float(d)), (0.0, float(d))]
+    # initialise shell list
+    shell = []
+    b = float(b)
+    d = float(d)
+
+    # add points
+    shell.extend([(i * b / n_x, 0.0) for i in range(n_x + 1)])
+    shell.extend([(b, i * d / n_y) for i in range(n_y + 1)])
+    shell.extend([(b - i * b / n_x, d) for i in range(n_x + 1)])
+    shell.extend([(0.0, d - i * d / n_y) for i in range(n_y + 1)])
     poly = Polygon(shell=shell)
 
     return Geometry(polygons=poly, materials=[material], tol=tol)

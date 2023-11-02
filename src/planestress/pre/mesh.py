@@ -12,6 +12,7 @@ import shapely as shapely
 from matplotlib import collections
 
 import planestress.analysis.finite_element as fe
+import planestress.pre.geometry as ps_geom
 from planestress.post.plotting import plotting_context
 
 
@@ -41,6 +42,8 @@ class Mesh:
             mesh.
         tagged_lines_str_tree: A :class:`shapely.STRtree` of the tagged lines in the
             mesh.
+        bbox: Bounding box of the model geometry
+            ``(xmin, ymin, zmin, xmax, ymax, zmax).``
     """
 
     nodes: npt.NDArray[np.float64] = field(
@@ -55,6 +58,7 @@ class Mesh:
     nodes_str_tree: shapely.STRtree = field(init=False)
     tagged_nodes_str_tree: shapely.STRtree = field(init=False)
     tagged_lines_str_tree: shapely.STRtree = field(init=False)
+    bbox: tuple[float, float, float, float, float, float] = field(init=False)
 
     def create_mesh(
         self,
@@ -63,12 +67,14 @@ class Mesh:
         curve_loops: list[CurveLoop],
         surfaces: list[Surface],
         materials: list[Material],
+        embedded_geometry: list[Point | Facet],
         mesh_sizes: list[float],
         quad_mesh: bool,
         mesh_order: int,
         serendipity: bool,
         mesh_algorithm: int,
         subdivision_algorithm: int,
+        fields: list[Field],
         verbosity: int = 0,
     ) -> None:
         """Creates a mesh from geometry using gmsh.
@@ -79,6 +85,7 @@ class Mesh:
             curve_loops: List of ``CurveLoop`` objects.
             surfaces: List of ``Surface`` objects.
             materials: A list of ``Material`` objects for each region in the mesh.
+            embedded_geometry: List of embedded points and lines.
             mesh_sizes: A list of the characteristic mesh lengths for each region in the
                 mesh.
             quad_mesh: If set to ``True``, recombines the triangular mesh to create
@@ -90,6 +97,7 @@ class Mesh:
                 https://gmsh.info/doc/texinfo/gmsh.html#index-Mesh_002eAlgorithm
             subdivision_algorithm: Gmsh subdivision algorithm, see
                 https://gmsh.info/doc/texinfo/gmsh.html#index-Mesh_002eSubdivisionAlgorithm
+            fields: A list of ``Field`` objects, describing mesh refinement fields.
             verbosity: Gmsh verbosity level, see
                 https://gmsh.info/doc/texinfo/gmsh.html#index-General_002eVerbosity.
                 Defaults to ``0``.
@@ -155,6 +163,52 @@ class Mesh:
         # synchronize gmsh CAD entities
         gmsh.model.geo.synchronize()
 
+        # embed points and lines
+        for geo in embedded_geometry:
+            if isinstance(geo, ps_geom.Point):
+                # get mesh size if not specified
+                if geo.mesh_size is None:
+                    mesh_size = mesh_sizes[geo.poly_idxs[0] - 1]
+                else:
+                    mesh_size = geo.mesh_size
+
+                # add point to geometry
+                pt = gmsh.model.geo.add_point(
+                    x=geo.x, y=geo.y, z=0.0, meshSize=mesh_size
+                )
+
+                # synchronize model
+                gmsh.model.geo.synchronize()
+
+                # embed point
+                gmsh.model.mesh.embed(dim=0, tags=[pt], inDim=2, inTag=geo.poly_idxs[0])
+            if isinstance(geo, ps_geom.Facet):
+                # get mesh size if not specified (both points will be identical)
+                if geo.pt1.mesh_size is None:
+                    mesh_size = mesh_sizes[geo.pt1.poly_idxs[0] - 1]
+                else:
+                    mesh_size = geo.pt1.mesh_size
+
+                # add points and line to geometry
+                pt1 = gmsh.model.geo.add_point(
+                    x=geo.pt1.x, y=geo.pt1.y, z=0.0, meshSize=mesh_size
+                )
+                pt2 = gmsh.model.geo.add_point(
+                    x=geo.pt2.x, y=geo.pt2.y, z=0.0, meshSize=mesh_size
+                )
+                ln = gmsh.model.geo.add_line(startTag=pt1, endTag=pt2)
+
+                # synchronize model
+                gmsh.model.geo.synchronize()
+
+                # embed points and line
+                gmsh.model.mesh.embed(
+                    dim=0, tags=[pt1, pt2], inDim=2, inTag=geo.pt1.poly_idxs[0]
+                )
+                gmsh.model.mesh.embed(
+                    dim=1, tags=[ln], inDim=2, inTag=geo.pt1.poly_idxs[0]
+                )
+
         # check surface orientation:
         # list describing if surface is correctly oriented
         surface_orientated: list[bool] = []
@@ -167,6 +221,25 @@ class Mesh:
                 surface_orientated.append(False)
             else:
                 surface_orientated.append(True)
+
+        # calculate bounding box
+        self.bbox = gmsh.model.get_bounding_box(dim=-1, tag=-1)
+
+        # apply fields
+        field_tags = []
+
+        for fld in fields:
+            field_tag = fld.apply_field()
+            field_tags.append(field_tag)
+
+        # set background mesh
+        if len(field_tags) > 0:
+            min_tag = gmsh.model.mesh.field.add(fieldType="Min")
+            gmsh.model.mesh.field.set_numbers(
+                tag=min_tag, option="FieldsList", values=field_tags
+            )
+
+            gmsh.model.mesh.field.set_as_background_mesh(tag=min_tag)
 
         # generate 2D mesh
         gmsh.model.mesh.generate(2)
@@ -420,6 +493,32 @@ class Mesh:
         """
         return len(self.nodes)
 
+    def check_nearest_tol(
+        self,
+        point1: tuple[float, float],
+        point2: tuple[float, float],
+    ) -> bool:
+        """Checks if the point 1 is relatively close to point 2.
+
+        The acceptable tolerance is taken to be 1% of the minimum dimension of the
+        bounding box.
+
+        Args:
+            point1: Location of point 1 (``x``, ``y``).
+            point2: Location of point 2 (``x``, ``y``).
+
+        Returns:
+            ``True`` if point 1 is relatively close to point 2.
+        """
+        x = self.bbox[3] - self.bbox[0]
+        y = self.bbox[4] - self.bbox[1]
+        tol = 0.01 * min(x, y)
+
+        if abs(point1[0] - point2[0]) > tol or abs(point1[1] - point2[1]) > tol:
+            return False
+        else:
+            return True
+
     def get_node_idx_by_coordinates(
         self,
         x: float,
@@ -431,10 +530,23 @@ class Mesh:
             x: ``x`` location of the node to find.
             y: ``y`` location of the node to find.
 
+        Raises:
+            ValueError: If the point is not close to a node.
+
         Returns:
             Index of the node closest to (``x``, ``y``).
         """
+        # get node index
         idx = self.nodes_str_tree.nearest(geometry=shapely.Point(x, y))
+
+        # check we are close to the desired node
+        node = self.nodes[idx]
+
+        if not self.check_nearest_tol(point1=(node[0], node[1]), point2=(x, y)):
+            raise ValueError(
+                f"The point ({x}, {y}) is not close to a node in the mesh. The nearest "
+                f"node is located at {node}."
+            )
 
         return cast(int, idx)
 
@@ -470,10 +582,22 @@ class Mesh:
             x: ``x`` location of the tagged node to find.
             y: ``y`` location of the tagged node to find.
 
+        Raises:
+            ValueError: If the point is not close to a tagged node.
+
         Returns:
             Tagged node closest to (``x``, ``y``).
         """
         idx = self.tagged_nodes_str_tree.nearest(geometry=shapely.Point(x, y))
+
+        # check we are close to the desired tagged node
+        node = self.tagged_nodes[cast(int, idx)]
+
+        if not self.check_nearest_tol(point1=(node.x, node.y), point2=(x, y)):
+            raise ValueError(
+                f"The point ({x}, {y}) is not close to a tagged node in the mesh. The "
+                f"nearest tagged node is located at {node}."
+            )
 
         return self.tagged_nodes[cast(int, idx)]
 
@@ -505,6 +629,9 @@ class Mesh:
     ) -> TaggedLine:
         """Returns a ``TaggedLine`` closest to the line defined by two points.
 
+        Raises:
+            ValueError: If the line is not close to a tagged line.
+
         Args:
             point1: First point (``x``, ``y``) of the tagged line to find.
             point2: Second point (``x``, ``y``) of the tagged line to find.
@@ -516,6 +643,19 @@ class Mesh:
             0.5 * (point1[0] + point2[0]), 0.5 * (point1[1] + point2[1])
         )
         idx = self.tagged_lines_str_tree.nearest(geometry=mid_point)
+
+        # check we are close to the desired line
+        line = self.tagged_lines[cast(int, idx)]
+        ln_mid = 0.5 * (line.tagged_nodes[0].x + line.tagged_nodes[1].x), 0.5 * (
+            line.tagged_nodes[0].y + line.tagged_nodes[1].y
+        )
+
+        if not self.check_nearest_tol(point1=ln_mid, point2=(mid_point.x, mid_point.y)):
+            raise ValueError(
+                f"The line with mid-point at ({mid_point}) is not close to a mid-point "
+                f"of a tagged line in the mesh. The nearest tagged line has a "
+                f"mid-point that is located at {ln_mid}."
+            )
 
         return self.tagged_lines[cast(int, idx)]
 
@@ -700,6 +840,143 @@ class Mesh:
                     print(boundary_condition)  # TODO - plot this!
 
         return ax
+
+
+class Field:
+    """Abstract class for a mesh refinement field."""
+
+    def apply_field(self) -> int:
+        """Applies the field and returns the field tag.
+
+        Raises:
+            NotImplementedError: If this method hasn't been implemented.
+        """
+        raise NotImplementedError
+
+
+class DistanceField(Field):
+    """Class for a distance mesh refinement field."""
+
+    def __init__(
+        self,
+        min_size: float,
+        max_size: float,
+        min_distance: float,
+        max_distance: float,
+        point_tags: list[int] | None = None,
+        line_tags: list[int] | None = None,
+        sampling: int = 20,
+    ) -> None:
+        """Inits the DistanceField class.
+
+        Args:
+            min_size: _description_
+            max_size: _description_
+            min_distance: _description_
+            max_distance: _description_
+            point_tags: _description_. Defaults to ``None``.
+            line_tags: _description_. Defaults to ``None``.
+            sampling: _description_. Defaults to ``20``.
+        """
+        self.min_size = min_size
+        self.max_size = max_size
+        self.min_distance = min_distance
+        self.max_distance = max_distance
+        self.point_tags = [] if point_tags is None else point_tags
+        self.line_tags = [] if line_tags is None else line_tags
+        self.sampling = sampling
+
+    def apply_field(self) -> int:
+        """Applies the distance field and returns the field tag.
+
+        Returns:
+            Field tag.
+        """
+        # add distance field
+        dist_tag = gmsh.model.mesh.field.add(fieldType="Distance")
+        gmsh.model.mesh.field.set_numbers(
+            tag=dist_tag, option="PointsList", values=self.point_tags
+        )
+        gmsh.model.mesh.field.set_numbers(
+            tag=dist_tag, option="CurvesList", values=self.line_tags
+        )
+        gmsh.model.mesh.field.set_number(
+            tag=dist_tag, option="Sampling", value=self.sampling
+        )
+
+        # add threshold field
+        field_tag = gmsh.model.mesh.field.add(fieldType="Threshold")
+        gmsh.model.mesh.field.set_number(
+            tag=field_tag, option="InField", value=dist_tag
+        )
+        gmsh.model.mesh.field.set_number(
+            tag=field_tag, option="SizeMin", value=self.min_size
+        )
+        gmsh.model.mesh.field.set_number(
+            tag=field_tag, option="SizeMax", value=self.max_size
+        )
+        gmsh.model.mesh.field.set_number(
+            tag=field_tag, option="DistMin", value=self.min_distance
+        )
+        gmsh.model.mesh.field.set_number(
+            tag=field_tag, option="DistMax", value=self.max_distance
+        )
+
+        return cast(int, field_tag)
+
+
+class BoxField(Field):
+    """Class for a box mesh refinement field."""
+
+    def __init__(
+        self,
+        extents: tuple[float, float, float, float],
+        min_size: float,
+        max_size: float,
+        thickness: float,
+    ) -> None:
+        """Inits the BoxField class.
+
+        Args:
+            extents: _description_
+            min_size: _description_
+            max_size: _description_
+            thickness: _description_
+        """
+        self.extents = extents
+        self.min_size = min_size
+        self.max_size = max_size
+        self.thickness = thickness
+
+    def apply_field(self) -> int:
+        """Applies the box field and returns the field tag.
+
+        Returns:
+            Field tag.
+        """
+        # add box field
+        box_tag = gmsh.model.mesh.field.add(fieldType="Box")
+        gmsh.model.mesh.field.set_number(tag=box_tag, option="VIn", value=self.min_size)
+        gmsh.model.mesh.field.set_number(
+            tag=box_tag, option="VOut", value=self.max_size
+        )
+        gmsh.model.mesh.field.set_number(
+            tag=box_tag, option="XMin", value=self.extents[0]
+        )
+        gmsh.model.mesh.field.set_number(
+            tag=box_tag, option="XMax", value=self.extents[1]
+        )
+        gmsh.model.mesh.field.set_number(
+            tag=box_tag, option="YMin", value=self.extents[2]
+        )
+        gmsh.model.mesh.field.set_number(
+            tag=box_tag, option="YMax", value=self.extents[3]
+        )
+        gmsh.model.mesh.field.set_number(
+            tag=box_tag, option="Thickness", value=self.thickness
+        )
+
+        return cast(int, box_tag)
 
 
 @dataclass

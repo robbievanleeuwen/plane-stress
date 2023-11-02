@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     import matplotlib.axes
 
     from planestress.pre.load_case import LoadCase
+    from planestress.pre.mesh import Field
 
 
 class Geometry:
@@ -26,6 +27,7 @@ class Geometry:
         self,
         polygons: shapely.Polygon | shapely.MultiPolygon,
         materials: Material | list[Material] = DEFAULT_MATERIAL,
+        embedded_geometry: list[Point | Facet] | None = None,
         tol: int = 12,
     ) -> None:
         """Inits the Geometry class.
@@ -44,6 +46,9 @@ class Geometry:
                 single :class:`planestress.pre.Material` is supplied, this material is
                 applied to all regions. Defaults to ``DEFAULT_MATERIAL``, i.e. a
                 material with unit properties and a Poisson's ratio of zero.
+            embedded_geometry: List of ``Point`` or ``Facet`` objects to embed into the
+                mesh. Can also be added by using the :meth:`embed_point` or
+                :meth:`embed_line` methods. Defaults to ``None``.
             tol: The points in the geometry get rounded to ``tol`` digits. Defaults to
                 ``12``.
 
@@ -72,6 +77,7 @@ class Geometry:
         # save input data
         self.polygons = polygons
         self.materials = materials
+        self.embedded_geometry = [] if embedded_geometry is None else embedded_geometry
         self.tol = tol
 
         # allocate points, facets, curve loops and surfaces
@@ -89,7 +95,7 @@ class Geometry:
         # TODO - test for overlapping facets
 
         # allocate mesh
-        self.mesh: Mesh = Mesh()
+        self.mesh = Mesh()
 
     def compile_geometry(self) -> None:
         """Creates points, facets and holes from shapely geometry."""
@@ -284,6 +290,107 @@ class Geometry:
 
         return fct_list, curve_loop
 
+    def embed_point(
+        self,
+        x: float,
+        y: float,
+        mesh_size: float | None = None,
+    ) -> None:
+        """Embeds a point into the mesh.
+
+        Args:
+            x: ``x`` location of the embedded point.
+            y: ``y`` location of the embedded point.
+            mesh_size: Optional mesh size at the embedded point. If not provided, takes
+                the mesh size of the polygon the point is embedded into. Defaults to
+                ``None``.
+
+        Raises:
+            ValueError: If the point does not lie within any polygons.
+
+        Warning:
+            Ensure that embedded points lie within the meshed region and are not located
+            within any holes in the mesh.
+
+            Further, due to floating point precision errors, it is recommended that
+            embedded points are also not placed on the edges of polygons.
+
+            Note, not all the above conditions are checked.
+        """
+        # find polygon that point lies within
+        pt = shapely.Point(x, y)
+
+        for idx, poly in enumerate(self.polygons.geoms):
+            if shapely.within(pt, poly):
+                poly_idx = idx
+                break
+        else:
+            raise ValueError(f"Point ({x}, {y}) does not lie within any polygons.")
+
+        # create point object and assign poly idx
+        point = Point(x=x, y=y, tol=self.tol, mesh_size=mesh_size)
+        point.poly_idxs = [poly_idx + 1]  # note poly indexes start at 1
+        self.embedded_geometry.append(point)
+
+    def embed_line(
+        self,
+        point1: tuple[float, float],
+        point2: tuple[float, float],
+        mesh_size: float | None = None,
+    ) -> None:
+        """Embeds a point into the mesh.
+
+        Args:
+            point1: Point location (``x``, ``y``) of the start of the embedded line.
+            point2: Point location (``x``, ``y``) of the end of the embedded line.
+            mesh_size: Optional mesh size along the embedded line. If not provided
+                takes the mesh size of the polygon the line is embedded into. Defaults
+                to ``None``.
+
+        Raises:
+            ValueError: If one of the points does not lie within any polygons.
+            ValueError: If the points lie within different polygons.
+
+        Warning:
+            Ensure that embedded lines lie within the meshed region and are not located
+            within any holes in the mesh.
+
+            Due to floating point precision errors, it is recommended that embedded
+            lines do not touch the edges of polygons.
+
+            Embedded lines should not cross any other embedded lines or geometry, i.e.
+            should not cross from one polygon to another.
+
+            Note, not all the above conditions are checked.
+        """
+        # find polygon that points lies within
+        pts = [shapely.Point(point1[0], point1[1]), shapely.Point(point2[0], point2[1])]
+        poly_idxs = []
+
+        for pt in pts:
+            for idx, poly in enumerate(self.polygons.geoms):
+                if shapely.within(pt, poly):
+                    poly_idxs.append(idx)
+                    break
+            else:
+                raise ValueError(f"Point ({pt}) does not lie within any polygons.")
+
+        if poly_idxs[0] != poly_idxs[1]:
+            raise ValueError(
+                f"Point 1 ({pts[0]}) lies within a different polygon to point 2 "
+                f"({pts[1]})"
+            )
+
+        # create point and facet objects and assign poly idx (note poly)
+        pt1 = Point(x=point1[0], y=point1[1], tol=self.tol, mesh_size=mesh_size)
+        pt2 = Point(x=point2[0], y=point2[1], tol=self.tol, mesh_size=mesh_size)
+        pt1.poly_idxs = [poly_idxs[0] + 1]  # note poly indexes start at 1
+        pt2.poly_idxs = [poly_idxs[1] + 1]  # note poly indexes start at 1
+        fct = Facet(pt1=pt1, pt2=pt2)
+
+        # add facet to embedded geometry
+        self.embedded_geometry.append(fct)
+
     def calculate_area(self) -> float:
         """Calculates the area of the geometry.
 
@@ -456,6 +563,7 @@ class Geometry:
         return Geometry(
             polygons=affinity.translate(geom=self.polygons, xoff=x, yoff=y),
             materials=self.materials,
+            embedded_geometry=self.embedded_geometry,
             tol=self.tol,
         )
 
@@ -490,6 +598,7 @@ class Geometry:
                 use_radians=use_radians,
             ),
             materials=self.materials,
+            embedded_geometry=self.embedded_geometry,
             tol=self.tol,
         )
 
@@ -529,6 +638,7 @@ class Geometry:
                 geom=self.polygons, xfact=xfact, yfact=yfact, origin=mirror_point
             ),
             materials=self.materials,
+            embedded_geometry=self.embedded_geometry,
             tol=self.tol,
         )
 
@@ -562,7 +672,12 @@ class Geometry:
                 input_geom=self.polygons | other.polygons
             )
 
-            return Geometry(polygons=new_polygon, materials=self.materials[0], tol=tol)
+            return Geometry(
+                polygons=new_polygon,
+                materials=self.materials[0],
+                embedded_geometry=self.embedded_geometry + other.embedded_geometry,
+                tol=tol,
+            )
         except Exception as exc:
             raise ValueError(
                 f"Cannot perform union on these two objects: {self} | {other}"
@@ -653,6 +768,7 @@ class Geometry:
         return Geometry(
             polygons=shapely.MultiPolygon(polygons=poly_list),
             materials=mat_list,
+            embedded_geometry=self.embedded_geometry + other.embedded_geometry,
             tol=tol,
         )
 
@@ -686,7 +802,12 @@ class Geometry:
                 input_geom=self.polygons & other.polygons
             )
 
-            return Geometry(polygons=new_polygon, materials=self.materials[0], tol=tol)
+            return Geometry(
+                polygons=new_polygon,
+                materials=self.materials[0],
+                embedded_geometry=self.embedded_geometry + other.embedded_geometry,
+                tol=tol,
+            )
         except Exception as exc:
             raise ValueError(
                 f"Cannot perform intersection on these two Geometry instances: "
@@ -741,6 +862,7 @@ class Geometry:
         serendipity: bool = False,
         mesh_algorithm: int = 6,
         subdivision_algorithm: int = 0,
+        fields: list[Field] | None = None,
     ) -> None:
         """Creates and stores a triangular mesh of the geometry.
 
@@ -760,6 +882,7 @@ class Geometry:
                 to ``6``.
             subdivision_algorithm: Gmsh subdivision algorithm, see below for more
                 details. Defaults to ``0``.
+            fields: A list of ``Field`` objects, describing mesh refinement fields.
 
         Raises:
             ValueError: If the length of ``mesh_sizes`` does not equal the number of
@@ -792,12 +915,14 @@ class Geometry:
             curve_loops=self.curve_loops,
             surfaces=self.surfaces,
             materials=self.materials,
+            embedded_geometry=self.embedded_geometry,
             mesh_sizes=mesh_sizes,
             quad_mesh=quad_mesh,
             mesh_order=mesh_order,
             serendipity=serendipity,
             mesh_algorithm=mesh_algorithm,
             subdivision_algorithm=subdivision_algorithm,
+            fields=[] if fields is None else fields,
         )
 
     def plot_geometry(
@@ -816,8 +941,8 @@ class Geometry:
 
         Keyword Args:
             title (str): Plot title. Defaults to ``"Geometry"``.
-            labels(list[str]): A list of index labels to plot, can contain any of the
-                following: ``"points"``, ``"facets"``. Defaults to ``[]``.
+            tags(list[str]): A list of tags to plot, can contain any of the following:
+                ``"points"``, ``"facets"``. Defaults to ``[]``.
             legend (bool):  If set to ``True``, plots the legend. Defaults to ``True``.
             kwargs (dict[str, Any]): Other keyword arguments are passed to
                 :meth:`~planestress.post.plotting.plotting_context`.
@@ -830,7 +955,7 @@ class Geometry:
         """
         # get keyword arguments
         title: str = kwargs.pop("title", "Geometry")
-        labels: list[str] = kwargs.pop("labels", [])
+        tags: list[str] = kwargs.pop("tags", [])
         legend: bool = kwargs.pop("legend", True)
 
         # create plot and setup the plot
@@ -857,18 +982,18 @@ class Geometry:
                 ax.plot(hl.x, hl.y, "rx", markersize=5, markeredgewidth=1, label=label)
                 label = None
 
-            # display the labels
-            # plot point labels
-            if "points" in labels:
+            # display the tags
+            # plot point tags
+            if "points" in tags:
                 for pt in self.points:
-                    ax.annotate(str(pt.idx), xy=(pt.x, pt.y), color="r")
+                    ax.annotate(str(pt.idx + 1), xy=(pt.x, pt.y), color="r")
 
-            # plot facet labels
-            if "facets" in labels:
+            # plot facet tags
+            if "facets" in tags:
                 for fct in self.facets:
                     xy = (fct.pt1.x + fct.pt2.x) / 2, (fct.pt1.y + fct.pt2.y) / 2
 
-                    ax.annotate(str(fct.idx), xy=xy, color="b")
+                    ax.annotate(str(fct.idx + 1), xy=xy, color="b")
 
             # plot the load case
             if load_case is not None:
@@ -951,6 +1076,7 @@ class Point:
     Attributes:
         idx: Point index.
         poly_idxs: Indexes of polygons that contain the point.
+        mesh_size: Mesh size at the point.
     """
 
     x: float
@@ -958,6 +1084,7 @@ class Point:
     tol: int
     idx: int = field(init=False)
     poly_idxs: list[int] = field(init=False, default_factory=list)
+    mesh_size: float | None = None
 
     def __post_init__(self) -> None:
         """Point object post init method."""
