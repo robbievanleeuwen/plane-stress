@@ -683,7 +683,14 @@ class Results:
         }
 
         # get keyword arguments
-        title: str = kwargs.pop("title", str(title_dict[stress]))
+        try:
+            title: str = kwargs.pop("title", str(title_dict[stress]))
+        except KeyError as exc:
+            raise ValueError(
+                f"{stress} is not a valid value for 'stress'. Refer to the "
+                f"documentation for acceptable values."
+            ) from exc
+
         colormap: str = kwargs.pop("colormap", "coolwarm")
         stress_limits: tuple[float, float] | None = kwargs.pop("stress_limits", None)
         num_levels: int = kwargs.pop("num_levels", 11)
@@ -726,8 +733,8 @@ class Results:
             cmap = matplotlib.colormaps.get_cmap(cmap=colormap)
 
             # scale the color with respect to the magnitude of the vector
-            c = np.hypot(sigs_x, sigs_y)
-            c = [c_i * sign for c_i, sign in zip(c, signs)]
+            c_unsigned = np.hypot(sigs_x, sigs_y)
+            c = [c_i * sign for c_i, sign in zip(c_unsigned, signs)]
             c_min = min(c)
             c_max = max(c)
 
