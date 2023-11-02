@@ -4,11 +4,11 @@
 
 - Plot BCs
 - Meshing options
-  - Fields
   - Get mesh statistics
 - Testing overlapping facets, other testing? (see deltares pandamesh)
 - Persistent load case
 - Node(?) & line load normal to curves
+- LineBC over multiple line tags?
 
 ## Analysis
 

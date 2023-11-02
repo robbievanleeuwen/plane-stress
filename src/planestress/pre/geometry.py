@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     import matplotlib.axes
 
     from planestress.pre.load_case import LoadCase
+    from planestress.pre.mesh import Field
 
 
 class Geometry:
@@ -861,6 +862,7 @@ class Geometry:
         serendipity: bool = False,
         mesh_algorithm: int = 6,
         subdivision_algorithm: int = 0,
+        fields: list[Field] | None = None,
     ) -> None:
         """Creates and stores a triangular mesh of the geometry.
 
@@ -880,6 +882,7 @@ class Geometry:
                 to ``6``.
             subdivision_algorithm: Gmsh subdivision algorithm, see below for more
                 details. Defaults to ``0``.
+            fields: A list of ``Field`` objects, describing mesh refinement fields.
 
         Raises:
             ValueError: If the length of ``mesh_sizes`` does not equal the number of
@@ -919,6 +922,7 @@ class Geometry:
             serendipity=serendipity,
             mesh_algorithm=mesh_algorithm,
             subdivision_algorithm=subdivision_algorithm,
+            fields=[] if fields is None else fields,
         )
 
     def plot_geometry(
@@ -937,8 +941,8 @@ class Geometry:
 
         Keyword Args:
             title (str): Plot title. Defaults to ``"Geometry"``.
-            labels(list[str]): A list of index labels to plot, can contain any of the
-                following: ``"points"``, ``"facets"``. Defaults to ``[]``.
+            tags(list[str]): A list of tags to plot, can contain any of the following:
+                ``"points"``, ``"facets"``. Defaults to ``[]``.
             legend (bool):  If set to ``True``, plots the legend. Defaults to ``True``.
             kwargs (dict[str, Any]): Other keyword arguments are passed to
                 :meth:`~planestress.post.plotting.plotting_context`.
@@ -951,7 +955,7 @@ class Geometry:
         """
         # get keyword arguments
         title: str = kwargs.pop("title", "Geometry")
-        labels: list[str] = kwargs.pop("labels", [])
+        tags: list[str] = kwargs.pop("tags", [])
         legend: bool = kwargs.pop("legend", True)
 
         # create plot and setup the plot
@@ -978,18 +982,18 @@ class Geometry:
                 ax.plot(hl.x, hl.y, "rx", markersize=5, markeredgewidth=1, label=label)
                 label = None
 
-            # display the labels
-            # plot point labels
-            if "points" in labels:
+            # display the tags
+            # plot point tags
+            if "points" in tags:
                 for pt in self.points:
-                    ax.annotate(str(pt.idx), xy=(pt.x, pt.y), color="r")
+                    ax.annotate(str(pt.idx + 1), xy=(pt.x, pt.y), color="r")
 
-            # plot facet labels
-            if "facets" in labels:
+            # plot facet tags
+            if "facets" in tags:
                 for fct in self.facets:
                     xy = (fct.pt1.x + fct.pt2.x) / 2, (fct.pt1.y + fct.pt2.y) / 2
 
-                    ax.annotate(str(fct.idx), xy=xy, color="b")
+                    ax.annotate(str(fct.idx + 1), xy=xy, color="b")
 
             # plot the load case
             if load_case is not None:

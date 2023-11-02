@@ -74,6 +74,7 @@ class Mesh:
         serendipity: bool,
         mesh_algorithm: int,
         subdivision_algorithm: int,
+        fields: list[Field],
         verbosity: int = 0,
     ) -> None:
         """Creates a mesh from geometry using gmsh.
@@ -96,6 +97,7 @@ class Mesh:
                 https://gmsh.info/doc/texinfo/gmsh.html#index-Mesh_002eAlgorithm
             subdivision_algorithm: Gmsh subdivision algorithm, see
                 https://gmsh.info/doc/texinfo/gmsh.html#index-Mesh_002eSubdivisionAlgorithm
+            fields: A list of ``Field`` objects, describing mesh refinement fields.
             verbosity: Gmsh verbosity level, see
                 https://gmsh.info/doc/texinfo/gmsh.html#index-General_002eVerbosity.
                 Defaults to ``0``.
@@ -222,6 +224,22 @@ class Mesh:
 
         # calculate bounding box
         self.bbox = gmsh.model.get_bounding_box(dim=-1, tag=-1)
+
+        # apply fields
+        field_tags = []
+
+        for fld in fields:
+            field_tag = fld.apply_field()
+            field_tags.append(field_tag)
+
+        # set background mesh
+        if len(field_tags) > 0:
+            min_tag = gmsh.model.mesh.field.add(fieldType="Min")
+            gmsh.model.mesh.field.set_numbers(
+                tag=min_tag, option="FieldsList", values=field_tags
+            )
+
+            gmsh.model.mesh.field.set_as_background_mesh(tag=min_tag)
 
         # generate 2D mesh
         gmsh.model.mesh.generate(2)
@@ -818,6 +836,143 @@ class Mesh:
                     print(boundary_condition)  # TODO - plot this!
 
         return ax
+
+
+class Field:
+    """Abstract class for a mesh refinement field."""
+
+    def apply_field(self) -> int:
+        """Applies the field and returns the field tag.
+
+        Raises:
+            NotImplementedError: If this method hasn't been implemented.
+        """
+        raise NotImplementedError
+
+
+class DistanceField(Field):
+    """Class for a distance mesh refinement field."""
+
+    def __init__(
+        self,
+        min_size: float,
+        max_size: float,
+        min_distance: float,
+        max_distance: float,
+        point_tags: list[int] | None = None,
+        line_tags: list[int] | None = None,
+        sampling: int = 20,
+    ) -> None:
+        """Inits the DistanceField class.
+
+        Args:
+            min_size: _description_
+            max_size: _description_
+            min_distance: _description_
+            max_distance: _description_
+            point_tags: _description_. Defaults to ``None``.
+            line_tags: _description_. Defaults to ``None``.
+            sampling: _description_. Defaults to ``20``.
+        """
+        self.min_size = min_size
+        self.max_size = max_size
+        self.min_distance = min_distance
+        self.max_distance = max_distance
+        self.point_tags = [] if point_tags is None else point_tags
+        self.line_tags = [] if line_tags is None else line_tags
+        self.sampling = sampling
+
+    def apply_field(self) -> int:
+        """Applies the distance field and returns the field tag.
+
+        Returns:
+            Field tag.
+        """
+        # add distance field
+        dist_tag = gmsh.model.mesh.field.add(fieldType="Distance")
+        gmsh.model.mesh.field.set_numbers(
+            tag=dist_tag, option="PointsList", values=self.point_tags
+        )
+        gmsh.model.mesh.field.set_numbers(
+            tag=dist_tag, option="CurvesList", values=self.line_tags
+        )
+        gmsh.model.mesh.field.set_number(
+            tag=dist_tag, option="Sampling", value=self.sampling
+        )
+
+        # add threshold field
+        field_tag = gmsh.model.mesh.field.add(fieldType="Threshold")
+        gmsh.model.mesh.field.set_number(
+            tag=field_tag, option="InField", value=dist_tag
+        )
+        gmsh.model.mesh.field.set_number(
+            tag=field_tag, option="SizeMin", value=self.min_size
+        )
+        gmsh.model.mesh.field.set_number(
+            tag=field_tag, option="SizeMax", value=self.max_size
+        )
+        gmsh.model.mesh.field.set_number(
+            tag=field_tag, option="DistMin", value=self.min_distance
+        )
+        gmsh.model.mesh.field.set_number(
+            tag=field_tag, option="DistMax", value=self.max_distance
+        )
+
+        return field_tag
+
+
+class BoxField(Field):
+    """Class for a box mesh refinement field."""
+
+    def __init__(
+        self,
+        extents: tuple[float, float, float, float],
+        min_size: float,
+        max_size: float,
+        thickness: float,
+    ) -> None:
+        """Inits the BoxField class.
+
+        Args:
+            extents: _description_
+            min_size: _description_
+            max_size: _description_
+            thickness: _description_
+        """
+        self.extents = extents
+        self.min_size = min_size
+        self.max_size = max_size
+        self.thickness = thickness
+
+    def apply_field(self) -> int:
+        """Applies the box field and returns the field tag.
+
+        Returns:
+            Field tag.
+        """
+        # add box field
+        box_tag = gmsh.model.mesh.field.add(fieldType="Box")
+        gmsh.model.mesh.field.set_number(tag=box_tag, option="VIn", value=self.min_size)
+        gmsh.model.mesh.field.set_number(
+            tag=box_tag, option="VOut", value=self.max_size
+        )
+        gmsh.model.mesh.field.set_number(
+            tag=box_tag, option="XMin", value=self.extents[0]
+        )
+        gmsh.model.mesh.field.set_number(
+            tag=box_tag, option="XMax", value=self.extents[1]
+        )
+        gmsh.model.mesh.field.set_number(
+            tag=box_tag, option="YMin", value=self.extents[2]
+        )
+        gmsh.model.mesh.field.set_number(
+            tag=box_tag, option="YMax", value=self.extents[3]
+        )
+        gmsh.model.mesh.field.set_number(
+            tag=box_tag, option="Thickness", value=self.thickness
+        )
+
+        return box_tag
 
 
 @dataclass
