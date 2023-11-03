@@ -122,6 +122,7 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 markers = [
     "benchmark_suite: entire benchmark test suite (select with '-m benchmark_suite')",
+    "benchmark_analysis: analysis benchmark tests (select with '-m benchmark_analysis')",
 ]
 
 [build-system]
