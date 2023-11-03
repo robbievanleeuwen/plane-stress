@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+from functools import cache
+
 import numpy as np
 import numpy.typing as npt
+from numba import njit
 
 
-def dof_map(node_idxs: list[int]) -> list[int]:
+@cache
+def dof_map(node_idxs: tuple[int, ...]) -> list[int]:
     """Maps a list of node indexes to a list of degrees of freedom.
 
     Args:
@@ -18,11 +22,13 @@ def dof_map(node_idxs: list[int]) -> list[int]:
     dofs = []
 
     for node_idx in node_idxs:
-        dofs.extend([node_idx * 2, node_idx * 2 + 1])
+        dofs.append(node_idx * 2)
+        dofs.append(node_idx * 2 + 1)
 
     return dofs
 
 
+@njit(cache=True, nogil=True)
 def gauss_points_line(n_points: int) -> npt.NDArray[np.float64]:
     """Gaussian weights and locations for 1D line Gaussian integration.
 
@@ -61,6 +67,7 @@ def gauss_points_line(n_points: int) -> npt.NDArray[np.float64]:
     raise ValueError("'n_points' must be 1, 2 or 3.")
 
 
+@njit(cache=True, nogil=True)
 def gauss_points_triangle(n_points: int) -> npt.NDArray[np.float64]:
     """Gaussian weights and locations for triangular Gaussian integration.
 
@@ -91,6 +98,7 @@ def gauss_points_triangle(n_points: int) -> npt.NDArray[np.float64]:
     raise ValueError("'n_points' must be 1 or 3.")
 
 
+@njit(cache=True, nogil=True)
 def gauss_points_quad(n_points: int) -> npt.NDArray[np.float64]:
     """Gaussian weights and locations for 2D quadrangle Gaussian integration.
 

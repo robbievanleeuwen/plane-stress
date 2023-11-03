@@ -125,11 +125,31 @@ class FiniteElement:
         """
         raise NotImplementedError
 
+    def element_row_indexes(self) -> list[int]:
+        """Returns the row indexes fore the global stiffness matrix.
+
+        Returns:
+            Row indexes.
+        """
+        dofs = utils.dof_map(node_idxs=tuple(self.node_idxs))
+
+        return [dof for dof in dofs for _ in range(len(dofs))]
+
+    def element_col_indexes(self) -> list[int]:
+        """Returns the column indexes fore the global stiffness matrix.
+
+        Returns:
+            Column indexes.
+        """
+        dofs = utils.dof_map(node_idxs=tuple(self.node_idxs))
+
+        return dofs * len(dofs)
+
     def element_stiffness_matrix(self) -> npt.NDArray[np.float64]:
         """Assembles the stiffness matrix for the element.
 
         Returns:
-            Element stiffness matrix.
+            Flattened element stiffness matrix.
         """
         # allocate element stiffness matrix
         k_el = np.zeros((2 * self.num_nodes, 2 * self.num_nodes))
@@ -159,7 +179,7 @@ class FiniteElement:
                 b_mat.transpose() @ d_mat @ b_mat * weight * j * self.material.thickness
             )
 
-        return k_el
+        return k_el.ravel()
 
     def element_load_vector(
         self,
@@ -273,7 +293,7 @@ class FiniteElement:
         raise NotImplementedError
 
     def get_triangulation(self) -> list[tuple[int, int, int]]:
-        """Returns a list of triangle indices for the finite element.
+        """Returns a list of triangle indexes for the finite element.
 
         Raises:
             NotImplementedError: If this method hasn't been implemented for an element.
@@ -481,10 +501,10 @@ class Tri3(TriangularElement):
         )
 
     def get_triangulation(self) -> list[tuple[int, int, int]]:
-        """Returns a list of triangle indices for a Tri3 element.
+        """Returns a list of triangle indexes for a Tri3 element.
 
         Returns:
-            List of triangle indices.
+            List of triangle indexes.
         """
         return [(self.node_idxs[0], self.node_idxs[1], self.node_idxs[2])]
 
@@ -604,10 +624,10 @@ class Tri6(TriangularElement):
         )
 
     def get_triangulation(self) -> list[tuple[int, int, int]]:
-        """Returns a list of triangle indices for a Tri6 element.
+        """Returns a list of triangle indexes for a Tri6 element.
 
         Returns:
-            List of triangle indices.
+            List of triangle indexes.
         """
         return [
             (self.node_idxs[0], self.node_idxs[3], self.node_idxs[5]),
@@ -856,10 +876,10 @@ class Quad4(QuadrilateralElement):
         )
 
     def get_triangulation(self) -> list[tuple[int, int, int]]:
-        """Returns a list of triangle indices for a Quad4 element.
+        """Returns a list of triangle indexes for a Quad4 element.
 
         Returns:
-            List of triangle indices.
+            List of triangle indexes.
         """
         return [
             (self.node_idxs[0], self.node_idxs[1], self.node_idxs[2]),
@@ -1029,10 +1049,10 @@ class Quad8(QuadrilateralElement):
         return ex_mat
 
     def get_triangulation(self) -> list[tuple[int, int, int]]:
-        """Returns a list of triangle indices for a Quad8 element.
+        """Returns a list of triangle indexes for a Quad8 element.
 
         Returns:
-            List of triangle indices.
+            List of triangle indexes.
         """
         return [
             (self.node_idxs[0], self.node_idxs[4], self.node_idxs[7]),
@@ -1209,10 +1229,10 @@ class Quad9(QuadrilateralElement):
         return ex_mat
 
     def get_triangulation(self) -> list[tuple[int, int, int]]:
-        """Returns a list of triangle indices for a Quad9 element.
+        """Returns a list of triangle indexes for a Quad9 element.
 
         Returns:
-            List of triangle indices.
+            List of triangle indexes.
         """
         return [
             (self.node_idxs[0], self.node_idxs[4], self.node_idxs[8]),

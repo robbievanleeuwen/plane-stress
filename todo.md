@@ -14,8 +14,13 @@
 
 - Improve solver method
 - All round performance improvements
+- Add benchmarks
 - Add validation tests
-- Add sparse matrices, numba, pypardiso
+- Add sparse matrices
+  - What is the best way to modify values (BCs?)
+  - Add force vector sparsity
+  - Are list comprehensions the fastest?
+- Add numba, pypardiso
 
 ## Post-processor
 

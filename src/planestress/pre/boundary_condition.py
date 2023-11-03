@@ -8,7 +8,7 @@ Boundary condition application priorities:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import numpy as np
 import numpy.typing as npt
@@ -17,6 +17,8 @@ from planestress.analysis.utils import dof_map
 
 
 if TYPE_CHECKING:
+    from scipy.sparse import lil_array
+
     from planestress.pre.mesh import TaggedEntity, TaggedLine, TaggedNode
 
 
@@ -49,9 +51,9 @@ class BoundaryCondition:
 
     def apply_bc(
         self,
-        k: npt.NDArray[np.float64],
+        k: lil_array,
         f: npt.NDArray[np.float64],
-    ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+    ) -> tuple[lil_array, npt.NDArray[np.float64]]:
         """Applies the boundary condition.
 
         Args:
@@ -137,7 +139,7 @@ class NodeBoundaryCondition(BoundaryCondition):
         if self.mesh_tag is None:
             raise RuntimeError("Mesh tag is not assigned.")
 
-        return dof_map(node_idxs=[self.mesh_tag.node_idx])
+        return dof_map(node_idxs=(self.mesh_tag.node_idx,))
 
 
 class NodeSupport(NodeBoundaryCondition):
@@ -169,9 +171,9 @@ class NodeSupport(NodeBoundaryCondition):
 
     def apply_bc(
         self,
-        k: npt.NDArray[np.float64],
+        k: lil_array,
         f: npt.NDArray[np.float64],
-    ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+    ) -> tuple[lil_array, npt.NDArray[np.float64]]:
         """Applies the boundary condition.
 
         Args:
@@ -190,7 +192,7 @@ class NodeSupport(NodeBoundaryCondition):
         for dof in dofs:
             # apply bc - TODO - confirm this theory!
             k[dof, :] = 0
-            k[dof, dof] = 1
+            k[dof, dof] = 1.0
             f[dof] = self.value
 
         return k, f
@@ -223,9 +225,9 @@ class NodeSpring(NodeBoundaryCondition):
 
     def apply_bc(
         self,
-        k: npt.NDArray[np.float64],
+        k: lil_array,
         f: npt.NDArray[np.float64],
-    ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+    ) -> tuple[lil_array, npt.NDArray[np.float64]]:
         """Applies the boundary condition.
 
         Args:
@@ -243,7 +245,7 @@ class NodeSpring(NodeBoundaryCondition):
 
         for dof in dofs:
             # apply bc - TODO - confirm this theory!
-            k[dof, dof] += self.value
+            k[dof, dof] = cast(float, k[dof, dof]) + self.value
 
         return k, f
 
@@ -276,9 +278,9 @@ class NodeLoad(NodeBoundaryCondition):
 
     def apply_bc(
         self,
-        k: npt.NDArray[np.float64],
+        k: lil_array,
         f: npt.NDArray[np.float64],
-    ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+    ) -> tuple[lil_array, npt.NDArray[np.float64]]:
         """Applies the boundary condition.
 
         Args:
@@ -402,9 +404,9 @@ class LineSupport(LineBoundaryCondition):
 
     def apply_bc(
         self,
-        k: npt.NDArray[np.float64],
+        k: lil_array,
         f: npt.NDArray[np.float64],
-    ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+    ) -> tuple[lil_array, npt.NDArray[np.float64]]:
         """Applies the boundary condition.
 
         Args:
@@ -415,7 +417,7 @@ class LineSupport(LineBoundaryCondition):
             Modified stiffness matrix and load vector (``k``, ``f``).
         """
         # get degrees of freedom for node indexes
-        dofs = dof_map(node_idxs=self.get_unique_nodes())
+        dofs = dof_map(node_idxs=tuple(self.get_unique_nodes()))
 
         # get relevant dofs
         dofs = self.get_dofs_given_direction(dofs=dofs)
@@ -461,9 +463,9 @@ class LineSpring(LineBoundaryCondition):
 
     def apply_bc(
         self,
-        k: npt.NDArray[np.float64],
+        k: lil_array,
         f: npt.NDArray[np.float64],
-    ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+    ) -> tuple[lil_array, npt.NDArray[np.float64]]:
         """Applies the boundary condition.
 
         Args:
@@ -474,14 +476,14 @@ class LineSpring(LineBoundaryCondition):
             Modified stiffness matrix and load vector (``k``, ``f``).
         """
         # get degrees of freedom for node indexes
-        dofs = dof_map(node_idxs=self.get_unique_nodes())
+        dofs = dof_map(node_idxs=tuple(self.get_unique_nodes()))
 
         # get relevant dofs
         dofs = self.get_dofs_given_direction(dofs=dofs)
 
         # apply bc - TODO - confirm this theory!
         for dof in dofs:
-            k[dof, dof] += self.value
+            k[dof, dof] = cast(float, k[dof, dof]) + self.value
 
         return k, f
 
@@ -518,9 +520,9 @@ class LineLoad(LineBoundaryCondition):
 
     def apply_bc(
         self,
-        k: npt.NDArray[np.float64],
+        k: lil_array,
         f: npt.NDArray[np.float64],
-    ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+    ) -> tuple[lil_array, npt.NDArray[np.float64]]:
         """Applies the boundary condition.
 
         Args:
@@ -544,7 +546,7 @@ class LineLoad(LineBoundaryCondition):
             )
 
             # get element degrees of freedom
-            el_dofs = dof_map(node_idxs=element.node_idxs)
+            el_dofs = dof_map(node_idxs=tuple(element.node_idxs))
 
             # add element load vector to global load vector
             f[el_dofs] += f_el

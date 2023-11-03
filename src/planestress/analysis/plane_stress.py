@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-import copy
 from typing import TYPE_CHECKING
 
 import numpy as np
 import numpy.typing as npt
+import scipy.sparse as sp_sparse
 
 import planestress.analysis.solver as solver
 from planestress.analysis.utils import dof_map
@@ -72,28 +72,37 @@ class PlaneStress:
         # get number of degrees of freedom
         num_dofs = self.mesh.num_nodes() * 2
 
-        # allocate stiffness matrix
-        k = np.zeros((num_dofs, num_dofs))
-
         # allocate results
         results: list[Results] = []
 
         # assemble stiffness matrix
-        for el in self.mesh.elements:
-            # get element stiffness matrix
-            k_el = el.element_stiffness_matrix()
+        row_idxs = [
+            row_index
+            for element in self.mesh.elements
+            for row_index in element.element_row_indexes()
+        ]
+        col_idxs = [
+            col_index
+            for element in self.mesh.elements
+            for col_index in element.element_col_indexes()
+        ]
+        k_list = [
+            k
+            for element in self.mesh.elements
+            for k in element.element_stiffness_matrix()
+        ]
 
-            # get element degrees of freedom
-            el_dofs = dof_map(node_idxs=el.node_idxs)
-            el_dofs_mat = np.ix_(el_dofs, el_dofs)
-
-            # add element stiffness matrix to global stiffness matrix
-            k[el_dofs_mat] += k_el
+        # construct sparse matrix in COOrdinate format and convert to list of lists
+        k = sp_sparse.coo_array(
+            arg1=(k_list, (row_idxs, col_idxs)),
+            shape=(num_dofs, num_dofs),
+            dtype=np.float64,
+        ).tolil()
 
         # for each load case
         for lc in self.load_cases:
             # initialise modified stiffness matrix
-            k_mod = copy.deepcopy(k)
+            k_mod: sp_sparse.lil_array = k.copy()
 
             # initialise load vector
             f = np.zeros(num_dofs)
@@ -105,7 +114,7 @@ class PlaneStress:
                 f_el = el.element_load_vector(acceleration_field=lc.acceleration_field)
 
                 # get element degrees of freedom
-                el_dofs = dof_map(node_idxs=el.node_idxs)
+                el_dofs = dof_map(node_idxs=tuple(el.node_idxs))
 
                 # add element load vector to global load vector
                 f[el_dofs] += f_el
@@ -115,7 +124,7 @@ class PlaneStress:
             for boundary_condition in lc.boundary_conditions:
                 # check to see if we have finished applying external loads
                 if boundary_condition.priority > 0 and f_app is None:
-                    f_app = copy.deepcopy(f)
+                    f_app = np.copy(f)
 
                 # apply boundary condition
                 k_mod, f = boundary_condition.apply_bc(k=k_mod, f=f)
@@ -125,7 +134,7 @@ class PlaneStress:
                 f_app = f
 
             # solve system
-            u = solver.solve_direct(k=k_mod, f=f)
+            u = solver.solve_direct_sparse(k=k_mod, f=f)
 
             # post-processing
             res = Results(plane_stress=self, u=u)

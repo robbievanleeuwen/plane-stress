@@ -32,7 +32,7 @@ class Mesh:
         nodes: List of nodes describing the mesh, e.g. ``[[x1, y1], [x2, y2], ... ]``.
         elements: List of finite element objects in the mesh.
         line_elements: List of line element objects in the mesh.
-        triangulation: List of indices defining the triangles in the mesh (quads &
+        triangulation: List of indexes defining the triangles in the mesh (quads &
             higher order elements converted to triangles) for plotting purposes.
         materials: List of material objects for each region in the mesh.
         tagged_nodes: List of nodes tagged in the mesh.
@@ -473,7 +473,7 @@ class Mesh:
         )
 
     def create_triangulation(self) -> None:
-        """Creates a list of triangle indices that are used for plotting purposes.
+        """Creates a list of triangle indexes that are used for plotting purposes.
 
         Elements that are not three-noded triangles need to be further subdivided into
         triangles to allow for the use of triangular plotting functions in

@@ -10,7 +10,7 @@ from scipy.sparse.linalg import spsolve
 
 
 if TYPE_CHECKING:
-    from scipy.sparse import csc_matrix
+    from scipy.sparse import lil_array
 
 
 def solve_direct(
@@ -30,7 +30,7 @@ def solve_direct(
 
 
 def solve_direct_sparse(
-    k: csc_matrix,
+    k: lil_array,
     f: npt.NDArray[np.float64],
 ) -> npt.NDArray[np.float64]:
     """Solves a sparse linear system using the direct solver method.
@@ -42,4 +42,7 @@ def solve_direct_sparse(
     Returns:
         The solution vector to the sparse linear system of equations.
     """
-    return spsolve(A=k, b=f)  # type: ignore
+    k_csc = k.tocsc()
+    k_csc.eliminate_zeros()
+
+    return spsolve(A=k_csc, b=f)  # type: ignore
