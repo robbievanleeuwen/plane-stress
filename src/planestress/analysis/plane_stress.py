@@ -74,23 +74,15 @@ class PlaneStress:
 
         # allocate results
         results: list[Results] = []
+        row_idxs: list[int] = []
+        col_idxs: list[int] = []
+        k_list: list[float] = []
 
         # assemble stiffness matrix
-        row_idxs = [
-            row_index
-            for element in self.mesh.elements
-            for row_index in element.element_row_indexes()
-        ]
-        col_idxs = [
-            col_index
-            for element in self.mesh.elements
-            for col_index in element.element_col_indexes()
-        ]
-        k_list = [
-            k
-            for element in self.mesh.elements
-            for k in element.element_stiffness_matrix()
-        ]
+        for el in self.mesh.elements:
+            row_idxs.extend(el.element_row_indexes())
+            col_idxs.extend(el.element_col_indexes())
+            k_list.extend(el.element_stiffness_matrix())
 
         # construct sparse matrix in COOrdinate format and convert to list of lists
         k = sp_sparse.coo_array(

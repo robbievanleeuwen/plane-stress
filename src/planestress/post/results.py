@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     import matplotlib.axes
     from scipy.sparse import csc_array
 
-    from planestress.analysis.finite_element import FiniteElement
+    from planestress.analysis.finite_elements.finite_element import FiniteElement
     from planestress.analysis.plane_stress import PlaneStress
 
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import cache
 
 import numpy as np
 import numpy.typing as npt
@@ -54,6 +55,7 @@ class Material:
             / ((1 + self.poissons_ratio) * (1 - 2 * self.poissons_ratio))
         )
 
+    @cache
     def get_d_matrix(self) -> npt.NDArray[np.float64]:
         r"""Returns the constitutive matrix for plane-stress.
 

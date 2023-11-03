@@ -5,8 +5,6 @@ from __future__ import annotations
 from functools import cache
 
 import numpy as np
-import numpy.typing as npt
-from numba import njit
 
 
 @cache
@@ -28,8 +26,8 @@ def dof_map(node_idxs: tuple[int, ...]) -> list[int]:
     return dofs
 
 
-@njit(cache=True, nogil=True)
-def gauss_points_line(n_points: int) -> npt.NDArray[np.float64]:
+@cache
+def gauss_points_line(n_points: int) -> list[tuple[float, float]]:
     """Gaussian weights and locations for 1D line Gaussian integration.
 
     Args:
@@ -39,36 +37,32 @@ def gauss_points_line(n_points: int) -> npt.NDArray[np.float64]:
         ValueError: If ``n_points`` is not 1, 2 or 3.
 
     Returns:
-        Gaussian weights and location. For each gauss point - ``[weight, xi]``.
+        Gaussian weights and location. For each gauss point - ``(weight, xi)``.
     """
     # one point gaussian integration
     if n_points == 1:
-        return np.array([[2.0, 0.0]])
+        return [(2.0, 0.0)]
 
     # two point gaussian integration
     if n_points == 2:
-        return np.array(
-            [
-                [1.0, -1.0 / np.sqrt(3)],
-                [1.0, 1.0 / np.sqrt(3)],
-            ]
-        )
+        return [
+            (1.0, -1.0 / np.sqrt(3)),
+            (1.0, 1.0 / np.sqrt(3)),
+        ]
 
     # three point gaussian integration
     if n_points == 3:
-        return np.array(
-            [
-                [5.0 / 9.0, -np.sqrt(3.0 / 5.0)],
-                [8.0 / 9.0, 0.0],
-                [5.0 / 9.0, np.sqrt(3.0 / 5.0)],
-            ]
-        )
+        return [
+            (5.0 / 9.0, -np.sqrt(3.0 / 5.0)),
+            (8.0 / 9.0, 0.0),
+            (5.0 / 9.0, np.sqrt(3.0 / 5.0)),
+        ]
 
     raise ValueError("'n_points' must be 1, 2 or 3.")
 
 
-@njit(cache=True, nogil=True)
-def gauss_points_triangle(n_points: int) -> npt.NDArray[np.float64]:
+@cache
+def gauss_points_triangle(n_points: int) -> list[tuple[float, float, float, float]]:
     """Gaussian weights and locations for triangular Gaussian integration.
 
     Args:
@@ -79,30 +73,26 @@ def gauss_points_triangle(n_points: int) -> npt.NDArray[np.float64]:
 
     Returns:
         Gaussian weights and locations. For each gauss point -
-        ``[weight, zeta1, zeta2, zeta3]``.
+        ``(weight, zeta1, zeta2, zeta3)``.
     """
     # one point gaussian integration
     if n_points == 1:
-        return np.array([[1.0, 1.0 / 3, 1.0 / 3, 1.0 / 3]])
+        return [(1.0, 1.0 / 3, 1.0 / 3, 1.0 / 3)]
 
     # three point gaussian integration
     if n_points == 3:
-        return np.array(
-            [
-                [1.0 / 3, 2.0 / 3, 1.0 / 6, 1.0 / 6],
-                [1.0 / 3, 1.0 / 6, 2.0 / 3, 1.0 / 6],
-                [1.0 / 3, 1.0 / 6, 1.0 / 6, 2.0 / 3],
-            ]
-        )
+        return [
+            (1.0 / 3, 2.0 / 3, 1.0 / 6, 1.0 / 6),
+            (1.0 / 3, 1.0 / 6, 2.0 / 3, 1.0 / 6),
+            (1.0 / 3, 1.0 / 6, 1.0 / 6, 2.0 / 3),
+        ]
 
     raise ValueError("'n_points' must be 1 or 3.")
 
 
-@njit(cache=True, nogil=True)
-def gauss_points_quad(n_points: int) -> npt.NDArray[np.float64]:
+@cache
+def gauss_points_quad(n_points: int) -> list[tuple[float, float, float]]:
     """Gaussian weights and locations for 2D quadrangle Gaussian integration.
-
-    Note last value in each row is ignored (placeholder).
 
     Args:
         n_points: Number of gauss points in each direction.
@@ -112,37 +102,33 @@ def gauss_points_quad(n_points: int) -> npt.NDArray[np.float64]:
 
     Returns:
         Gaussian weights and location. For each gauss point -
-        ``[weight, xi, eta, 0.0]``.
+        ``(weight, xi, eta)``.
     """
     # one point gaussian integration
     if n_points == 1:
-        return np.array([[4.0, 0.0, 0.0, 0.0]])
+        return [(4.0, 0.0, 0.0)]
 
     # two point gaussian integration
     if n_points == 2:
-        return np.array(
-            [
-                [1.0, -1.0 / np.sqrt(3), -1.0 / np.sqrt(3), 0.0],
-                [1.0, 1.0 / np.sqrt(3), -1.0 / np.sqrt(3), 0.0],
-                [1.0, 1.0 / np.sqrt(3), 1.0 / np.sqrt(3), 0.0],
-                [1.0, -1.0 / np.sqrt(3), 1.0 / np.sqrt(3), 0.0],
-            ]
-        )
+        return [
+            (1.0, -1.0 / np.sqrt(3), -1.0 / np.sqrt(3)),
+            (1.0, 1.0 / np.sqrt(3), -1.0 / np.sqrt(3)),
+            (1.0, 1.0 / np.sqrt(3), 1.0 / np.sqrt(3)),
+            (1.0, -1.0 / np.sqrt(3), 1.0 / np.sqrt(3)),
+        ]
 
     # three point gaussian integration
     if n_points == 3:
-        return np.array(
-            [
-                [25.0 / 81.0, -np.sqrt(3.0 / 5.0), -np.sqrt(3.0 / 5.0), 0.0],
-                [25.0 / 81.0, np.sqrt(3.0 / 5.0), -np.sqrt(3.0 / 5.0), 0.0],
-                [25.0 / 81.0, np.sqrt(3.0 / 5.0), np.sqrt(3.0 / 5.0), 0.0],
-                [25.0 / 81.0, -np.sqrt(3.0 / 5.0), np.sqrt(3.0 / 5.0), 0.0],
-                [40.0 / 81.0, 0.0, -np.sqrt(3.0 / 5.0), 0.0],
-                [40.0 / 81.0, np.sqrt(3.0 / 5.0), 0.0, 0.0],
-                [40.0 / 81.0, 0.0, np.sqrt(3.0 / 5.0), 0.0],
-                [40.0 / 81.0, -np.sqrt(3.0 / 5.0), 0.0, 0.0],
-                [64.0 / 81.0, 0.0, 0.0, 0.0],
-            ]
-        )
+        return [
+            (25.0 / 81.0, -np.sqrt(3.0 / 5.0), -np.sqrt(3.0 / 5.0)),
+            (25.0 / 81.0, np.sqrt(3.0 / 5.0), -np.sqrt(3.0 / 5.0)),
+            (25.0 / 81.0, np.sqrt(3.0 / 5.0), np.sqrt(3.0 / 5.0)),
+            (25.0 / 81.0, -np.sqrt(3.0 / 5.0), np.sqrt(3.0 / 5.0)),
+            (40.0 / 81.0, 0.0, -np.sqrt(3.0 / 5.0)),
+            (40.0 / 81.0, np.sqrt(3.0 / 5.0), 0.0),
+            (40.0 / 81.0, 0.0, np.sqrt(3.0 / 5.0)),
+            (40.0 / 81.0, -np.sqrt(3.0 / 5.0), 0.0),
+            (64.0 / 81.0, 0.0, 0.0),
+        ]
 
     raise ValueError("'n_points' must be 1, 2 or 3.")
