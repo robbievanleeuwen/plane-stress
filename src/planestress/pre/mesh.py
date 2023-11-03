@@ -12,10 +12,7 @@ import shapely as shapely
 from matplotlib import collections
 
 import planestress.pre.geometry as ps_geom
-from planestress.analysis.finite_elements.finite_element import (
-    LinearLine,
-    QuadraticLine,
-)
+from planestress.analysis.finite_elements.lines import LinearLine, QuadraticLine
 from planestress.analysis.finite_elements.quad4 import Quad4
 from planestress.analysis.finite_elements.quad8 import Quad8
 from planestress.analysis.finite_elements.quad9 import Quad9
@@ -27,10 +24,8 @@ from planestress.post.plotting import plotting_context
 if TYPE_CHECKING:
     import matplotlib.axes
 
-    from planestress.analysis.finite_elements.finite_element import (
-        FiniteElement,
-        LineElement,
-    )
+    from planestress.analysis.finite_elements.finite_element import FiniteElement
+    from planestress.analysis.finite_elements.lines import LineElement
     from planestress.pre.geometry import CurveLoop, Facet, Point, Surface
     from planestress.pre.load_case import LoadCase
     from planestress.pre.material import Material
