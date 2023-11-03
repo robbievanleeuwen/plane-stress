@@ -314,7 +314,7 @@ class Tri6(FiniteElement):
         Returns:
             List of node indexes and exterior coordinates
         """
-        return self.node_idxs[0:3], self.coords[0:3]
+        return self.node_idxs[0:3], self.coords[:, 0:3]
 
     def get_triangulation(self) -> list[tuple[int, int, int]]:
         """Returns a list of triangle indexes for a Tri6 element.

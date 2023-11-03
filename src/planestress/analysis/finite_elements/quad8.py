@@ -354,7 +354,7 @@ class Quad8(FiniteElement):
         Returns:
             List of node indexes and exterior coordinates
         """
-        return self.node_idxs[0:4], self.coords[0:4]
+        return self.node_idxs[0:4], self.coords[:, 0:4]
 
     def get_triangulation(self) -> list[tuple[int, int, int]]:
         """Returns a list of triangle indexes for a Quad8 element.
