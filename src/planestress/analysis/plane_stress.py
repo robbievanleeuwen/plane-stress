@@ -73,6 +73,9 @@ class PlaneStress:
                 or ``"pardiso"`` (Intel oneAPI Math Kernel Library PARDISO solver).
                 Defaults to ``"direct"``.
 
+        Raises:
+            ValueError: If ``solver_type`` is not ``"direct"`` or ``"pardiso"``.
+
         Returns:
             A list of ``Results`` objects for post-processing corresponding to each load
             case.
