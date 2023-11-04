@@ -1077,6 +1077,20 @@ files = [
 ]
 
 [[package]]
+name = "intel-openmp"
+version = "2023.2.0"
+description = "Intel OpenMP* Runtime Library"
+optional = true
+python-versions = "*"
+files = [
+    {file = "intel_openmp-2023.2.0-py2.py3-none-macosx_10_15_x86_64.macosx_11_0_x86_64.whl", hash = "sha256:b937d37b3ce736be29c9740ff7396a88ce09438b484a81b4542ea066eb3021dd"},
+    {file = "intel_openmp-2023.2.0-py2.py3-none-manylinux1_i686.whl", hash = "sha256:747e3b7789baf849896aa6ec42ecfdd2a05b37118bd970cb89e898b07fb84bf1"},
+    {file = "intel_openmp-2023.2.0-py2.py3-none-manylinux1_x86_64.whl", hash = "sha256:5a604c4c9413640074b22bd444dbf27979ebb9c4fd0344a81f003f392171e56e"},
+    {file = "intel_openmp-2023.2.0-py2.py3-none-win32.whl", hash = "sha256:9c429a3e371c50aa9ed4fda56e905fd49a29b706633149e39e9c414adf8a91f9"},
+    {file = "intel_openmp-2023.2.0-py2.py3-none-win_amd64.whl", hash = "sha256:49a85f4532041da84ceb0fb7a1c207614bf4d56def11ba2d456a9cd17943c15b"},
+]
+
+[[package]]
 name = "ipykernel"
 version = "6.26.0"
 description = "IPython Kernel for Jupyter"
@@ -1864,6 +1878,20 @@ files = [
 ]
 
 [[package]]
+name = "mkl"
+version = "2023.2.1"
+description = "Intel® oneAPI Math Kernel Library"
+optional = true
+python-versions = "*"
+files = [
+    {file = "mkl-2023.2.1-py2.py3-none-macosx_10_15_x86_64.macosx_11_0_x86_64.whl", hash = "sha256:953a55a778d87cea9fd44f777c3b0a7a5804e9e810dc5f22852b2c4a42a79bcb"},
+]
+
+[package.dependencies]
+intel-openmp = "==2023.*"
+tbb = "==2021.*"
+
+[[package]]
 name = "mypy"
 version = "1.6.1"
 description = "Optional static typing for Python"
@@ -2571,6 +2599,22 @@ files = [
 
 [package.extras]
 plugins = ["importlib-metadata"]
+
+[[package]]
+name = "pypardiso"
+version = "0.4.3"
+description = "Python interface to the Intel MKL Pardiso library to solve large sparse linear systems of equations"
+optional = true
+python-versions = "*"
+files = [
+    {file = "pypardiso-0.4.3-py3-none-any.whl", hash = "sha256:f5ff18b982063882d67d09d83ba97059cfe776484e2f754d1c6ef8175ccd98f9"},
+    {file = "pypardiso-0.4.3.tar.gz", hash = "sha256:8eeafbda5fbf104162da2292fa69c190beee244acf3c95cdb6aac0edb3382bd1"},
+]
+
+[package.dependencies]
+mkl = "*"
+numpy = "*"
+scipy = "*"
 
 [[package]]
 name = "pyparsing"
@@ -3583,6 +3627,20 @@ pure-eval = "*"
 tests = ["cython", "littleutils", "pygments", "pytest", "typeguard"]
 
 [[package]]
+name = "tbb"
+version = "2021.10.0"
+description = "Intel® oneAPI Threading Building Blocks (oneTBB)"
+optional = true
+python-versions = "*"
+files = [
+    {file = "tbb-2021.10.0-py2.py3-none-macosx_10_15_x86_64.macosx_11_0_x86_64.whl", hash = "sha256:5049f3be64664897f33ac1474a1bb1cfa45274cd8f4541e91fee4eda5c4165b5"},
+    {file = "tbb-2021.10.0-py2.py3-none-manylinux1_i686.whl", hash = "sha256:46205d559a2bfd877e9ea9a674fb3efb5d6024bd5dc10ace78c16d9d2db5d921"},
+    {file = "tbb-2021.10.0-py2.py3-none-manylinux1_x86_64.whl", hash = "sha256:a201aa14e098f7f6c8e45e393382007d01552f92797283b46d550068717cfb8c"},
+    {file = "tbb-2021.10.0-py3-none-win32.whl", hash = "sha256:64815eb09c0720e9d59f9ce74b0fde23424cddcdd604941a122eba846a5eaa5f"},
+    {file = "tbb-2021.10.0-py3-none-win_amd64.whl", hash = "sha256:787745460f79dc92883ef237330db20f57382a3e9bcb088a1fa49abd6a96b1d6"},
+]
+
+[[package]]
 name = "terminado"
 version = "0.17.1"
 description = "Tornado websocket backend for the Xterm.js Javascript terminal emulator library."
@@ -3829,7 +3887,10 @@ files = [
 docs = ["furo", "jaraco.packaging (>=9.3)", "jaraco.tidelift (>=1.4)", "rst.linker (>=1.9)", "sphinx (<7.2.5)", "sphinx (>=3.5)", "sphinx-lint"]
 testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "pytest (>=6)", "pytest-black (>=0.3.7)", "pytest-checkdocs (>=2.4)", "pytest-cov", "pytest-enabler (>=2.2)", "pytest-ignore-flaky", "pytest-mypy (>=0.9.1)", "pytest-ruff"]
 
+[extras]
+pardiso = ["intel-openmp", "pypardiso"]
+
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9.0,<3.12"
-content-hash = "c027c2fae56691a25bcb362ee577c069d6a86ca833604850adebeb0ca707096f"
+content-hash = "b44641fb1014dfc4d2c61caefe3dd88143ff6db03bb8fdce7d784af085d37c79"

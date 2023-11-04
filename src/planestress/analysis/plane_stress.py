@@ -62,8 +62,16 @@ class PlaneStress:
         for load_case in self.load_cases:
             load_case.assign_mesh_tags(mesh=self.mesh)
 
-    def solve(self) -> list[Results]:
+    def solve(
+        self,
+        solver_type: str = "direct",
+    ) -> list[Results]:
         """Solves each load case.
+
+        Args:
+            solver_type: Solver type, either ``"direct"`` (SciPy SuperLU sparse solver)
+                or ``"pardiso"`` (Intel oneAPI Math Kernel Library PARDISO solver).
+                Defaults to ``"direct"``.
 
         Returns:
             A list of ``Results`` objects for post-processing corresponding to each load
@@ -126,7 +134,14 @@ class PlaneStress:
                 f_app = f
 
             # solve system
-            u = solver.solve_direct_sparse(k=k_mod, f=f)
+            if solver_type == "direct":
+                u = solver.solve_direct(k=k_mod, f=f)
+            elif solver_type == "pardiso":
+                u = solver.solve_pardiso(k=k_mod, f=f)
+            else:
+                raise ValueError(
+                    f"'solver_type' must be 'direct' or 'pardiso', not {solver_type}."
+                )
 
             # post-processing
             res = Results(plane_stress=self, u=u)
