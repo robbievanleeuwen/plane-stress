@@ -13,9 +13,7 @@
 ## Analysis
 
 - Improve solver method
-- All round performance improvements
-- Add validation tests
-- Add sparse matrices, numba, pypardiso
+- Add more validation tests
 
 ## Post-processor
 

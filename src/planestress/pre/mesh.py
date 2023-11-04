@@ -11,14 +11,21 @@ import numpy.typing as npt
 import shapely as shapely
 from matplotlib import collections
 
-import planestress.analysis.finite_element as fe
 import planestress.pre.geometry as ps_geom
+from planestress.analysis.finite_elements.lines import LinearLine, QuadraticLine
+from planestress.analysis.finite_elements.quad4 import Quad4
+from planestress.analysis.finite_elements.quad8 import Quad8
+from planestress.analysis.finite_elements.quad9 import Quad9
+from planestress.analysis.finite_elements.tri3 import Tri3
+from planestress.analysis.finite_elements.tri6 import Tri6
 from planestress.post.plotting import plotting_context
 
 
 if TYPE_CHECKING:
     import matplotlib.axes
 
+    from planestress.analysis.finite_elements.finite_element import FiniteElement
+    from planestress.analysis.finite_elements.lines import LineElement
     from planestress.pre.geometry import CurveLoop, Facet, Point, Surface
     from planestress.pre.load_case import LoadCase
     from planestress.pre.material import Material
@@ -32,7 +39,7 @@ class Mesh:
         nodes: List of nodes describing the mesh, e.g. ``[[x1, y1], [x2, y2], ... ]``.
         elements: List of finite element objects in the mesh.
         line_elements: List of line element objects in the mesh.
-        triangulation: List of indices defining the triangles in the mesh (quads &
+        triangulation: List of indexes defining the triangles in the mesh (quads &
             higher order elements converted to triangles) for plotting purposes.
         materials: List of material objects for each region in the mesh.
         tagged_nodes: List of nodes tagged in the mesh.
@@ -49,8 +56,8 @@ class Mesh:
     nodes: npt.NDArray[np.float64] = field(
         init=False, default_factory=lambda: np.array([])
     )
-    elements: list[fe.FiniteElement] = field(init=False, default_factory=list)
-    line_elements: list[fe.LineElement] = field(init=False, default_factory=list)
+    elements: list[FiniteElement] = field(init=False, default_factory=list)
+    line_elements: list[LineElement] = field(init=False, default_factory=list)
     triangulation: list[tuple[int, int, int]] = field(init=False, default_factory=list)
     materials: list[Material] = field(init=False, default_factory=list)
     tagged_nodes: list[TaggedNode] = field(init=False, default_factory=list)
@@ -315,27 +322,27 @@ class Mesh:
                 # tri3 elements
                 if el_type == 2:
                     # assign element object
-                    el_obj = fe.Tri3
+                    el_obj = Tri3
                     num_nodes = 3
                 # quad4 elements
                 elif el_type == 3:
                     # assign element object
-                    el_obj = fe.Quad4
+                    el_obj = Quad4
                     num_nodes = 4
                 # tri6 elements
                 elif el_type == 9:
                     # assign element object
-                    el_obj = fe.Tri6
+                    el_obj = Tri6
                     num_nodes = 6
                 # quad9 elements
                 elif el_type == 10:
                     # assign element object
-                    el_obj = fe.Quad9
+                    el_obj = Quad9
                     num_nodes = 9
                 # quad8 elements
                 elif el_type == 16:
                     # assign element object
-                    el_obj = fe.Quad8
+                    el_obj = Quad8
                     num_nodes = 8
                 else:
                     raise ValueError(f"Unsupported gmsh element type: type {el_type}.")
@@ -389,7 +396,7 @@ class Mesh:
                 line_node_tags_list = np.reshape(line_node_tags_list, (num_lines, 2))
 
                 # assign element object
-                line_obj = fe.LinearLine
+                line_obj = LinearLine
             # quadratic line elements
             elif line_type == 8:
                 # reshape node tags list
@@ -397,7 +404,7 @@ class Mesh:
                 line_node_tags_list = np.reshape(line_node_tags_list, (num_lines, 3))
 
                 # assign element object
-                line_obj = fe.QuadraticLine
+                line_obj = QuadraticLine
             else:
                 raise ValueError(f"Unsupported gmsh line type: type {line_type}.")
 
@@ -473,7 +480,7 @@ class Mesh:
         )
 
     def create_triangulation(self) -> None:
-        """Creates a list of triangle indices that are used for plotting purposes.
+        """Creates a list of triangle indexes that are used for plotting purposes.
 
         Elements that are not three-noded triangles need to be further subdivided into
         triangles to allow for the use of triangular plotting functions in
@@ -662,7 +669,7 @@ class Mesh:
     def get_line_element_by_tag(
         self,
         tag: int,
-    ) -> fe.LineElement:
+    ) -> LineElement:
         """Returns a ``LineElement`` given an element tag.
 
         Args:
@@ -683,7 +690,7 @@ class Mesh:
     def get_finite_element_by_tag(
         self,
         tag: int,
-    ) -> fe.FiniteElement:
+    ) -> FiniteElement:
         """Returns a ``FiniteElement`` given an element tag.
 
         Args:
@@ -1027,7 +1034,7 @@ class TaggedLine(TaggedEntity):
 
     tag: int
     tagged_nodes: list[TaggedNode]
-    elements: list[fe.LineElement]
+    elements: list[LineElement]
 
     def to_shapely_line(self) -> shapely.LineString:
         """Converts the tagged line to a ``shapely`` ``Line`` object.

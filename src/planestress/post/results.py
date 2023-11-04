@@ -18,8 +18,9 @@ from planestress.post.plotting import plotting_context
 
 if TYPE_CHECKING:
     import matplotlib.axes
+    from scipy.sparse import csc_array
 
-    from planestress.analysis.finite_element import FiniteElement
+    from planestress.analysis.finite_elements.finite_element import FiniteElement
     from planestress.analysis.plane_stress import PlaneStress
 
 
@@ -61,7 +62,7 @@ class Results:
 
     def calculate_node_forces(
         self,
-        k: npt.NDArray[np.float64],
+        k: csc_array,
     ) -> None:
         """Calculates and stores the resultant nodal forces.
 
@@ -95,7 +96,7 @@ class Results:
 
         for el in elements:
             # get element degrees of freedom
-            el_dofs = dof_map(node_idxs=el.node_idxs)
+            el_dofs = dof_map(node_idxs=tuple(el.node_idxs))
 
             # get ElementResults object and store
             el_res = el.calculate_element_stresses(u=self.u[el_dofs])
