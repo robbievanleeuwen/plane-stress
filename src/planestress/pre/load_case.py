@@ -5,10 +5,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+import planestress.post.plotting as plotting
 import planestress.pre.boundary_condition as bc
 
 
 if TYPE_CHECKING:
+    import matplotlib.axes
+
     from planestress.pre.mesh import Mesh
 
 
@@ -68,6 +71,51 @@ class LoadCase:
                     raise ValueError(
                         f"{boundary_condition} is not a valid boundary condition."
                     )
+
+    def plot(
+        self,
+        ax: matplotlib.axes.Axes,
+        max_dim: float,
+        bc_text: bool,
+        bc_fmt: str,
+    ) -> None:
+        """Plots the boundary conditions.
+
+        Args:
+            ax: Axis to plot on.
+            max_dim: Maximum dimension of the geometry bounding box.
+            bc_text: If set to ``True``, plots the values of the boundary conditions.
+                Defaults to ``False``.
+            bc_fmt: Boundary condition text formatting string. Defaults to ``".3e"``.
+        """
+        # create list of each boundary condition type
+        node_loads = []
+        node_supports = []
+
+        # loop through boundary conditions to fill out lists
+        for boundary_condition in self.boundary_conditions:
+            if isinstance(boundary_condition, bc.NodeLoad):
+                node_loads.append(boundary_condition)
+            elif isinstance(boundary_condition, bc.NodeSupport):
+                node_supports.append(boundary_condition)
+
+        # plot node loads
+        plotting.plot_node_loads(
+            ax=ax,
+            node_loads=node_loads,
+            max_dim=max_dim,
+            bc_text=bc_text,
+            bc_fmt=bc_fmt,
+        )
+
+        # plot node supports
+        plotting.plot_node_supports(
+            ax=ax,
+            node_supports=node_supports,
+            max_dim=max_dim,
+            bc_text=bc_text,
+            bc_fmt=bc_fmt,
+        )
 
 
 # TODO - add a persistent load case??

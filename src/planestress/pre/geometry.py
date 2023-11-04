@@ -944,6 +944,10 @@ class Geometry:
             tags(list[str]): A list of tags to plot, can contain any of the following:
                 ``"points"``, ``"facets"``. Defaults to ``[]``.
             legend (bool):  If set to ``True``, plots the legend. Defaults to ``True``.
+            bc_text (bool): If set to ``True``, plots the values of the boundary
+                conditions. Defaults to ``False``.
+            bc_fmt (str): Boundary condition text formatting string. Defaults to
+                ``".3e"``.
             kwargs (dict[str, Any]): Other keyword arguments are passed to
                 :meth:`~planestress.post.plotting.plotting_context`.
 
@@ -957,6 +961,8 @@ class Geometry:
         title: str = kwargs.pop("title", "Geometry")
         tags: list[str] = kwargs.pop("tags", [])
         legend: bool = kwargs.pop("legend", True)
+        bc_text: bool = kwargs.pop("bc_text", False)
+        bc_fmt: str = kwargs.pop("bc_fmt", ".3e")
 
         # create plot and setup the plot
         with plotting_context(title=title, **kwargs) as (_, ax):
@@ -997,9 +1003,12 @@ class Geometry:
 
             # plot the load case
             if load_case is not None:
-                for boundary_condition in load_case.boundary_conditions:
-                    # boundary_condition.plot()
-                    print(boundary_condition)  # TODO - plot this!
+                # calculate maximum extent dimension
+                extents = self.calculate_extents()
+                max_dim = max(extents[1] - extents[0], extents[3] - extents[2])
+
+                # plot load case
+                load_case.plot(ax=ax, max_dim=max_dim, bc_text=bc_text, bc_fmt=bc_fmt)
 
             # display the legend
             if legend:
