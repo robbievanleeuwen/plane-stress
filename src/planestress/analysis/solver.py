@@ -61,7 +61,7 @@ def solve_pardiso(
         k_csc = csc_matrix(k)
         k_csc.eliminate_zeros()
 
-        return pardiso_solve(A=k_csc, b=f)
+        return pardiso_solve(A=k_csc, b=f)  # type: ignore
     else:
         raise RuntimeError(
             "pypardiso not installed, install using the pardiso option, 'pip install "
