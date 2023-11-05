@@ -14,8 +14,8 @@ from planestress.post.results import Results
 
 
 if TYPE_CHECKING:
+    from planestress.pre.analysis_case import AnalysisCase
     from planestress.pre.geometry import Geometry
-    from planestress.pre.load_case import LoadCase
     from planestress.pre.mesh import Mesh
 
 
@@ -24,26 +24,26 @@ class PlaneStress:
 
     Attributes:
         geometry: ``Geometry`` object containing a meshed geometry.
-        load_cases: List of load cases to analyse.
+        analysis_cases: List of analysis cases to analyse.
         mesh: ``Mesh`` object.
     """
 
     def __init__(
         self,
         geometry: Geometry,
-        load_cases: list[LoadCase],
+        analysis_cases: list[AnalysisCase],
     ) -> None:
         """Inits the PlaneStress class.
 
         Args:
             geometry: ``Geometry`` object containing a meshed geometry.
-            load_cases: List of load cases to analyse.
+            analysis_cases: List of analysis cases to analyse.
 
         Raises:
             RuntimeError: If there is no mesh in the ``Geometry`` object.
         """
         self.geometry = geometry
-        self.load_cases = load_cases
+        self.analysis_cases = analysis_cases
 
         # check mesh has been created
         if len(self.geometry.mesh.nodes) < 1:
@@ -55,18 +55,18 @@ class PlaneStress:
         self.mesh: Mesh = self.geometry.mesh
 
         # reset boundary conditions mesh tags
-        for load_case in self.load_cases:
-            load_case.reset_mesh_tags()
+        for analysis_case in self.analysis_cases:
+            analysis_case.reset_mesh_tags()
 
         # assign mesh tags to boundary conditions
-        for load_case in self.load_cases:
-            load_case.assign_mesh_tags(mesh=self.mesh)
+        for analysis_case in self.analysis_cases:
+            analysis_case.assign_mesh_tags(mesh=self.mesh)
 
     def solve(
         self,
         solver_type: str = "direct",
     ) -> list[Results]:
-        """Solves each load case.
+        """Solves each analysis case.
 
         Args:
             solver_type: Solver type, either ``"direct"`` (SciPy SuperLU sparse solver)
@@ -77,8 +77,8 @@ class PlaneStress:
             ValueError: If ``solver_type`` is not ``"direct"`` or ``"pardiso"``.
 
         Returns:
-            A list of ``Results`` objects for post-processing corresponding to each load
-            case.
+            A list of ``Results`` objects for post-processing corresponding to each
+            analysis case.
         """
         # get number of degrees of freedom
         num_dofs = self.mesh.num_nodes() * 2
@@ -102,8 +102,8 @@ class PlaneStress:
             dtype=np.float64,
         ).tolil()
 
-        # for each load case
-        for lc in self.load_cases:
+        # for each analysis case
+        for case in self.analysis_cases:
             # initialise modified stiffness matrix
             k_mod: sp_sparse.lil_array = k.copy()
 
@@ -114,7 +114,9 @@ class PlaneStress:
             # assemble load vector
             for el in self.mesh.elements:
                 # get element load vector
-                f_el = el.element_load_vector(acceleration_field=lc.acceleration_field)
+                f_el = el.element_load_vector(
+                    acceleration_field=case.acceleration_field
+                )
 
                 # get element degrees of freedom
                 el_dofs = dof_map(node_idxs=tuple(el.node_idxs))
@@ -124,7 +126,7 @@ class PlaneStress:
 
             # apply boundary conditions
             # note these are sorted (load -> spring -> support)
-            for boundary_condition in lc.boundary_conditions:
+            for boundary_condition in case.boundary_conditions:
                 # check to see if we have finished applying external loads
                 if boundary_condition.priority > 0 and f_app is None:
                     f_app = np.copy(f)

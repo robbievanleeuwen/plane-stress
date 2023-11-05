@@ -16,7 +16,7 @@ from planestress.pre.mesh import Mesh
 if TYPE_CHECKING:
     import matplotlib.axes
 
-    from planestress.pre.load_case import LoadCase
+    from planestress.pre.analysis_case import AnalysisCase
     from planestress.pre.mesh import Field
 
 
@@ -927,16 +927,16 @@ class Geometry:
 
     def plot_geometry(
         self,
-        load_case: LoadCase | None = None,
+        analysis_case: AnalysisCase | None = None,
         **kwargs: Any,
     ) -> matplotlib.axes.Axes:
         """Plots the geometry.
 
-        Optionally also renders the boundary conditions of a load case if provided.
+        Optionally also renders the boundary conditions of an analysis case if provided.
 
         Args:
-            load_case: Plots the boundary conditions within a load case if provided.
-                Defaults to ``None``.
+            analysis_case: Plots the boundary conditions within an analysis case if
+                provided. Defaults to ``None``.
             kwargs: See below.
 
         Keyword Args:
@@ -1012,14 +1012,14 @@ class Geometry:
 
                     ax.annotate(str(fct.idx + 1), xy=xy, color="b")
 
-            # plot the load case
-            if load_case is not None:
+            # plot the analysis case
+            if analysis_case is not None:
                 # calculate maximum extent dimension
                 extents = self.calculate_extents()
                 max_dim = max(extents[1] - extents[0], extents[3] - extents[2])
 
-                # plot load case
-                load_case.plot(
+                # plot analysis case
+                analysis_case.plot(
                     ax=ax,
                     max_dim=max_dim,
                     bc_text=bc_text,
@@ -1039,16 +1039,11 @@ class Geometry:
 
     def plot_mesh(
         self,
-        load_case: LoadCase | None = None,
         **kwargs: Any,
     ) -> matplotlib.axes.Axes:
         r"""Plots the finite element mesh.
 
-        Optionally also renders the boundary conditions of a load case if provided.
-
         Args:
-            load_case: Plots the boundary conditions within a load case if provided.
-                Defaults to ``None``.
             kwargs: See below.
 
         Keyword Args:
@@ -1082,7 +1077,6 @@ class Geometry:
 
         if len(self.mesh.nodes) > 0:
             return self.mesh.plot_mesh(
-                load_case=load_case,
                 title=title,
                 materials=materials,
                 node_indexes=node_indexes,

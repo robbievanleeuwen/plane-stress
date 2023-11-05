@@ -9,8 +9,8 @@ import pytest_check as check
 
 import planestress.pre.boundary_condition as bc
 from planestress.analysis.plane_stress import PlaneStress
+from planestress.pre.analysis_case import AnalysisCase
 from planestress.pre.library import circle, rectangle, steel_material
-from planestress.pre.load_case import LoadCase
 
 
 def test_vls1():
@@ -86,7 +86,7 @@ def test_vls9(el_type):
     pt = (11e3 / np.sqrt(2), 11e3 / np.sqrt(2))
     force = 10e6 / np.sqrt(2)  # force component in x and y directions
     load = bc.NodeLoad(point=pt, direction="xy", value=-force)
-    lc = LoadCase([lhs_support, rhs_support, load])
+    case = AnalysisCase([lhs_support, rhs_support, load])
 
     # create mesh
     if el_type == "Quad4":
@@ -111,7 +111,7 @@ def test_vls9(el_type):
         raise ValueError(f"{el_type} element not supported for this test.")
 
     # solve
-    ps = PlaneStress(geom, [lc])
+    ps = PlaneStress(geom, [case])
     results_list = ps.solve()
     res = results_list[0]
 

@@ -27,7 +27,6 @@ if TYPE_CHECKING:
     from planestress.analysis.finite_elements.finite_element import FiniteElement
     from planestress.analysis.finite_elements.lines import LineElement
     from planestress.pre.geometry import CurveLoop, Facet, Point, Surface
-    from planestress.pre.load_case import LoadCase
     from planestress.pre.material import Material
 
 
@@ -710,7 +709,6 @@ class Mesh:
 
     def plot_mesh(
         self,
-        load_case: LoadCase | None,
         title: str,
         materials: bool,
         node_indexes: bool,
@@ -722,14 +720,11 @@ class Mesh:
     ) -> matplotlib.axes.Axes:
         r"""Plots the finite element mesh.
 
-        Optionally also renders the boundary conditions of a load case if provided. Also
-        plots a deformed mesh if ``ux`` and/or ``uy`` is provided. In this case, the
-        undeformed mesh is also plotted with ``alpha=0.2``, ``materials`` is set to
-        ``False`` and ``load_case`` is set to ``None``.
+        Plots a deformed mesh if ``ux`` and/or ``uy`` is provided. In this case, the
+        undeformed mesh is also plotted with ``alpha=0.2`` and ``materials`` is set to
+        ``False``.
 
         Args:
-            load_case: Plots the boundary conditions within a load case if provided.
-                Defaults to ``None``.
             title: Plot title.
             materials: If set to ``True`` shades the elements with the specified
                 material colors.
@@ -839,12 +834,6 @@ class Mesh:
                         ha="center",
                         va="center",
                     )
-
-            # plot the load case
-            if load_case is not None:
-                for boundary_condition in load_case.boundary_conditions:
-                    # boundary_condition.plot()
-                    print(boundary_condition)  # TODO - plot this!
 
         return ax
 

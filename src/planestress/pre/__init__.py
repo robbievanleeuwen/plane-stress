@@ -1,5 +1,6 @@
 """planestress pre-processor."""
 
+from planestress.pre.analysis_case import AnalysisCase
 from planestress.pre.boundary_condition import (
     LineLoad,
     LineSpring,
@@ -9,5 +10,4 @@ from planestress.pre.boundary_condition import (
     NodeSupport,
 )
 from planestress.pre.geometry import Geometry
-from planestress.pre.load_case import LoadCase
 from planestress.pre.material import Material

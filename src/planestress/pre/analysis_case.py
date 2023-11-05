@@ -1,4 +1,4 @@
-"""Class describing a planestress load case."""
+"""Class describing a planestress analysis case."""
 
 from __future__ import annotations
 
@@ -17,12 +17,12 @@ if TYPE_CHECKING:
 
 
 @dataclass
-class LoadCase:
-    """Class for a load case.
+class AnalysisCase:
+    """Class for an analysis case.
 
     Args:
         boundary_conditions: List of boundary conditions.
-        acceleration_field: Acceleration field for the current load case (``a_x``,
+        acceleration_field: Acceleration field for the current analysis case (``a_x``,
             ``a_y``). Defaults to ``(0.0, 0.0)``.
     """
 
@@ -45,13 +45,13 @@ class LoadCase:
         self,
         mesh: Mesh,
     ) -> None:
-        """Assigns mesh tags to all boundary conditions in the load case.
+        """Assigns mesh tags to all boundary conditions in the analysis case.
 
         Args:
             mesh: ``Mesh`` object.
 
         Raises:
-            ValueError: If there is an invalid boundary condition in a load case.
+            ValueError: If there is an invalid boundary condition in a analysis case.
         """
         for boundary_condition in self.boundary_conditions:
             # if a mesh tag hasn't been assigned yet
@@ -141,4 +141,4 @@ class LoadCase:
         )
 
 
-# TODO - add a persistent load case??
+# TODO - add a persistent analysis case??

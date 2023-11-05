@@ -7,9 +7,9 @@ from typing import Callable
 import pytest
 
 from planestress.analysis.plane_stress import PlaneStress
+from planestress.pre.analysis_case import AnalysisCase
 from planestress.pre.boundary_condition import LineLoad, LineSupport, NodeSupport
 from planestress.pre.library import rectangle
-from planestress.pre.load_case import LoadCase
 
 
 @pytest.fixture
@@ -40,7 +40,7 @@ def unit_square() -> Callable:
         lhs = NodeSupport((0, 0), "x")
         bot = LineSupport((0, 0), (1, 0), "y")
         load = LineLoad((0, 1), (1, 1), "y", 1)
-        load_case = LoadCase([lhs, bot, load])
+        analysis_case = AnalysisCase([lhs, bot, load])
 
         if element_type == "Tri3":
             geom.create_mesh(mesh_sizes=lc, mesh_order=1)
@@ -63,6 +63,6 @@ def unit_square() -> Callable:
                 mesh_sizes=lc, quad_mesh=True, mesh_order=2, mesh_algorithm=8
             )
 
-        return PlaneStress(geom, [load_case])
+        return PlaneStress(geom, [analysis_case])
 
     return _generate

@@ -365,7 +365,6 @@ class Results:
 
             # plot the finite element mesh
             self.plane_stress.mesh.plot_mesh(
-                load_case=None,
                 material_list=self.plane_stress.geometry.materials,
                 title=title,
                 materials=False,
@@ -409,7 +408,6 @@ class Results:
         alpha: float = kwargs.pop("alpha", 0.8)
 
         return self.plane_stress.mesh.plot_mesh(
-            load_case=None,
             title=title,
             materials=False,
             node_indexes=False,
@@ -613,7 +611,6 @@ class Results:
 
             # plot the finite element mesh
             self.plane_stress.mesh.plot_mesh(
-                load_case=None,
                 material_list=self.plane_stress.geometry.materials,
                 title=title,
                 materials=False,
@@ -770,7 +767,6 @@ class Results:
 
             # plot the finite element mesh
             self.plane_stress.mesh.plot_mesh(
-                load_case=None,
                 material_list=self.plane_stress.geometry.materials,
                 title=title,
                 materials=False,

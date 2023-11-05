@@ -5,7 +5,7 @@
 ### Pre-processor
 
 - Testing overlapping facets, other testing? (see deltares pandamesh)
-- Persistent load case
+- Persistent analysis case
 
 ### Analysis
 
