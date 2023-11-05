@@ -5,10 +5,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+import planestress.post.plotting as plotting
 import planestress.pre.boundary_condition as bc
 
 
 if TYPE_CHECKING:
+    import matplotlib.axes
+    from shapely import MultiPolygon
+
     from planestress.pre.mesh import Mesh
 
 
@@ -68,6 +72,73 @@ class LoadCase:
                     raise ValueError(
                         f"{boundary_condition} is not a valid boundary condition."
                     )
+
+    def plot(
+        self,
+        ax: matplotlib.axes.Axes,
+        max_dim: float,
+        bc_text: bool,
+        bc_fmt: str,
+        arrow_length_scale: float,
+        arrow_width_scale: float,
+        support_scale: float,
+        num_supports: int,
+        multi_polygon: MultiPolygon,
+    ) -> None:
+        """Plots the boundary conditions.
+
+        Args:
+            ax: Axis to plot on.
+            max_dim: Maximum dimension of the geometry bounding box.
+            bc_text: If set to ``True``, plots the values of the boundary conditions.
+            bc_fmt: Boundary condition text formatting string.
+            arrow_length_scale: Arrow length scaling factor.
+            arrow_width_scale: Arrow width scaling factor.
+            support_scale: Support scaling factor.
+            num_supports: Number of line supports to plot internally.
+            multi_polygon: ``MultiPolygon`` describing the geometry.
+        """
+        # create list of each boundary condition type
+        node_loads = []
+        line_loads = []
+        node_supports = []
+        line_supports = []
+        node_springs = []
+        line_springs = []
+
+        # loop through boundary conditions to fill out lists
+        for boundary_condition in self.boundary_conditions:
+            if isinstance(boundary_condition, bc.NodeLoad):
+                node_loads.append(boundary_condition)
+            elif isinstance(boundary_condition, bc.LineLoad):
+                line_loads.append(boundary_condition)
+            elif isinstance(boundary_condition, bc.NodeSupport):
+                node_supports.append(boundary_condition)
+            elif isinstance(boundary_condition, bc.LineSupport):
+                line_supports.append(boundary_condition)
+            elif isinstance(boundary_condition, bc.NodeSpring):
+                node_springs.append(boundary_condition)
+            elif isinstance(boundary_condition, bc.LineSpring):
+                line_springs.append(boundary_condition)
+
+        # plot boundary conditions
+        plotting.plot_boundary_conditions(
+            ax=ax,
+            node_loads=node_loads,
+            line_loads=line_loads,
+            node_supports=node_supports,
+            line_supports=line_supports,
+            node_springs=node_springs,
+            line_springs=line_springs,
+            max_dim=max_dim,
+            bc_text=bc_text,
+            bc_fmt=bc_fmt,
+            arrow_length_scale=arrow_length_scale,
+            arrow_width_scale=arrow_width_scale,
+            support_scale=support_scale,
+            num_supports=num_supports,
+            multi_polygon=multi_polygon,
+        )
 
 
 # TODO - add a persistent load case??
