@@ -948,6 +948,13 @@ class Geometry:
                 conditions. Defaults to ``False``.
             bc_fmt (str): Boundary condition text formatting string. Defaults to
                 ``".3e"``.
+            arrow_length_scale (float): Arrow length scaling factor. Defaults to
+                ``0.1``.
+            arrow_width_scale (float): Arrow width scaling factor. Defaults to
+                ``0.003``.
+            support_scale (float): Support scaling factor. Defaults to ``0.03``.
+            num_supports (int): Number of line supports to plot internally. Defaults to
+                ``1``.
             kwargs (dict[str, Any]): Other keyword arguments are passed to
                 :meth:`~planestress.post.plotting.plotting_context`.
 
@@ -963,6 +970,10 @@ class Geometry:
         legend: bool = kwargs.pop("legend", True)
         bc_text: bool = kwargs.pop("bc_text", False)
         bc_fmt: str = kwargs.pop("bc_fmt", ".3e")
+        arrow_length_scale: float = kwargs.pop("arrow_length_scale", 0.1)
+        arrow_width_scale: float = kwargs.pop("arrow_width_scale", 0.003)
+        support_scale: float = kwargs.pop("support_scale", 0.03)
+        num_supports: int = kwargs.pop("num_supports", 1)
 
         # create plot and setup the plot
         with plotting_context(title=title, **kwargs) as (_, ax):
@@ -1008,7 +1019,17 @@ class Geometry:
                 max_dim = max(extents[1] - extents[0], extents[3] - extents[2])
 
                 # plot load case
-                load_case.plot(ax=ax, max_dim=max_dim, bc_text=bc_text, bc_fmt=bc_fmt)
+                load_case.plot(
+                    ax=ax,
+                    max_dim=max_dim,
+                    bc_text=bc_text,
+                    bc_fmt=bc_fmt,
+                    arrow_length_scale=arrow_length_scale,
+                    arrow_width_scale=arrow_width_scale,
+                    support_scale=support_scale,
+                    num_supports=num_supports,
+                    multi_polygon=self.polygons,
+                )
 
             # display the legend
             if legend:
