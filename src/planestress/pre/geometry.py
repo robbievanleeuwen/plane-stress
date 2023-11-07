@@ -1003,14 +1003,14 @@ class Geometry:
             # plot point tags
             if "points" in tags:
                 for pt in self.points:
-                    ax.annotate(str(pt.idx + 1), xy=(pt.x, pt.y), color="r")
+                    ax.annotate(str(pt.idx), xy=(pt.x, pt.y), color="r")
 
             # plot facet tags
             if "facets" in tags:
                 for fct in self.facets:
                     xy = (fct.pt1.x + fct.pt2.x) / 2, (fct.pt1.y + fct.pt2.y) / 2
 
-                    ax.annotate(str(fct.idx + 1), xy=xy, color="b")
+                    ax.annotate(str(fct.idx), xy=xy, color="b")
 
             # plot the analysis case
             if analysis_case is not None:

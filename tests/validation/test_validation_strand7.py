@@ -121,3 +121,8 @@ def test_vls9(el_type):
     target_stress = -53.2
 
     check.almost_equal(target_stress, sig_yy, rel=rel)
+
+
+@pytest.mark.parametrize("el_type", ["Quad4", "Tri6", "Quad8", "Quad9"])
+def test_vls11(el_type):
+    """VLS11: xxx."""
