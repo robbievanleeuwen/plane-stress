@@ -161,7 +161,9 @@ def tests(session: Session) -> None:
     Args:
         session: Nox session
     """
-    session.install(".")
+    session.run_always(
+        "poetry", "install", "--only", "main", "--extras", "pardiso", external=True
+    )
 
     # linux CI needs the no X Windows versions of gmsh
     if platform.system().lower() == "linux":

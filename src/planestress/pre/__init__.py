@@ -11,3 +11,4 @@ from planestress.pre.boundary_condition import (
 )
 from planestress.pre.geometry import Geometry
 from planestress.pre.material import Material
+from planestress.pre.mesh import BoxField, DistanceField

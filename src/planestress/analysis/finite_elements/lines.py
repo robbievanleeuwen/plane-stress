@@ -53,6 +53,30 @@ class LineElement:
             f"tag: {self.line_tag}."
         )
 
+    def get_normal_vector(self) -> tuple[float, float]:
+        """Gets a unit vector in the direction normal to the line.
+
+        Returns:
+            Normal unit vector.
+        """
+        dx = self.coords[0, 1] - self.coords[0, 0]
+        dy = self.coords[1, 1] - self.coords[1, 0]
+        length = (dx**2 + dy**2) ** 0.5
+
+        return -dy / length, dx / length
+
+    def get_tangent_vector(self) -> tuple[float, float]:
+        """Gets a unit vector in the direction tangent to the line.
+
+        Returns:
+            Tangent unit vector.
+        """
+        dx = self.coords[0, 1] - self.coords[0, 0]
+        dy = self.coords[1, 1] - self.coords[1, 0]
+        length = (dx**2 + dy**2) ** 0.5
+
+        return dx / length, dy / length
+
     @staticmethod
     @cache
     @njit(cache=True, nogil=True)  # type: ignore
@@ -79,7 +103,8 @@ class LineElement:
         """Assembles the load vector for the line element.
 
         Args:
-            direction: Direction of the line load, ``"x"``, ``"y"`` or ``"xy"``.
+            direction: Direction of the line load, ``"x"``, ``"y"``, ``"xy"``, ``"n"``
+                or ``"t"``.
             value: Value of the line load.
 
         Returns:
@@ -97,8 +122,16 @@ class LineElement:
             b = np.array([1.0, 0.0])
         elif direction == "y":
             b = np.array([0.0, 1.0])
-        else:
+        elif direction == "xy":
             b = np.array([1.0, 1.0])
+        elif direction == "n":
+            b = np.array(self.get_normal_vector())
+        elif direction == "t":
+            b = np.array(self.get_tangent_vector())
+        else:
+            raise ValueError(
+                f"'direction' must be 'x', 'y', 'xy', 'n' or 't', not {direction}."
+            )
 
         b *= value
 

@@ -1879,12 +1879,16 @@ files = [
 
 [[package]]
 name = "mkl"
-version = "2023.2.1"
+version = "2023.2.0"
 description = "Intel® oneAPI Math Kernel Library"
 optional = true
 python-versions = "*"
 files = [
-    {file = "mkl-2023.2.1-py2.py3-none-macosx_10_15_x86_64.macosx_11_0_x86_64.whl", hash = "sha256:953a55a778d87cea9fd44f777c3b0a7a5804e9e810dc5f22852b2c4a42a79bcb"},
+    {file = "mkl-2023.2.0-py2.py3-none-macosx_10_15_x86_64.macosx_11_0_x86_64.whl", hash = "sha256:a8e448a49cb636afc589c952b5b3de6c94ea19fe3c50e6c4e7e915f47adf3070"},
+    {file = "mkl-2023.2.0-py2.py3-none-manylinux1_i686.whl", hash = "sha256:60e301ee5f836c00cc48bbcef803c57032e15ebdeffdf78190e828c9adf41206"},
+    {file = "mkl-2023.2.0-py2.py3-none-manylinux1_x86_64.whl", hash = "sha256:577ac0fd075f87351d989d141f46efcb462bd2de9851ffe1c0cae3fa315b0ff7"},
+    {file = "mkl-2023.2.0-py2.py3-none-win32.whl", hash = "sha256:2cf51d9e2104f874f48a5e06e4dd3f07e756773f118ad555bb489edb91adef23"},
+    {file = "mkl-2023.2.0-py2.py3-none-win_amd64.whl", hash = "sha256:7b93b9a20c51e8c60f891097924f3f2be786797d4b587dc848725efacd559a0b"},
 ]
 
 [package.dependencies]
@@ -3888,9 +3892,9 @@ docs = ["furo", "jaraco.packaging (>=9.3)", "jaraco.tidelift (>=1.4)", "rst.link
 testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "pytest (>=6)", "pytest-black (>=0.3.7)", "pytest-checkdocs (>=2.4)", "pytest-cov", "pytest-enabler (>=2.2)", "pytest-ignore-flaky", "pytest-mypy (>=0.9.1)", "pytest-ruff"]
 
 [extras]
-pardiso = ["intel-openmp", "pypardiso"]
+pardiso = ["intel-openmp", "mkl", "pypardiso"]
 
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9.0,<3.12"
-content-hash = "b44641fb1014dfc4d2c61caefe3dd88143ff6db03bb8fdce7d784af085d37c79"
+content-hash = "f151da1cdd1df9add34d588759d4386ccbc0af490e1718fb28b31bf487dc23dd"

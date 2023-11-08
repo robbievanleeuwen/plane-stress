@@ -993,6 +993,20 @@ class Geometry:
                 )
                 label = None
 
+            # plot the embedded geometry
+            label = "Embedded Geometry"
+            for embed_geom in self.embedded_geometry:
+                if isinstance(embed_geom, Point):
+                    ax.plot(embed_geom.x, embed_geom.y, "k*", label=label)
+                elif isinstance(embed_geom, Facet):
+                    ax.plot(
+                        [embed_geom.pt1.x, embed_geom.pt2.x],
+                        [embed_geom.pt1.y, embed_geom.pt2.y],
+                        "k*-",
+                        label=label,
+                    )
+                label = None
+
             # plot the holes
             label = "Holes"
             for hl in self.holes:
@@ -1003,14 +1017,14 @@ class Geometry:
             # plot point tags
             if "points" in tags:
                 for pt in self.points:
-                    ax.annotate(str(pt.idx + 1), xy=(pt.x, pt.y), color="r")
+                    ax.annotate(str(pt.idx), xy=(pt.x, pt.y), color="r")
 
             # plot facet tags
             if "facets" in tags:
                 for fct in self.facets:
                     xy = (fct.pt1.x + fct.pt2.x) / 2, (fct.pt1.y + fct.pt2.y) / 2
 
-                    ax.annotate(str(fct.idx + 1), xy=xy, color="b")
+                    ax.annotate(str(fct.idx), xy=xy, color="b")
 
             # plot the analysis case
             if analysis_case is not None:

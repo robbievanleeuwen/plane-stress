@@ -33,28 +33,6 @@ class Material:
     density: float = 1.0
     color: str = "w"
 
-    @property
-    def mu(self) -> float:
-        r"""Returns Lamé parameter mu.
-
-        Returns:
-            Lamé parameter :math:`\mu`.
-        """
-        return self.elastic_modulus / (2 * (1 + self.poissons_ratio))
-
-    @property
-    def lda(self) -> float:
-        r"""Returns Lamé parameter lambda.
-
-        Returns:
-            Lamé parameter :math:`\lambda`.
-        """
-        return (
-            self.poissons_ratio
-            * self.elastic_modulus
-            / ((1 + self.poissons_ratio) * (1 - 2 * self.poissons_ratio))
-        )
-
     @cache
     def get_d_matrix(self) -> npt.NDArray[np.float64]:
         r"""Returns the constitutive matrix for plane-stress.
@@ -67,16 +45,15 @@ class Material:
         Returns:
             Constitutive matrix.
         """
-        mu = self.mu
-        lda = self.lda
+        d_mat = np.array(
+            [
+                [1, self.poissons_ratio, 0],
+                [self.poissons_ratio, 1, 0],
+                [0, 0, (1 - self.poissons_ratio) / 2],
+            ]
+        )
 
-        d_mat = np.zeros((3, 3))  # allocate D matrix
-        d_mat[0:2, 0:2] = lda + 2 * mu
-        d_mat[2, 2] = mu
-        d_mat[0, 1] = lda
-        d_mat[1, 0] = lda
-
-        return d_mat
+        return d_mat * self.elastic_modulus / (1 - self.poissons_ratio**2)
 
 
 DEFAULT_MATERIAL = Material()

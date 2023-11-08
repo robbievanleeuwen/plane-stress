@@ -6,6 +6,7 @@
 
 - Testing overlapping facets, other testing? (see deltares pandamesh)
 - Persistent analysis case
+- Rethink boundary conditions (rather than assign to nodes, assign to tags!)
 
 ### Analysis
 
@@ -27,7 +28,6 @@
 
 - Meshing options
   - Get mesh statistics
-- Node(?) & line load normal to curves
 - LineBC over multiple line tags?
 - Linear loads
 
