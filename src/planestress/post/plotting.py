@@ -338,8 +338,31 @@ def plot_line_loads(
         y1 = line_load.point1[1]
         x2 = line_load.point2[0]
         y2 = line_load.point2[1]
-        dx = arrow_length if line_load.direction in ["x", "xy"] else 0.0
-        dy = arrow_length if line_load.direction in ["y", "xy"] else 0.0
+
+        if line_load.direction == "x":
+            dx = arrow_length
+            dy = 0.0
+        elif line_load.direction == "y":
+            dx = 0.0
+            dy = arrow_length
+        elif line_load.direction == "xy":
+            dx = arrow_length
+            dy = arrow_length
+        elif line_load.direction == "n":
+            d_x = x2 - x1
+            d_y = y2 - y1
+            length = (d_x**2 + d_y**2) ** 0.5
+            dx = -d_y / length * arrow_length
+            dy = d_x / length * arrow_length
+        elif line_load.direction == "t":
+            d_x = x2 - x1
+            d_y = y2 - y1
+            length = (d_x**2 + d_y**2) ** 0.5
+            dx = d_x / length * arrow_length
+            dy = d_y / length * arrow_length
+        else:
+            dx = 0.0
+            dy = 0.0
 
         # check to see if arrow tip is in geometry or on boundary
         pt = shapely.Point(0.5 * (x1 + x2) + dx, 0.5 * (y1 + y2) + dy)

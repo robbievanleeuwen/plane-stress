@@ -6,7 +6,7 @@
 
 - Testing overlapping facets, other testing? (see deltares pandamesh)
 - Persistent analysis case
-- Line load normal to curves
+- Rethink boundary conditions (rather than assign to nodes, assign to tags!)
 
 ### Analysis
 

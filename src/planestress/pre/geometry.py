@@ -993,6 +993,20 @@ class Geometry:
                 )
                 label = None
 
+            # plot the embedded geometry
+            label = "Embedded Geometry"
+            for embed_geom in self.embedded_geometry:
+                if isinstance(embed_geom, Point):
+                    ax.plot(embed_geom.x, embed_geom.y, "k*", label=label)
+                elif isinstance(embed_geom, Facet):
+                    ax.plot(
+                        [embed_geom.pt1.x, embed_geom.pt2.x],
+                        [embed_geom.pt1.y, embed_geom.pt2.y],
+                        "k*-",
+                        label=label,
+                    )
+                label = None
+
             # plot the holes
             label = "Holes"
             for hl in self.holes:

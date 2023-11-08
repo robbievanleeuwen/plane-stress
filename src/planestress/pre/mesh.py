@@ -215,19 +215,6 @@ class Mesh:
                     dim=1, tags=[ln], inDim=2, inTag=geo.pt1.poly_idxs[0]
                 )
 
-        # check surface orientation:
-        # list describing if surface is correctly oriented
-        surface_orientated: list[bool] = []
-
-        for _, tag in gmsh.model.get_entities(dim=2):
-            normal = gmsh.model.get_normal(tag, (0, 0))
-
-            # if surface is incorrectly oriented, re-orient
-            if normal[2] < 0:
-                surface_orientated.append(False)
-            else:
-                surface_orientated.append(True)
-
         # calculate bounding box
         self.bbox = gmsh.model.get_bounding_box(dim=-1, tag=-1)
 
@@ -252,6 +239,22 @@ class Mesh:
 
         # set mesh order
         gmsh.model.mesh.set_order(order=mesh_order)
+
+        # check surface orientation:
+        # list describing if surface is correctly oriented
+        surface_orientated: list[bool] = []
+
+        for _, tag in gmsh.model.get_entities(dim=2):
+            tags, coord, param = gmsh.model.mesh.getNodes(
+                dim=2, tag=tag, includeBoundary=True
+            )
+            normal = gmsh.model.get_normal(tag=tag, parametricCoord=param[0:2])
+
+            # if surface is incorrectly oriented, re-orient
+            if normal[2] < 0:
+                surface_orientated.append(False)
+            else:
+                surface_orientated.append(True)
 
         # view model - for debugging
         # gmsh.fltk.run()

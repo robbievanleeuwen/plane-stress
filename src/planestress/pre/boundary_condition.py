@@ -507,8 +507,9 @@ class LineLoad(LineBoundaryCondition):
         Args:
             point1: Point location (``x``, ``y``) of the start of the line load.
             point2: Point location (``x``, ``y``) of the end of the line load.
-            direction: Direction of the line load, ``"x"``, ``"y"`` or ``"xy"`` (two
-                line loads in both ``x`` and ``y`` directions).
+            direction: Direction of the line load, ``"x"``, ``"y"``, ``"xy"`` (two
+                line loads in both ``x`` and ``y`` directions), ``"n"`` (normal to the
+                line) and ``"t"`` (tangent to the line).
             value: Line load per unit length.
 
         Example:
@@ -538,12 +539,32 @@ class LineLoad(LineBoundaryCondition):
         if self.mesh_tag is None:
             raise RuntimeError("Mesh tag is not assigned.")
 
+        # correct direction if normal or tangent
+        if self.direction in ["n", "t"]:
+            user_pt1 = self.point1
+            user_pt2 = self.point2
+            mesh_pt1 = self.mesh_tag.tagged_nodes[0]
+
+            # calculate distances to mesh_pt1
+            dist_pt1 = (
+                (user_pt1[0] - mesh_pt1.x) ** 2 + (user_pt1[1] - mesh_pt1.y) ** 2
+            ) ** 0.5
+            dist_pt2 = (
+                (user_pt2[0] - mesh_pt1.x) ** 2 + (user_pt2[1] - mesh_pt1.y) ** 2
+            ) ** 0.5
+
+            # if the points are flipped, flip direction of load
+            if dist_pt1 > dist_pt2:
+                val = -self.value
+            else:
+                val = self.value
+        else:
+            val = self.value
+
         # loop through all line elements
         for element in self.mesh_tag.elements:
             # get element load vector
-            f_el = element.element_load_vector(
-                direction=self.direction, value=self.value
-            )
+            f_el = element.element_load_vector(direction=self.direction, value=val)
 
             # get element degrees of freedom
             el_dofs = dof_map(node_idxs=tuple(element.node_idxs))
