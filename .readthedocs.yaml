@@ -15,7 +15,7 @@ build:
       - uv venv -p 3.13
     install:
       - uv sync --locked --no-default-groups --group docs --no-install-package gmsh
-      - uv pip install --index https://gmsh.info/python-packages-dev-nox 'gmsh<4.13.2'
+      - uv pip install --index https://gmsh.info/python-packages-dev-nox "gmsh<4.13.2"
     build:
       html:
         - uv run sphinx-build -T -b html -d docs/_build/doctrees -D language=en docs $READTHEDOCS_OUTPUT/html
