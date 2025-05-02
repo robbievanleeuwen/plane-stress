@@ -18,4 +18,4 @@ build:
       - uv pip install --index https://gmsh.info/python-packages-dev-nox "gmsh<4.13.2"
     build:
       html:
-        - uv run sphinx-build -T -b html -d docs/_build/doctrees -D language=en docs $READTHEDOCS_OUTPUT/html
+        - uv run --no-sync sphinx-build -T -b html -d docs/_build/doctrees -D language=en docs $READTHEDOCS_OUTPUT/html
