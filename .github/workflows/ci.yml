@@ -105,7 +105,7 @@ jobs:
 
     - name: Install gmsh-nox (linux)
       if: matrix.os == 'ubuntu-latest'
-      run: uv pip install --index https://gmsh.info/python-packages-dev-nox gmsh<4.13.2
+      run: uv pip install --index https://gmsh.info/python-packages-dev-nox 'gmsh<4.13.2'
 
     - name: Run pytest
       run: uv run --no-sync coverage run --parallel-mode -m pytest -m 'not benchmark_suite'
@@ -139,7 +139,7 @@ jobs:
       run: uv sync --locked --no-default-groups --group docs --no-install-package gmsh
 
     - name: Install gmsh-nox
-      run: uv pip install --index https://gmsh.info/python-packages-dev-nox gmsh<4.13.2
+      run: uv pip install --index https://gmsh.info/python-packages-dev-nox 'gmsh<4.13.2'
 
     - name: Install pandoc
       uses: pandoc/actions/setup@v1
