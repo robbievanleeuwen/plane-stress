@@ -1,0 +1,183 @@
+name: CI
+
+on:
+  push:
+    branches:
+    - master
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+env:
+  UV_VERSION: 0.6.17
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pre-commit:
+    name: pre-commit
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Check out the repo
+      uses: actions/checkout@v4
+
+    - name: Install uv version ${{ env.UV_VERSION }}
+      uses: astral-sh/setup-uv@v6
+      with:
+        version: ${{ env.UV_VERSION }}
+        enable-cache: true
+
+    - name: Install python using uv
+      run: uv python install
+
+    - name: Install dependencies
+      run: uv sync --locked --only-group lint
+
+    - name: Run pre-commit
+      run: uv run pre-commit run --all-files -color always --show-diff-on-failure
+
+  type-checking:
+    name: type-checking
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Check out the repo
+      uses: actions/checkout@v4
+
+    - name: Install uv version ${{ env.UV_VERSION }}
+      uses: astral-sh/setup-uv@v6
+      with:
+        version: ${{ env.UV_VERSION }}
+        enable-cache: true
+
+    - name: Install python using uv
+      run: uv python install
+
+    - name: Install dependencies
+      run: uv sync --locked --only-group lint
+
+    - name: Run pyright
+      run: uv run pyright
+
+  tests:
+    name: ${{ matrix.session }} ${{ matrix.python }} [${{ matrix.os }}]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - {python: '3.13', os: ubuntu-latest, session: tests}
+        - {python: '3.12', os: ubuntu-latest, session: tests}
+        - {python: '3.11', os: ubuntu-latest, session: tests}
+        - {python: '3.13', os: windows-latest, session: tests}
+        - {python: '3.12', os: windows-latest, session: tests}
+        - {python: '3.11', os: windows-latest, session: tests}
+        - {python: '3.13', os: macos-latest, session: tests}
+        - {python: '3.12', os: macos-latest, session: tests}
+        - {python: '3.11', os: macos-latest, session: tests}
+        - {python: '3.13', os: macos-13, session: tests}
+        - {python: '3.12', os: macos-13, session: tests}
+        - {python: '3.11', os: macos-13, session: tests}
+
+    steps:
+    - name: Check out the repo
+      uses: actions/checkout@v4
+
+    - name: Install uv version ${{ env.UV_VERSION }} and set python to version ${{ matrix.python }}
+      uses: astral-sh/setup-uv@v6
+      with:
+        version: ${{ env.UV_VERSION }}
+        python-version: ${{ matrix.python }}
+        enable-cache: true
+
+    - name: Install python using uv
+      run: uv python install
+    
+    - name: Install test dependencies
+      run: uv sync --locked --only-group tests
+
+    - name: Run pytest
+      run: uv run coverage run --parallel-mode -m pytest -m 'not benchmark_suite'
+
+    - name: Upload coverage data
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-data-${{ matrix.session }}-${{ matrix.os }}-${{ matrix.python
+          }}
+        include-hidden-files: true
+        path: .coverage.*
+
+  docs-build:
+    name: docs-build
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Check out the repo
+      uses: actions/checkout@v4
+
+    - name: Install uv version ${{ env.UV_VERSION }}
+      uses: astral-sh/setup-uv@v6
+      with:
+        version: ${{ env.UV_VERSION }}
+        enable-cache: true
+
+    - name: Install python using uv
+      run: uv python install
+
+    - name: Install dependencies
+      run: uv sync --locked --only-group tests
+
+    - name: Install pandoc
+      uses: pandoc/actions/setup@v1
+
+    - name: Build docs
+      run: uv run sphinx-build --color docs docs/_build
+
+    - name: Upload docs
+      uses: actions/upload-artifact@v4
+      with:
+        name: docs
+        path: docs/_build
+
+  coverage:
+    name: coverage
+    runs-on: ubuntu-latest
+    needs: tests
+
+    steps:
+    - name: Check out the repo
+      uses: actions/checkout@v4
+
+    - name: Install uv version ${{ env.UV_VERSION }}
+      uses: astral-sh/setup-uv@v6
+      with:
+        version: ${{ env.UV_VERSION }}
+        enable-cache: true
+
+    - name: Install python using uv
+      run: uv python install
+
+    - name: Install dependencies
+      run: uv sync --locked --only-group test
+
+    - name: Download coverage data
+      uses: actions/download-artifact@v4
+      with:
+        pattern: coverage-data-*
+        merge-multiple: true
+
+    - name: Combine coverage data
+      run: uv run coverage combine
+
+    - name: Display coverage report
+      run: uv run coverage report -i
+
+    - name: Create coverage report
+      run: uv run coverage xml -i
+
+    - name: Upload coverage report
+      uses: codecov/codecov-action@v5
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}

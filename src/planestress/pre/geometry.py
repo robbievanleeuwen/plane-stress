@@ -12,7 +12,6 @@ from planestress.post.plotting import plotting_context
 from planestress.pre.material import DEFAULT_MATERIAL, Material
 from planestress.pre.mesh import Mesh
 
-
 if TYPE_CHECKING:
     import matplotlib.axes
 
@@ -755,11 +754,11 @@ class Geometry:
         mat_list: list[Material] = []
 
         # loop through each list of polygons and combine
-        for poly, mat in zip(self.polygons.geoms, self.materials):
+        for poly, mat in zip(self.polygons.geoms, self.materials, strict=False):
             poly_list.append(poly)
             mat_list.append(mat)
 
-        for poly, mat in zip(other.polygons.geoms, other.materials):
+        for poly, mat in zip(other.polygons.geoms, other.materials, strict=False):
             poly_list.append(poly)
             mat_list.append(mat)
 

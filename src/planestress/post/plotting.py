@@ -11,7 +11,6 @@ import numpy as np
 import shapely
 from matplotlib.patches import Polygon
 
-
 if TYPE_CHECKING:
     import matplotlib.axes
     import matplotlib.figure
@@ -69,9 +68,9 @@ def plotting_context(
 
         try:
             if axis_index is None:
-                axis_index = (0,) * ax.ndim  # type: ignore
+                axis_index = (0,) * ax.ndim
 
-            ax = ax[axis_index]  # type: ignore
+            ax = ax[axis_index]
         except (AttributeError, TypeError):
             pass  # only 1 axis, not an array
         except IndexError as exc:
@@ -80,7 +79,7 @@ def plotting_context(
                 f"subplots: {kwargs}."
             ) from exc
     else:
-        fig = ax.get_figure()  # type: ignore
+        fig = ax.get_figure()
         assert fig
         ax_supplied = True
 
@@ -106,7 +105,7 @@ def plotting_context(
 
     if render:
         if pause:
-            plt.show()  # type: ignore
+            plt.show()
         else:
             plt.draw()
             plt.pause(0.001)

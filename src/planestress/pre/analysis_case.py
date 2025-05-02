@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING
 import planestress.post.plotting as plotting
 import planestress.pre.boundary_condition as bc
 
-
 if TYPE_CHECKING:
     import matplotlib.axes
     from shapely import MultiPolygon

@@ -8,13 +8,12 @@ Boundary condition application priorities:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 import numpy as np
 import numpy.typing as npt
 
 from planestress.analysis.utils import dof_map
-
 
 if TYPE_CHECKING:
     from scipy.sparse import lil_array
@@ -245,7 +244,7 @@ class NodeSpring(NodeBoundaryCondition):
 
         for dof in dofs:
             # apply bc - TODO - confirm this theory!
-            k[dof, dof] = cast(float, k[dof, dof]) + self.value
+            k[dof, dof] = k[dof, dof] + self.value
 
         return k, f
 
@@ -483,7 +482,7 @@ class LineSpring(LineBoundaryCondition):
 
         # apply bc - TODO - confirm this theory!
         for dof in dofs:
-            k[dof, dof] = cast(float, k[dof, dof]) + self.value
+            k[dof, dof] = k[dof, dof] + self.value
 
         return k, f
 

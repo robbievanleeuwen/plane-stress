@@ -9,7 +9,6 @@ import numpy.typing as npt
 from scipy.sparse import csc_matrix
 from scipy.sparse.linalg import spsolve
 
-
 try:
     import pypardiso
 
@@ -38,7 +37,7 @@ def solve_direct(
     k_csc = k.tocsc()
     k_csc.eliminate_zeros()
 
-    return spsolve(A=k_csc, b=f)  # type: ignore
+    return spsolve(A=k_csc, b=f)
 
 
 def solve_pardiso(
@@ -61,7 +60,7 @@ def solve_pardiso(
         k_csc = csc_matrix(k)
         k_csc.eliminate_zeros()
 
-        return pardiso_solve(A=k_csc, b=f)  # type: ignore
+        return pardiso_solve(A=k_csc, b=f)
     else:
         raise RuntimeError(
             "pypardiso not installed, install using the pardiso option, 'pip install "

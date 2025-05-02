@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any
 
 import matplotlib
 import numpy as np
@@ -14,7 +15,6 @@ from mpl_toolkits.axes_grid1.axes_divider import make_axes_locatable
 
 from planestress.analysis.utils import dof_map
 from planestress.post.plotting import plotting_context
-
 
 if TYPE_CHECKING:
     import matplotlib.axes
@@ -732,7 +732,7 @@ class Results:
 
             # scale the color with respect to the magnitude of the vector
             c_unsigned = np.hypot(sigs_x, sigs_y)
-            c = [c_i * sign for c_i, sign in zip(c_unsigned, signs)]
+            c = [c_i * sign for c_i, sign in zip(c_unsigned, signs, strict=False)]
             c_min = min(c)
             c_max = max(c)
 

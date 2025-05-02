@@ -9,7 +9,6 @@ import numpy.typing as npt
 
 import planestress.analysis.utils as utils
 
-
 if TYPE_CHECKING:
     from planestress.post.results import ElementResults
     from planestress.pre.material import Material

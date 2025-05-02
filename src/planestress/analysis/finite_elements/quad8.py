@@ -14,7 +14,6 @@ from planestress.analysis.finite_elements.finite_element import FiniteElement
 from planestress.analysis.finite_elements.quad9 import Quad9
 from planestress.post.results import ElementResults
 
-
 if TYPE_CHECKING:
     from planestress.pre.material import Material
 
@@ -110,7 +109,7 @@ class Quad8(FiniteElement):
 
     @staticmethod
     @cache
-    @njit(cache=True, nogil=True)  # type: ignore
+    @njit(cache=True, nogil=True)
     def b_matrix_jacobian(
         iso_coords: tuple[float, float],
         coords: tuple[float, ...],

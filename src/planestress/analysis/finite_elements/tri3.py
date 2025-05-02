@@ -13,7 +13,6 @@ import planestress.analysis.utils as utils
 from planestress.analysis.finite_elements.finite_element import FiniteElement
 from planestress.post.results import ElementResults
 
-
 if TYPE_CHECKING:
     from planestress.pre.material import Material
 
@@ -71,7 +70,7 @@ class Tri3(FiniteElement):
     @staticmethod
     @cache
     def shape_functions(
-        iso_coords: tuple[float, float, float]
+        iso_coords: tuple[float, float, float],
     ) -> npt.NDArray[np.float64]:
         """Returns the shape functions at a point for a Tri3 element.
 
@@ -89,7 +88,7 @@ class Tri3(FiniteElement):
 
     @staticmethod
     @cache
-    @njit(cache=True, nogil=True)  # type: ignore
+    @njit(cache=True, nogil=True)
     def b_matrix_jacobian(
         coords: tuple[float, ...],
     ) -> tuple[npt.NDArray[np.float64], float]:

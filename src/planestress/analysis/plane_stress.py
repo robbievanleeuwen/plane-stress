@@ -12,7 +12,6 @@ import planestress.analysis.solver as solver
 from planestress.analysis.utils import dof_map
 from planestress.post.results import Results
 
-
 if TYPE_CHECKING:
     from planestress.pre.analysis_case import AnalysisCase
     from planestress.pre.geometry import Geometry

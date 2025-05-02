@@ -1,18 +1,15 @@
-[tool.poetry]
+[project]
 name = "planestress"
 version = "0.0.4"
 description = "A python package for plane stress analysis using the finite element method."
-license = "MIT"
+readme = "README.md"
+license = {file = "LICENSE"}
 authors = [
-    "Robbie van Leeuwen <robbie.vanleeuwen@gmail.com>",
+    { name = "Robbie van Leeuwen", email = "robbie.vanleeuwen@gmail.com" }
 ]
 maintainers = [
-    "Robbie van Leeuwen <robbie.vanleeuwen@gmail.com>",
+    { name = "Robbie van Leeuwen", email = "robbie.vanleeuwen@gmail.com" },
 ]
-readme = "README.md"
-homepage = "https://github.com/robbievanleeuwen/plane-stress"
-repository = "https://github.com/robbievanleeuwen/plane-stress"
-documentation = "https://plane-stress.readthedocs.io"
 keywords = [
     "plane-stress",
     "structural-engineering",
@@ -25,70 +22,70 @@ classifiers = [
     "Environment :: Console",
     "License :: OSI Approved :: MIT License",
     "Natural Language :: English",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
 ]
-packages = [
-    { include = "planestress", from = "src" },
-    { include = "src/planestress/py.typed" },
+requires-python = ">=3.11,<3.14"
+dependencies = [
+    "numpy~=2.2",
+    "scipy~=1.14",
+    "matplotlib~=3.9",
+    "shapely~=2.0",
+    "gmsh~=4.13",
+    "numba~=0.61",
+    "rich[jupyter]~=14.0",
 ]
-include = []
 
-[tool.poetry.urls]
+[project.urls]
+Homepage = "https://plane-stress.readthedocs.io"
+Documentation = "https://plane-stress.readthedocs.io"
+Repository = "https://github.com/robbievanleeuwen/plane-stress"
+Issues = "https://github.com/robbievanleeuwen/plane-stress/issues"
 Changelog = "https://github.com/robbievanleeuwen/plane-stress/releases"
-"Bug Tracker" = "https://github.com/robbievanleeuwen/plane-stress/issues"
 
-[tool.poetry.dependencies]
-python = ">=3.9.0,<3.12"
-numpy = "^1.24.0"
-scipy = "^1.10.0"
-matplotlib = "^3.8.0"
-shapely = "^2.0.2"
-gmsh = "^4.11.1"
-numba = "^0.58.1"
-rich = "^13.5.0"
-click = "^8.1.7"
-pypardiso = { version = "^0.4.3", optional = true }
-intel-openmp = { version = "==2023.2.0", optional = true }
+[project.optional-dependencies]
+pardiso = [
+    "pypardiso~=0.4; platform_system == 'Windows' or platform_system == 'Linux'"
+]
 
-[tool.poetry.group.dev.dependencies]
-black = "^23.10.1"
-coverage = { extras = ["toml"], version = "^7.3.2" }
-darglint = "^1.8.1"
-flake8 = "^6.1.0"
-flake8-bugbear = "^23.9.16"
-flake8-docstrings = "^1.7.0"
-flake8-pytest-style = "^1.7.2"
-flake8-rst-docstrings = "^0.3.0"
-furo = "^2023.9.10"
-ipykernel = "^6.26.0"
-ipython = "^8.16.1"
-ipywidgets = "^8.1.1"
-isort = "^5.12.0"
-mypy = "^1.6.1"
-nbconvert = "^7.9.2"
-nbsphinx = "^0.9.3"
-notebook = "^7.0.6"
-pep8-naming = "^0.13.3"
-pre-commit = "^3.5.0"
-pre-commit-hooks = "^4.5.0"
-Pygments = "^2.16.1"
-pytest = "^7.4.3"
-pytest-benchmark = { extras = ["histogram"], version = "^4.0.0" }
-pytest-check = "^2.2.2"
-pyupgrade = "^3.15.0"
-sphinx = "^7.2.6"
-sphinx-autobuild = "^2021.3.14"
-sphinx-click = "^5.0.1"
-sphinx-copybutton = "^0.5.2"
-sphinxext-opengraph = "^0.8.2"
+[dependency-groups]
+dev = [
+    "ipympl==0.9.7",
+    "notebook==7.4.1",
+    "sphinx-autobuild==2024.10.03",
+]
+docs = [
+    "furo==2024.8.6",
+    "sphinx==8.1.3",  # nbsphinx requies sphinx<8.2 for now
+    "ipykernel==6.29.5",
+    "ipython==9.2.0",
+    "nbsphinx==0.9.7",
+    "nbconvert==7.16.6",
+    "sphinx-copybutton==0.5.2",
+    "sphinxext-opengraph==0.10.0",
+]
+lint = [
+    "pre-commit==4.2.0",
+    "pyright==1.1.400",
+]
+test = [
+    "pytest==8.3.5",
+    "pytest-benchmark[histogram]==5.1.0",
+    "pytest-check==2.5.3",
+    "coverage[toml]==7.8.0",
+]
 
-[tool.poetry.extras]
-pardiso = ["pypardiso", "intel-openmp"]
+[tool.uv]
+default-groups = ["dev", "docs", "lint", "test"]
 
-[tool.poetry.scripts]
-planestress = "planestress.__main__:main"
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
+pythonVersion = "3.11"
+include = ["src"]
+exclude = ["**/__init__.py"]
+strict = ["src"]
 
 [tool.coverage.paths]
 source = ["src", "*/site-packages"]
@@ -99,31 +96,6 @@ branch = true
 source = ["planestress", "tests"]
 omit = ["*/benchmarks/*"]
 
-[tool.coverage.report]
-show_missing = true
-
-[tool.isort]
-profile = "black"
-lines_after_imports = 2
-
-[tool.mypy]
-strict = true
-# output formatting
-pretty = true
-show_column_numbers = true
-show_error_context = true
-
-[[tool.mypy.overrides]]
-module = [
-    "gmsh.*",
-    "mpl_toolkits.*",
-    "numba.*",
-    "pypardiso.*",
-    "scipy.*",
-    "shapely.*",
-]
-ignore_missing_imports = true
-
 [tool.pytest.ini_options]
 markers = [
     "benchmark_suite: entire benchmark test suite (select with '-m benchmark_suite')",
@@ -131,5 +103,5 @@ markers = [
 ]
 
 [build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
