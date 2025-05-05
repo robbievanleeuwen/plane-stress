@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-import matplotlib
+import matplotlib as mpl
+import matplotlib.axes
 import numpy as np
 import numpy.typing as npt
 from matplotlib.colors import CenteredNorm
@@ -17,7 +17,8 @@ from planestress.analysis.utils import dof_map
 from planestress.post.plotting import plotting_context
 
 if TYPE_CHECKING:
-    import matplotlib.axes
+    from collections.abc import Callable
+
     from scipy.sparse import csc_array
 
     from planestress.analysis.finite_elements.finite_element import FiniteElement
@@ -254,7 +255,7 @@ class Results:
         self,
         direction: str,
         **kwargs: Any,
-    ) -> matplotlib.axes.Axes:
+    ) -> mpl.axes.Axes:
         r"""Plots the displacement contours.
 
         Args:
@@ -311,14 +312,13 @@ class Results:
         elif direction == "xy":
             u = self.uxy
         else:
-            raise ValueError(f"'direction' must be 'x', 'y' or 'xy', not {direction}.")
+            msg = f"'direction' must be 'x', 'y' or 'xy', not {direction}."
+            raise ValueError(msg)
 
         # create plot and setup the plot
         with plotting_context(title=title, **kwargs) as (fig, ax):
-            assert ax
-
             # set up the colormap
-            cmap = matplotlib.colormaps.get_cmap(cmap=colormap)
+            cmap = mpl.colormaps.get_cmap(cmap=colormap)
 
             # create triangulation
             triang = Triangulation(
@@ -339,10 +339,7 @@ class Results:
             else:
                 ticks = v
 
-            if normalize:
-                norm = CenteredNorm()
-            else:
-                norm = None
+            norm = CenteredNorm() if normalize else None
 
             # plot the filled contours
             trictr = ax.tricontourf(triang, u, v, cmap=cmap, norm=norm)
@@ -547,20 +544,17 @@ class Results:
             else:
                 sigs = stress_func(agg_func)[:, stress_idx]
         except KeyError as exc:
-            raise ValueError(
-                f"{stress} is not a valid value for 'stress'. Refer to the "
-                f"documentation for acceptable values."
-            ) from exc
+            msg = f"{stress} is not a valid value for 'stress'. Refer to the "
+            msg += "documentation for acceptable values."
+            raise ValueError(msg) from exc
 
         # get title (ensure stress is valid first!)
         title: str = kwargs.pop("title", str(stress_dict[stress]["title"]))
 
         # create plot and setup the plot
         with plotting_context(title=title, **kwargs) as (fig, ax):
-            assert ax
-
             # set up the colormap
-            cmap = matplotlib.colormaps.get_cmap(cmap=colormap)
+            cmap = mpl.colormaps.get_cmap(cmap=colormap)
 
             # create triangulation
             triang = Triangulation(
@@ -585,10 +579,7 @@ class Results:
             else:
                 ticks = v
 
-            if normalize:
-                norm = CenteredNorm()
-            else:
-                norm = None
+            norm = CenteredNorm() if normalize else None
 
             # plot the filled contours
             trictr = ax.tricontourf(triang, sigs, v, cmap=cmap, norm=norm)
@@ -628,7 +619,7 @@ class Results:
         self,
         stress: str,
         **kwargs: Any,
-    ) -> matplotlib.axes.Axes:
+    ) -> mpl.axes.Axes:
         r"""Generates a vector plot of the principal stresses.
 
         Args:
@@ -684,10 +675,9 @@ class Results:
         try:
             title: str = kwargs.pop("title", str(title_dict[stress]))
         except KeyError as exc:
-            raise ValueError(
-                f"{stress} is not a valid value for 'stress'. Refer to the "
-                f"documentation for acceptable values."
-            ) from exc
+            msg = f"{stress} is not a valid value for 'stress'. Refer to the "
+            msg += "documentation for acceptable values."
+            raise ValueError(msg) from exc
 
         colormap: str = kwargs.pop("colormap", "coolwarm")
         stress_limits: tuple[float, float] | None = kwargs.pop("stress_limits", None)
@@ -725,8 +715,6 @@ class Results:
 
         # create plot and setup the plot
         with plotting_context(title=title, **kwargs) as (fig, ax):
-            assert ax
-
             # set up the colormap
             cmap = matplotlib.colormaps.get_cmap(cmap=colormap)
 

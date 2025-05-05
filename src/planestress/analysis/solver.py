@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-import numpy as np
-import numpy.typing as npt
 from scipy.sparse import csc_matrix
 from scipy.sparse.linalg import spsolve
 
@@ -18,6 +16,8 @@ except ImportError:
 
 
 if TYPE_CHECKING:
+    import numpy as np
+    import numpy.typing as npt
     from scipy.sparse import lil_array
 
 
@@ -62,7 +62,6 @@ def solve_pardiso(
 
         return pardiso_solve(A=k_csc, b=f)
     else:
-        raise RuntimeError(
-            "pypardiso not installed, install using the pardiso option, 'pip install "
-            "planestress[pardiso]'."
-        )
+        msg = "pypardiso not installed, install using the pardiso option, 'pip install "
+        msg += "planestress[pardiso]'."
+        raise RuntimeError(msg)

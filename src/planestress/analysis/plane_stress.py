@@ -46,10 +46,9 @@ class PlaneStress:
 
         # check mesh has been created
         if len(self.geometry.mesh.nodes) < 1:
-            raise RuntimeError(
-                "No mesh detected, run Geometry.create_mesh() before creating a "
-                "PlaneStress object."
-            )
+            msg = "No mesh detected, run Geometry.create_mesh() before creating a "
+            msg += "PlaneStress object."
+            raise RuntimeError(msg)
 
         self.mesh: Mesh = self.geometry.mesh
 
@@ -143,9 +142,8 @@ class PlaneStress:
             elif solver_type == "pardiso":
                 u = solver.solve_pardiso(k=k_mod, f=f)
             else:
-                raise ValueError(
-                    f"'solver_type' must be 'direct' or 'pardiso', not {solver_type}."
-                )
+                msg = f"'solver_type' must be 'direct' or 'pardiso', not {solver_type}."
+                raise ValueError(msg)
 
             # post-processing
             res = Results(plane_stress=self, u=u)

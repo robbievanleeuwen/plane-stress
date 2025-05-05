@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import contextlib
-from collections.abc import Generator
 from typing import TYPE_CHECKING, Any
 
 import matplotlib.pyplot as plt
@@ -12,6 +11,8 @@ import shapely
 from matplotlib.patches import Polygon
 
 if TYPE_CHECKING:
+    from collections.abc import Generator
+
     import matplotlib.axes
     import matplotlib.figure
 
@@ -74,13 +75,11 @@ def plotting_context(
         except (AttributeError, TypeError):
             pass  # only 1 axis, not an array
         except IndexError as exc:
-            raise ValueError(
-                f"axis_index={axis_index} is not compatible with arguments to "
-                f"subplots: {kwargs}."
-            ) from exc
+            msg = f"axis_index={axis_index} is not compatible with arguments to "
+            msg += f"subplots: {kwargs}."
+            raise ValueError(msg) from exc
     else:
         fig = ax.get_figure()
-        assert fig
         ax_supplied = True
 
         if not render:

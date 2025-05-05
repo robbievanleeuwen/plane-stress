@@ -68,10 +68,9 @@ class Geometry:
 
         # check materials length
         if len(polygons.geoms) != len(materials):
-            raise ValueError(
-                f"Length of materials: {len(materials)}, must equal number of polygons:"
-                f"{len(polygons.geoms)}."
-            )
+            msg = f"Length of materials: {len(materials)}, must equal number of "
+            msg += f"polygons: {len(polygons.geoms)}."
+            raise ValueError(msg)
 
         # save input data
         self.polygons = polygons
@@ -273,12 +272,9 @@ class Geometry:
         # create facets
         for idx, pt in enumerate(pt_list):
             pt1 = pt
-            # if we are not at the end of the list
-            if idx + 1 != len(pt_list):
-                pt2 = pt_list[idx + 1]
+            # if we are not at the end of the list, iterate...
             # otherwise loop back to starting point
-            else:
-                pt2 = pt_list[0]
+            pt2 = pt_list[idx + 1] if idx + 1 != len(pt_list) else pt_list[0]
 
             # create new facet
             new_facet = Facet(pt1=pt1, pt2=pt2)
@@ -324,7 +320,8 @@ class Geometry:
                 poly_idx = idx
                 break
         else:
-            raise ValueError(f"Point ({x}, {y}) does not lie within any polygons.")
+            msg = f"Point ({x}, {y}) does not lie within any polygons."
+            raise ValueError(msg)
 
         # create point object and assign poly idx
         point = Point(x=x, y=y, tol=self.tol, mesh_size=mesh_size)
@@ -372,13 +369,13 @@ class Geometry:
                     poly_idxs.append(idx)
                     break
             else:
-                raise ValueError(f"Point ({pt}) does not lie within any polygons.")
+                msg = f"Point ({pt}) does not lie within any polygons."
+                raise ValueError(msg)
 
         if poly_idxs[0] != poly_idxs[1]:
-            raise ValueError(
-                f"Point 1 ({pts[0]}) lies within a different polygon to point 2 "
-                f"({pts[1]})"
-            )
+            msg = f"Point 1 ({pts[0]}) lies within a different polygon to point 2 "
+            msg += f"({pts[1]})"
+            raise ValueError(msg)
 
         # create point and facet objects and assign poly idx (note poly)
         pt1 = Point(x=point1[0], y=point1[1], tol=self.tol, mesh_size=mesh_size)
@@ -486,11 +483,7 @@ class Geometry:
         offset = align_to_coord - self_align_coord
 
         # shift geometry
-        if on in ["top", "bottom"]:
-            arg = "y"
-        else:
-            arg = "x"
-
+        arg = "y" if on in ["top", "bottom"] else "x"
         kwargs = {arg: offset}
 
         return self.shift_geometry(**kwargs)
@@ -535,10 +528,9 @@ class Geometry:
                 shift_x = round(point_x - cx, self.tol)
                 shift_y = round(point_y - cy, self.tol)
             except (TypeError, ValueError) as exc:
-                raise ValueError(
-                    f"align_to must be either a Geometry object or an (x, y) "
-                    f"coordinate, not {align_to}."
-                ) from exc
+                msg = "align_to must be either a Geometry object or an (x, y) "
+                msg += f"coordinate, not {align_to}."
+                raise ValueError(msg) from exc
 
         return self.shift_geometry(x=shift_x, y=shift_y)
 
@@ -630,7 +622,8 @@ class Geometry:
             xfact = -1.0
             yfact = 1.0
         else:
-            raise ValueError(f"axis must be 'x' or 'y', not {axis}.")
+            msg = f"axis must be 'x' or 'y', not {axis}."
+            raise ValueError(msg)
 
         return Geometry(
             polygons=affinity.scale(
@@ -678,9 +671,8 @@ class Geometry:
                 tol=tol,
             )
         except Exception as exc:
-            raise ValueError(
-                f"Cannot perform union on these two objects: {self} | {other}"
-            ) from exc
+            msg = f"Cannot perform union on these two objects: {self} | {other}"
+            raise ValueError(msg) from exc
 
     def __sub__(
         self,
@@ -708,6 +700,8 @@ class Geometry:
         Example:
             TODO. Use brackets to show order of operations important!
         """
+        msg = f"Cannot perform difference on these two objects: {self} - {other}"
+
         try:
             new_polygon = self.filter_non_polygons(
                 input_geom=self.polygons - other.polygons
@@ -715,22 +709,16 @@ class Geometry:
 
             # non-polygon results
             if isinstance(new_polygon, shapely.GeometryCollection):
-                raise ValueError(
-                    f"Cannot perform difference on these two objects: {self} - {other}"
-                )
+                raise ValueError(msg)
             # polygon or multipolygon object
-            elif isinstance(new_polygon, (shapely.Polygon, shapely.MultiPolygon)):
+            elif isinstance(new_polygon, shapely.Polygon | shapely.MultiPolygon):
                 return Geometry(
                     polygons=new_polygon, materials=self.materials, tol=self.tol
                 )
             else:
-                raise ValueError(
-                    f"Cannot perform difference on these two objects: {self} - {other}"
-                )
+                raise ValueError(msg)
         except Exception as exc:
-            raise ValueError(
-                f"Cannot perform difference on these two objects: {self} - {other}"
-            ) from exc
+            raise ValueError(msg) from exc
 
     def __add__(
         self,
@@ -808,10 +796,9 @@ class Geometry:
                 tol=tol,
             )
         except Exception as exc:
-            raise ValueError(
-                f"Cannot perform intersection on these two Geometry instances: "
-                f"{self} & {other}"
-            ) from exc
+            msg = "Cannot perform intersection on these two Geometry instances: "
+            msg += f"{self} & {other}"
+            raise ValueError(msg) from exc
 
     @staticmethod
     def filter_non_polygons(
@@ -833,14 +820,16 @@ class Geometry:
         Returns:
             Filtered polygon
         """
-        if isinstance(input_geom, (shapely.Polygon, shapely.MultiPolygon)):
+        if isinstance(input_geom, shapely.Polygon | shapely.MultiPolygon):
             return input_geom
         elif isinstance(input_geom, shapely.GeometryCollection):
             acc = []
 
-            for item in input_geom.geoms:
-                if isinstance(item, (shapely.Polygon, shapely.MultiPolygon)):
-                    acc.append(item)
+            acc = [
+                item
+                for item in input_geom.geoms
+                if isinstance(item, shapely.Polygon | shapely.MultiPolygon)
+            ]
 
             if len(acc) == 0:
                 return shapely.Polygon()
@@ -848,7 +837,7 @@ class Geometry:
                 return acc[0]
             else:
                 return shapely.MultiPolygon(polygons=acc)
-        elif isinstance(input_geom, (shapely.Point, shapely.LineString)):
+        elif isinstance(input_geom, shapely.Point | shapely.LineString):
             return shapely.Polygon()
         else:
             return shapely.Polygon()
@@ -896,7 +885,7 @@ class Geometry:
             TODO - information about subdivision algorithm.
         """
         # convert mesh_size to an appropriately sized list
-        if isinstance(mesh_sizes, (float, int)):
+        if isinstance(mesh_sizes, float | int):
             mesh_sizes = [float(mesh_sizes)] * len(self.surfaces)
 
         if len(mesh_sizes) == 1:
@@ -904,9 +893,8 @@ class Geometry:
 
         # check mesh_sizes length
         if len(mesh_sizes) != len(self.surfaces):
-            raise ValueError(
-                "Length of 'mesh_sizes' must equal the number of polygons or 1."
-            )
+            msg = "Length of 'mesh_sizes' must equal the number of polygons or 1."
+            raise ValueError(msg)
 
         self.mesh.create_mesh(
             points=self.points,
@@ -976,7 +964,6 @@ class Geometry:
 
         # create plot and setup the plot
         with plotting_context(title=title, **kwargs) as (_, ax):
-            assert ax
             label: str | None
 
             # plot the points and facets
@@ -1084,7 +1071,8 @@ class Geometry:
                 **kwargs,
             )
         else:
-            raise RuntimeError("Generate a mesh with create_mesh() prior to plotting.")
+            msg = "Generate a mesh with create_mesh() prior to plotting."
+            raise RuntimeError(msg)
 
 
 @dataclass(eq=True)
@@ -1218,10 +1206,12 @@ class Facet:
         idx_2 = self.pt2.idx
 
         if idx_1 is None:
-            raise RuntimeError(f"Point 1: {self.pt1} has not been assigned an index.")
+            msg = f"Point 1: {self.pt1} has not been assigned an index."
+            raise RuntimeError(msg)
 
         if idx_2 is None:
-            raise RuntimeError(f"Point 2: {self.pt2} has not been assigned an index.")
+            msg = f"Point 2: {self.pt2} has not been assigned an index."
+            raise RuntimeError(msg)
 
         return idx_1, idx_2
 

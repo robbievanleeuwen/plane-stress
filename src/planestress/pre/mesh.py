@@ -343,7 +343,8 @@ class Mesh:
                     el_obj = Quad8
                     num_nodes = 8
                 else:
-                    raise ValueError(f"Unsupported gmsh element type: type {el_type}.")
+                    msg = f"Unsupported gmsh element type: type {el_type}."
+                    raise ValueError(msg)
 
                 # reshape node tags list
                 el_node_tags_list = np.reshape(
@@ -406,7 +407,8 @@ class Mesh:
                 # assign element object
                 line_obj = QuadraticLine
             else:
-                raise ValueError(f"Unsupported gmsh line type: type {line_type}.")
+                msg = f"Unsupported gmsh line type: type {line_type}."
+                raise ValueError(msg)
 
             # loop through each line element
             for line_tag, line_node_tags in zip(
@@ -458,18 +460,21 @@ class Mesh:
             _, node_tags = gmsh.model.get_adjacencies(dim=1, tag=tag)
 
             # build list of tagged nodes
-            tagged_nodes = []
-            for node_tag in node_tags:
-                tagged_nodes.append(self.get_tagged_node(tag=node_tag))
+            tagged_nodes = [
+                self.get_tagged_node(tag=node_tag) for node_tag in node_tags
+            ]
 
             # get element tags of line elements along the line
             _, line_tags_by_type, _ = gmsh.model.mesh.get_elements(dim=1, tag=tag)
 
             # build list of line elements
-            line_list = []
-            for line_tags in line_tags_by_type:
-                for line_tag in line_tags:
-                    line_list.append(self.get_line_element_by_tag(tag=line_tag))
+            line_tags_by_type: list[list[int]]  # rvl - to check
+
+            line_list = [
+                self.get_line_element_by_tag(tag=line_tag)
+                for line_tags in line_tags_by_type
+                for line_tag in line_tags
+            ]
 
             # add to list of tagged lines
             self.tagged_lines.append(
@@ -523,10 +528,9 @@ class Mesh:
         y = self.bbox[4] - self.bbox[1]
         tol = 0.01 * min(x, y)
 
-        if abs(point1[0] - point2[0]) > tol or abs(point1[1] - point2[1]) > tol:
-            return False
-        else:
-            return True
+        return not (
+            abs(point1[0] - point2[0]) > tol or abs(point1[1] - point2[1]) > tol
+        )
 
     def get_node_idx_by_coordinates(
         self,
@@ -552,10 +556,9 @@ class Mesh:
         node = self.nodes[idx]
 
         if not self.check_nearest_tol(point1=(node[0], node[1]), point2=(x, y)):
-            raise ValueError(
-                f"The point ({x}, {y}) is not close to a node in the mesh. The nearest "
-                f"node is located at {node}."
-            )
+            msg = f"The point ({x}, {y}) is not close to a node in the mesh. The "
+            msg += f"nearest node is located at {node}."
+            raise ValueError(msg)
 
         return idx
 
@@ -578,7 +581,8 @@ class Mesh:
             if tg.tag == tag:
                 return tg
         else:
-            raise ValueError(f"Cannot find TaggedNode with tag {tag}.")
+            msg = f"Cannot find TaggedNode with tag {tag}."
+            raise ValueError(msg)
 
     def get_tagged_node_by_coordinates(
         self,
@@ -603,10 +607,9 @@ class Mesh:
         node = self.tagged_nodes[idx]
 
         if not self.check_nearest_tol(point1=(node.x, node.y), point2=(x, y)):
-            raise ValueError(
-                f"The point ({x}, {y}) is not close to a tagged node in the mesh. The "
-                f"nearest tagged node is located at {node}."
-            )
+            msg = f"The point ({x}, {y}) is not close to a tagged node in the mesh. "
+            msg += f"The nearest tagged node is located at {node}."
+            raise ValueError(msg)
 
         return self.tagged_nodes[idx]
 
@@ -629,7 +632,8 @@ class Mesh:
             if tg.tag == tag:
                 return tg
         else:
-            raise ValueError(f"Cannot find TaggedLine with tag {tag}.")
+            msg = f"Cannot find TaggedLine with tag {tag}."
+            raise ValueError(msg)
 
     def get_tagged_line_by_coordinates(
         self,
@@ -661,11 +665,10 @@ class Mesh:
         )
 
         if not self.check_nearest_tol(point1=ln_mid, point2=(mid_point.x, mid_point.y)):
-            raise ValueError(
-                f"The line with mid-point at ({mid_point}) is not close to a mid-point "
-                f"of a tagged line in the mesh. The nearest tagged line has a "
-                f"mid-point that is located at {ln_mid}."
-            )
+            msg = f"The line with mid-point at ({mid_point}) is not close to a "
+            msg += "mid-point of a tagged line in the mesh. The nearest tagged line "
+            msg += f"has a mid-point that is located at {ln_mid}."
+            raise ValueError(msg)
 
         return self.tagged_lines[idx]
 
@@ -688,7 +691,8 @@ class Mesh:
             if line.line_tag == tag:
                 return line
         else:
-            raise ValueError(f"Cannot find LineElement with tag {tag}.")
+            msg = f"Cannot find LineElement with tag {tag}."
+            raise ValueError(msg)
 
     def get_finite_element_by_tag(
         self,
@@ -709,7 +713,8 @@ class Mesh:
             if el.el_tag == tag:
                 return el
         else:
-            raise ValueError(f"Cannot find FiniteElement with tag {tag}.")
+            msg = f"Cannot find FiniteElement with tag {tag}."
+            raise ValueError(msg)
 
     def plot_mesh(
         self,
@@ -745,7 +750,9 @@ class Mesh:
         """
         # create plot and setup the plot
         with plotting_context(title=title, **kwargs) as (_, ax):
-            assert ax
+            if not ax:
+                msg = "Matplotlib axes not created."
+                raise RuntimeError(msg)
 
             # get number of unique materials
             unique_materials = list(set(self.materials))
@@ -779,11 +786,7 @@ class Mesh:
             # generate collection of polygons for each material
             for idx in range(num_materials):
                 # get face color
-                if materials:
-                    fcs = colors[idx]
-                else:
-                    fcs = [1.0, 1.0, 1.0, 0.0]
-
+                fcs = colors[idx] if materials else [1.0, 1.0, 1.0, 0.0]
                 col = collections.PolyCollection(
                     verts[idx],
                     edgecolors=[0.0, 0.0, 0.0, alpha],

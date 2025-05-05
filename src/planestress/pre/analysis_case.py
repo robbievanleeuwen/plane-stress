@@ -68,9 +68,8 @@ class AnalysisCase:
                         point2=boundary_condition.point2,
                     )
                 else:
-                    raise ValueError(
-                        f"{boundary_condition} is not a valid boundary condition."
-                    )
+                    msg = f"{boundary_condition} is not a valid boundary condition."
+                    raise ValueError(msg)
 
     def plot(
         self,

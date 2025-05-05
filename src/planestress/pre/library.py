@@ -125,7 +125,8 @@ def gravity(
     try:
         return gravity_units[units]
     except KeyError as exc:
-        raise ValueError(f"{units} is not a valid input for 'units'.") from exc
+        msg = f"{units} is not a valid input for 'units'."
+        raise ValueError(msg) from exc
 
 
 def steel_material(
@@ -191,7 +192,8 @@ def steel_material(
             color=color,
         )
     except KeyError as exc:
-        raise ValueError(f"{units} is not a valid input for 'units'.") from exc
+        msg = f"{units} is not a valid input for 'units'."
+        raise ValueError(msg) from exc
 
 
 def concrete_material(
@@ -255,4 +257,5 @@ def concrete_material(
             color=color,
         )
     except KeyError as exc:
-        raise ValueError(f"{units} is not a valid input for 'units'.") from exc
+        msg = f"{units} is not a valid input for 'units'."
+        raise ValueError(msg) from exc

@@ -169,15 +169,13 @@ class Quad9(FiniteElement):
         # calculate the jacobian
         jacobian = np.linalg.det(j)
 
-        # if the area of the element is not zero
-        if jacobian != 0:
-            b_mat = np.linalg.solve(j, b_iso)
-        else:
-            b_mat = np.zeros((2, 9))  # empty b matrix
+        # if the area of the element is not zero set jacobian, otherwise empty b matrix
+        b_mat = np.linalg.solve(j, b_iso) if jacobian != 0 else np.zeros((2, 9))
 
         # check sign of jacobian
         if jacobian < 0:
-            raise RuntimeError("Jacobian of element is less than zero.")
+            msg = "Jacobian of element is less than zero."
+            raise RuntimeError(msg)
 
         # form plane stress b matrix
         b_mat_ps = np.zeros((3, 18))
@@ -326,29 +324,16 @@ class Quad9(FiniteElement):
             sigs=sigs,
         )
 
-    @cache
     def extrapolate_gauss_points_to_nodes(self) -> npt.NDArray[np.float64]:
         """Returns the extrapolation matrix for a Quad9 element.
 
         Returns:
             Extrapolation matrix.
         """
-        # get isoparametric coordinates of gauss element at acutal element nodes
-        gauss_iso_coords = (
-            np.array(self.nodal_isoparametric_coordinates()) * np.sqrt(15.0) / 3.0
+        return quad9_extrapolate_gp_to_nodes(
+            isoparam_coords=tuple(self.nodal_isoparametric_coordinates()),
+            num_nodes=self.num_nodes,
         )
-
-        # initialise extrapolation matrix
-        ex_mat = np.zeros((self.num_nodes, self.num_nodes))
-
-        # build extrapolation matrix
-        for idx, gic in enumerate(gauss_iso_coords):
-            iso_coords = gic[0], gic[1]  # create iso_coords tuple
-
-            # evaluate shape function at guassian element iso coords
-            ex_mat[idx, :] = self.shape_functions(iso_coords=iso_coords)
-
-        return ex_mat
 
     def get_polygon_coordinates(self) -> tuple[list[int], npt.NDArray[np.float64]]:
         """Returns a list of coordinates and indexes that define the element exterior.
@@ -374,3 +359,29 @@ class Quad9(FiniteElement):
             (self.node_idxs[3], self.node_idxs[7], self.node_idxs[8]),
             (self.node_idxs[7], self.node_idxs[0], self.node_idxs[8]),
         ]
+
+
+@cache
+def quad9_extrapolate_gp_to_nodes(
+    isoparam_coords: tuple[tuple[float, float], ...],
+    num_nodes: int,
+) -> npt.NDArray[np.float64]:
+    """Returns the extrapolation matrix for a Quad9 element.
+
+    Returns:
+        Extrapolation matrix.
+    """
+    # get isoparametric coordinates of gauss element at acutal element nodes
+    gauss_iso_coords = np.array(isoparam_coords) * np.sqrt(15.0) / 3.0
+
+    # initialise extrapolation matrix
+    ex_mat = np.zeros((num_nodes, num_nodes))
+
+    # build extrapolation matrix
+    for idx, gic in enumerate(gauss_iso_coords):
+        iso_coords = gic[0], gic[1]  # create iso_coords tuple
+
+        # evaluate shape function at guassian element iso coords
+        ex_mat[idx, :] = Quad9.shape_functions(iso_coords=iso_coords)
+
+    return ex_mat
