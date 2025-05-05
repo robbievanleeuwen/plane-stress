@@ -13,7 +13,6 @@ import planestress.analysis.utils as utils
 from planestress.analysis.finite_elements.finite_element import FiniteElement
 from planestress.post.results import ElementResults
 
-
 if TYPE_CHECKING:
     from planestress.pre.material import Material
 
@@ -71,7 +70,7 @@ class Tri3(FiniteElement):
     @staticmethod
     @cache
     def shape_functions(
-        iso_coords: tuple[float, float, float]
+        iso_coords: tuple[float, float, float],
     ) -> npt.NDArray[np.float64]:
         """Returns the shape functions at a point for a Tri3 element.
 
@@ -89,7 +88,7 @@ class Tri3(FiniteElement):
 
     @staticmethod
     @cache
-    @njit(cache=True, nogil=True)  # type: ignore
+    @njit(cache=True, nogil=True)
     def b_matrix_jacobian(
         coords: tuple[float, ...],
     ) -> tuple[npt.NDArray[np.float64], float]:
@@ -123,7 +122,8 @@ class Tri3(FiniteElement):
 
         # check sign of jacobian
         if jacobian < 0:
-            raise RuntimeError("Jacobian of element is less than zero.")
+            msg = "Jacobian of element is less than zero."
+            raise RuntimeError(msg)
 
         # form plane stress b matrix
         b_mat_ps = np.zeros((3, 6), dtype=np.float64)
@@ -262,14 +262,13 @@ class Tri3(FiniteElement):
             sigs=sigs,
         )
 
-    @cache
     def extrapolate_gauss_points_to_nodes(self) -> npt.NDArray[np.float64]:
         """Returns the extrapolation matrix for a Tri3 element.
 
         Returns:
             Extrapolation matrix.
         """
-        return np.array([[1.0], [1.0], [1.0]])
+        return tri3_extrapolate_gp_to_nodes()
 
     def get_polygon_coordinates(self) -> tuple[list[int], npt.NDArray[np.float64]]:
         """Returns a list of coordinates and indexes that define the element exterior.
@@ -286,3 +285,13 @@ class Tri3(FiniteElement):
             List of triangle indexes.
         """
         return [(self.node_idxs[0], self.node_idxs[1], self.node_idxs[2])]
+
+
+@cache
+def tri3_extrapolate_gp_to_nodes() -> npt.NDArray[np.float64]:
+    """Returns the extrapolation matrix for a Tri3 element.
+
+    Returns:
+        Extrapolation matrix.
+    """
+    return np.array([[1.0], [1.0], [1.0]])

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 import gmsh
 import numpy as np
@@ -19,7 +19,6 @@ from planestress.analysis.finite_elements.quad9 import Quad9
 from planestress.analysis.finite_elements.tri3 import Tri3
 from planestress.analysis.finite_elements.tri6 import Tri6
 from planestress.post.plotting import plotting_context
-
 
 if TYPE_CHECKING:
     import matplotlib.axes
@@ -313,10 +312,10 @@ class Mesh:
 
             # for each element type
             for el_type, el_tags, el_node_tags_list in zip(
-                el_types, el_tags_by_type, el_node_tags_by_type
+                el_types, el_tags_by_type, el_node_tags_by_type, strict=False
             ):
                 # get number of elements
-                num_elements = int(len(el_tags))
+                num_elements = len(el_tags)
 
                 # tri3 elements
                 if el_type == 2:
@@ -344,7 +343,8 @@ class Mesh:
                     el_obj = Quad8
                     num_nodes = 8
                 else:
-                    raise ValueError(f"Unsupported gmsh element type: type {el_type}.")
+                    msg = f"Unsupported gmsh element type: type {el_type}."
+                    raise ValueError(msg)
 
                 # reshape node tags list
                 el_node_tags_list = np.reshape(
@@ -352,7 +352,9 @@ class Mesh:
                 )
 
                 # loop through each element
-                for el_tag, el_node_tags in zip(el_tags, el_node_tags_list):
+                for el_tag, el_node_tags in zip(
+                    el_tags, el_node_tags_list, strict=False
+                ):
                     # convert gmsh tag to node index
                     node_idxs = np.array(el_node_tags - 1, dtype=np.int32)
 
@@ -386,12 +388,12 @@ class Mesh:
 
         # for each line type
         for line_type, line_tags, line_node_tags_list in zip(
-            line_types, line_tags_by_type, line_node_tags_by_type
+            line_types, line_tags_by_type, line_node_tags_by_type, strict=False
         ):
             # linear line elements
             if line_type == 1:
                 # reshape node tags list
-                num_lines = int(len(line_tags))
+                num_lines = len(line_tags)
                 line_node_tags_list = np.reshape(line_node_tags_list, (num_lines, 2))
 
                 # assign element object
@@ -399,16 +401,19 @@ class Mesh:
             # quadratic line elements
             elif line_type == 8:
                 # reshape node tags list
-                num_lines = int(len(line_tags))
+                num_lines = len(line_tags)
                 line_node_tags_list = np.reshape(line_node_tags_list, (num_lines, 3))
 
                 # assign element object
                 line_obj = QuadraticLine
             else:
-                raise ValueError(f"Unsupported gmsh line type: type {line_type}.")
+                msg = f"Unsupported gmsh line type: type {line_type}."
+                raise ValueError(msg)
 
             # loop through each line element
-            for line_tag, line_node_tags in zip(line_tags, line_node_tags_list):
+            for line_tag, line_node_tags in zip(
+                line_tags, line_node_tags_list, strict=False
+            ):
                 # convert gmsh tag to node index
                 node_idxs = np.array(line_node_tags - 1, dtype=np.int32)
                 coords = self.nodes[node_idxs, :].transpose()
@@ -455,18 +460,21 @@ class Mesh:
             _, node_tags = gmsh.model.get_adjacencies(dim=1, tag=tag)
 
             # build list of tagged nodes
-            tagged_nodes = []
-            for node_tag in node_tags:
-                tagged_nodes.append(self.get_tagged_node(tag=node_tag))
+            tagged_nodes = [
+                self.get_tagged_node(tag=node_tag) for node_tag in node_tags
+            ]
 
             # get element tags of line elements along the line
             _, line_tags_by_type, _ = gmsh.model.mesh.get_elements(dim=1, tag=tag)
 
             # build list of line elements
-            line_list = []
-            for line_tags in line_tags_by_type:
-                for line_tag in line_tags:
-                    line_list.append(self.get_line_element_by_tag(tag=line_tag))
+            line_tags_by_type: list[list[int]]  # rvl - to check
+
+            line_list = [
+                self.get_line_element_by_tag(tag=line_tag)
+                for line_tags in line_tags_by_type
+                for line_tag in line_tags
+            ]
 
             # add to list of tagged lines
             self.tagged_lines.append(
@@ -520,10 +528,9 @@ class Mesh:
         y = self.bbox[4] - self.bbox[1]
         tol = 0.01 * min(x, y)
 
-        if abs(point1[0] - point2[0]) > tol or abs(point1[1] - point2[1]) > tol:
-            return False
-        else:
-            return True
+        return not (
+            abs(point1[0] - point2[0]) > tol or abs(point1[1] - point2[1]) > tol
+        )
 
     def get_node_idx_by_coordinates(
         self,
@@ -549,12 +556,11 @@ class Mesh:
         node = self.nodes[idx]
 
         if not self.check_nearest_tol(point1=(node[0], node[1]), point2=(x, y)):
-            raise ValueError(
-                f"The point ({x}, {y}) is not close to a node in the mesh. The nearest "
-                f"node is located at {node}."
-            )
+            msg = f"The point ({x}, {y}) is not close to a node in the mesh. The "
+            msg += f"nearest node is located at {node}."
+            raise ValueError(msg)
 
-        return cast(int, idx)
+        return idx
 
     def get_tagged_node(
         self,
@@ -575,7 +581,8 @@ class Mesh:
             if tg.tag == tag:
                 return tg
         else:
-            raise ValueError(f"Cannot find TaggedNode with tag {tag}.")
+            msg = f"Cannot find TaggedNode with tag {tag}."
+            raise ValueError(msg)
 
     def get_tagged_node_by_coordinates(
         self,
@@ -597,15 +604,14 @@ class Mesh:
         idx = self.tagged_nodes_str_tree.nearest(geometry=shapely.Point(x, y))
 
         # check we are close to the desired tagged node
-        node = self.tagged_nodes[cast(int, idx)]
+        node = self.tagged_nodes[idx]
 
         if not self.check_nearest_tol(point1=(node.x, node.y), point2=(x, y)):
-            raise ValueError(
-                f"The point ({x}, {y}) is not close to a tagged node in the mesh. The "
-                f"nearest tagged node is located at {node}."
-            )
+            msg = f"The point ({x}, {y}) is not close to a tagged node in the mesh. "
+            msg += f"The nearest tagged node is located at {node}."
+            raise ValueError(msg)
 
-        return self.tagged_nodes[cast(int, idx)]
+        return self.tagged_nodes[idx]
 
     def get_tagged_line(
         self,
@@ -626,7 +632,8 @@ class Mesh:
             if tg.tag == tag:
                 return tg
         else:
-            raise ValueError(f"Cannot find TaggedLine with tag {tag}.")
+            msg = f"Cannot find TaggedLine with tag {tag}."
+            raise ValueError(msg)
 
     def get_tagged_line_by_coordinates(
         self,
@@ -651,19 +658,19 @@ class Mesh:
         idx = self.tagged_lines_str_tree.nearest(geometry=mid_point)
 
         # check we are close to the desired line
-        line = self.tagged_lines[cast(int, idx)]
-        ln_mid = 0.5 * (line.tagged_nodes[0].x + line.tagged_nodes[1].x), 0.5 * (
-            line.tagged_nodes[0].y + line.tagged_nodes[1].y
+        line = self.tagged_lines[idx]
+        ln_mid = (
+            0.5 * (line.tagged_nodes[0].x + line.tagged_nodes[1].x),
+            0.5 * (line.tagged_nodes[0].y + line.tagged_nodes[1].y),
         )
 
         if not self.check_nearest_tol(point1=ln_mid, point2=(mid_point.x, mid_point.y)):
-            raise ValueError(
-                f"The line with mid-point at ({mid_point}) is not close to a mid-point "
-                f"of a tagged line in the mesh. The nearest tagged line has a "
-                f"mid-point that is located at {ln_mid}."
-            )
+            msg = f"The line with mid-point at ({mid_point}) is not close to a "
+            msg += "mid-point of a tagged line in the mesh. The nearest tagged line "
+            msg += f"has a mid-point that is located at {ln_mid}."
+            raise ValueError(msg)
 
-        return self.tagged_lines[cast(int, idx)]
+        return self.tagged_lines[idx]
 
     def get_line_element_by_tag(
         self,
@@ -684,7 +691,8 @@ class Mesh:
             if line.line_tag == tag:
                 return line
         else:
-            raise ValueError(f"Cannot find LineElement with tag {tag}.")
+            msg = f"Cannot find LineElement with tag {tag}."
+            raise ValueError(msg)
 
     def get_finite_element_by_tag(
         self,
@@ -705,7 +713,8 @@ class Mesh:
             if el.el_tag == tag:
                 return el
         else:
-            raise ValueError(f"Cannot find FiniteElement with tag {tag}.")
+            msg = f"Cannot find FiniteElement with tag {tag}."
+            raise ValueError(msg)
 
     def plot_mesh(
         self,
@@ -741,7 +750,9 @@ class Mesh:
         """
         # create plot and setup the plot
         with plotting_context(title=title, **kwargs) as (_, ax):
-            assert ax
+            if not ax:
+                msg = "Matplotlib axes not created."
+                raise RuntimeError(msg)
 
             # get number of unique materials
             unique_materials = list(set(self.materials))
@@ -775,11 +786,7 @@ class Mesh:
             # generate collection of polygons for each material
             for idx in range(num_materials):
                 # get face color
-                if materials:
-                    fcs = colors[idx]
-                else:
-                    fcs = [1.0, 1.0, 1.0, 0.0]
-
+                fcs = colors[idx] if materials else [1.0, 1.0, 1.0, 0.0]
                 col = collections.PolyCollection(
                     verts[idx],
                     edgecolors=[0.0, 0.0, 0.0, alpha],
@@ -918,7 +925,7 @@ class DistanceField(Field):
             tag=field_tag, option="DistMax", value=self.max_distance
         )
 
-        return cast(int, field_tag)
+        return field_tag
 
 
 class BoxField(Field):
@@ -972,7 +979,7 @@ class BoxField(Field):
             tag=box_tag, option="Thickness", value=self.thickness
         )
 
-        return cast(int, box_tag)
+        return box_tag
 
 
 @dataclass

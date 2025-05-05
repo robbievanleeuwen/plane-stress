@@ -58,7 +58,8 @@ def gauss_points_line(n_points: int) -> list[tuple[float, float]]:
             (5.0 / 9.0, np.sqrt(3.0 / 5.0)),
         ]
 
-    raise ValueError("'n_points' must be 1, 2 or 3.")
+    msg = "'n_points' must be 1, 2 or 3."
+    raise ValueError(msg)
 
 
 @cache
@@ -87,7 +88,8 @@ def gauss_points_triangle(n_points: int) -> list[tuple[float, float, float, floa
             (1.0 / 3, 1.0 / 6, 1.0 / 6, 2.0 / 3),
         ]
 
-    raise ValueError("'n_points' must be 1 or 3.")
+    msg = "'n_points' must be 1 or 3."
+    raise ValueError(msg)
 
 
 @cache
@@ -131,4 +133,5 @@ def gauss_points_quad(n_points: int) -> list[tuple[float, float, float]]:
             (64.0 / 81.0, 0.0, 0.0),
         ]
 
-    raise ValueError("'n_points' must be 1, 2 or 3.")
+    msg = "'n_points' must be 1, 2 or 3."
+    raise ValueError(msg)

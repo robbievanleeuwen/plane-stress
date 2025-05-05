@@ -4,13 +4,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-import numpy as np
-import numpy.typing as npt
-
 import planestress.analysis.utils as utils
 
-
 if TYPE_CHECKING:
+    import numpy as np
+    import numpy.typing as npt
+
     from planestress.post.results import ElementResults
     from planestress.pre.material import Material
 
@@ -139,5 +138,13 @@ class FiniteElement:
 
         Raises:
             NotImplementedError: If this method hasn't been implemented for an element.
+        """
+        raise NotImplementedError
+
+    def extrapolate_gauss_points_to_nodes(self) -> npt.NDArray[np.float64]:
+        """Returns the extrapolation matrix for a Quad9 element.
+
+        Returns:
+            Extrapolation matrix.
         """
         raise NotImplementedError

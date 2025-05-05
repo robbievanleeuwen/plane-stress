@@ -108,7 +108,8 @@ def test_vls9(el_type):
             mesh_sizes=1000.0, quad_mesh=True, mesh_order=2, mesh_algorithm=11
         )
     else:
-        raise ValueError(f"{el_type} element not supported for this test.")
+        msg = f"{el_type} element not supported for this test."
+        raise ValueError(msg)
 
     # solve
     ps = PlaneStress(geom, [case])

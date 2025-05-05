@@ -55,28 +55,36 @@ class Material:
             / ((1 + self.poissons_ratio) * (1 - 2 * self.poissons_ratio))
         )
 
-    @cache
     def get_d_matrix(self) -> npt.NDArray[np.float64]:
         r"""Returns the constitutive matrix for plane-stress.
 
         The constitutive matrix (D) is defined as
         :math:`\boldsymbol{\sigma} = \textbf{D} \boldsymbol{\varepsilon}`.
 
-        TODO - consider caching the result.
-
         Returns:
             Constitutive matrix.
         """
-        mu = self.mu
-        lda = self.lda
+        return d_matrix(mu=self.mu, lda=self.lda)
 
-        d_mat = np.zeros((3, 3))  # allocate D matrix
-        d_mat[0:2, 0:2] = lda + 2 * mu
-        d_mat[2, 2] = mu
-        d_mat[0, 1] = lda
-        d_mat[1, 0] = lda
 
-        return d_mat
+@cache
+def d_matrix(
+    mu: float,
+    lda: float,
+) -> npt.NDArray[np.float64]:
+    """Returns the constitutive matrix for plane-stress.
+
+    Args:
+        mu: Lamé parameter mu
+        lda: Lamé parameter lambda
+    """
+    d_mat = np.zeros((3, 3))  # allocate D matrix
+    d_mat[0:2, 0:2] = lda + 2 * mu
+    d_mat[2, 2] = mu
+    d_mat[0, 1] = lda
+    d_mat[1, 0] = lda
+
+    return d_mat
 
 
 DEFAULT_MATERIAL = Material()

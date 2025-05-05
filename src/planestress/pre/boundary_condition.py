@@ -8,15 +8,13 @@ Boundary condition application priorities:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, cast
-
-import numpy as np
-import numpy.typing as npt
+from typing import TYPE_CHECKING
 
 from planestress.analysis.utils import dof_map
 
-
 if TYPE_CHECKING:
+    import numpy as np
+    import numpy.typing as npt
     from scipy.sparse import lil_array
 
     from planestress.pre.mesh import TaggedEntity, TaggedLine, TaggedNode
@@ -137,7 +135,8 @@ class NodeBoundaryCondition(BoundaryCondition):
             List (length 2) of degrees of freedom.
         """
         if self.mesh_tag is None:
-            raise RuntimeError("Mesh tag is not assigned.")
+            msg = "Mesh tag is not assigned."
+            raise RuntimeError(msg)
 
         return dof_map(node_idxs=(self.mesh_tag.node_idx,))
 
@@ -245,7 +244,7 @@ class NodeSpring(NodeBoundaryCondition):
 
         for dof in dofs:
             # apply bc - TODO - confirm this theory!
-            k[dof, dof] = cast(float, k[dof, dof]) + self.value
+            k[dof, dof] = k[dof, dof] + self.value
 
         return k, f
 
@@ -355,7 +354,8 @@ class LineBoundaryCondition(BoundaryCondition):
             List of unique node indexes along the line.
         """
         if self.mesh_tag is None:
-            raise RuntimeError("Mesh tag is not assigned.")
+            msg = "Mesh tag is not assigned."
+            raise RuntimeError(msg)
 
         # get list of node indexes along line BC
         node_idxs = []
@@ -483,7 +483,7 @@ class LineSpring(LineBoundaryCondition):
 
         # apply bc - TODO - confirm this theory!
         for dof in dofs:
-            k[dof, dof] = cast(float, k[dof, dof]) + self.value
+            k[dof, dof] = k[dof, dof] + self.value
 
         return k, f
 
@@ -536,7 +536,8 @@ class LineLoad(LineBoundaryCondition):
             Modified stiffness matrix and load vector (``k``, ``f``).
         """
         if self.mesh_tag is None:
-            raise RuntimeError("Mesh tag is not assigned.")
+            msg = "Mesh tag is not assigned."
+            raise RuntimeError(msg)
 
         # loop through all line elements
         for element in self.mesh_tag.elements:

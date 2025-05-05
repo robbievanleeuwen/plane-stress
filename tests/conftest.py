@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Callable
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -10,6 +10,9 @@ from planestress.analysis.plane_stress import PlaneStress
 from planestress.pre.analysis_case import AnalysisCase
 from planestress.pre.boundary_condition import LineLoad, LineSupport, NodeSupport
 from planestress.pre.library import rectangle
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 @pytest.fixture

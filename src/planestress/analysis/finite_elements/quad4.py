@@ -13,7 +13,6 @@ import planestress.analysis.utils as utils
 from planestress.analysis.finite_elements.finite_element import FiniteElement
 from planestress.post.results import ElementResults
 
-
 if TYPE_CHECKING:
     from planestress.pre.material import Material
 
@@ -85,7 +84,7 @@ class Quad4(FiniteElement):
 
     @staticmethod
     @cache
-    @njit(cache=True, nogil=True)  # type: ignore
+    @njit(cache=True, nogil=True)
     def b_matrix_jacobian(
         iso_coords: tuple[float, float],
         coords: tuple[float, ...],
@@ -131,15 +130,13 @@ class Quad4(FiniteElement):
         # calculate the jacobian
         jacobian = np.linalg.det(j)
 
-        # if the area of the element is not zero
-        if jacobian != 0:
-            b_mat = np.linalg.solve(j, b_iso)
-        else:
-            b_mat = np.zeros((2, 4))  # empty b matrix
+        # if the area of the element is not zero set jacobian, otherwise empty b matrix
+        b_mat = np.linalg.solve(j, b_iso) if jacobian != 0 else np.zeros((2, 4))
 
         # check sign of jacobian
         if jacobian < 0:
-            raise RuntimeError("Jacobian of element is less than zero.")
+            msg = "Jacobian of element is less than zero."
+            raise RuntimeError(msg)
 
         # form plane stress b matrix
         b_mat_ps = np.zeros((3, 8))
@@ -288,21 +285,13 @@ class Quad4(FiniteElement):
             sigs=sigs,
         )
 
-    @cache
     def extrapolate_gauss_points_to_nodes(self) -> npt.NDArray[np.float64]:
         """Returns the extrapolation matrix for a Quad4 element.
 
         Returns:
             Extrapolation matrix.
         """
-        return np.array(
-            [
-                [1.0 + 0.5 * np.sqrt(3), -0.5, 1.0 - 0.5 * np.sqrt(3), -0.5],
-                [-0.5, 1.0 + 0.5 * np.sqrt(3), -0.5, 1.0 - 0.5 * np.sqrt(3)],
-                [1.0 - 0.5 * np.sqrt(3), -0.5, 1.0 + 0.5 * np.sqrt(3), -0.5],
-                [-0.5, 1.0 - 0.5 * np.sqrt(3), -0.5, 1.0 + 0.5 * np.sqrt(3)],
-            ]
-        )
+        return quad4_extrapolate_gp_to_nodes()
 
     def get_polygon_coordinates(self) -> tuple[list[int], npt.NDArray[np.float64]]:
         """Returns a list of coordinates and indexes that define the element exterior.
@@ -322,3 +311,20 @@ class Quad4(FiniteElement):
             (self.node_idxs[0], self.node_idxs[1], self.node_idxs[2]),
             (self.node_idxs[0], self.node_idxs[2], self.node_idxs[3]),
         ]
+
+
+@cache
+def quad4_extrapolate_gp_to_nodes() -> npt.NDArray[np.float64]:
+    """Returns the extrapolation matrix for a Quad4 element.
+
+    Returns:
+        Extrapolation matrix.
+    """
+    return np.array(
+        [
+            [1.0 + 0.5 * np.sqrt(3), -0.5, 1.0 - 0.5 * np.sqrt(3), -0.5],
+            [-0.5, 1.0 + 0.5 * np.sqrt(3), -0.5, 1.0 - 0.5 * np.sqrt(3)],
+            [1.0 - 0.5 * np.sqrt(3), -0.5, 1.0 + 0.5 * np.sqrt(3), -0.5],
+            [-0.5, 1.0 - 0.5 * np.sqrt(3), -0.5, 1.0 + 0.5 * np.sqrt(3)],
+        ]
+    )

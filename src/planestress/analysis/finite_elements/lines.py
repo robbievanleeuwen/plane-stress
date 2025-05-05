@@ -48,14 +48,11 @@ class LineElement:
         Returns:
             String representation of the object.
         """
-        return (
-            f"{self.__class__.__name__} - id: {self.line_idx}, "
-            f"tag: {self.line_tag}."
-        )
+        return f"{self.__class__.__name__} - id: {self.line_idx}, tag: {self.line_tag}."
 
     @staticmethod
     @cache
-    @njit(cache=True, nogil=True)  # type: ignore
+    @njit(cache=True, nogil=True)
     def shape_functions_jacobian(
         iso_coord: float,
         coords: tuple[float, ...],
@@ -154,7 +151,7 @@ class LinearLine(LineElement):
 
     @staticmethod
     @cache
-    @njit(cache=True, nogil=True)  # type: ignore
+    @njit(cache=True, nogil=True)
     def shape_functions_jacobian(
         iso_coord: float,
         coords: tuple[float, ...],
@@ -211,7 +208,7 @@ class QuadraticLine(LineElement):
 
     @staticmethod
     @cache
-    @njit(cache=True, nogil=True)  # type: ignore
+    @njit(cache=True, nogil=True)
     def shape_functions_jacobian(
         iso_coord: float,
         coords: tuple[float, ...],
